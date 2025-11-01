@@ -1,0 +1,82 @@
+import base64
+
+from ccxt.static_dependencies.toolz.utils import raises
+from construct import *
+
+####################################
+from src.DEX.tools.helpers.struct_builder import StructBuilder
+####################################
+
+
+
+class Translater:
+    def __init__(self, logger):
+        self.structure_builder = StructBuilder()
+        self.ANCHOR_DISCRIMINATOR_SIZE_IN_HEX = 16
+        self.ANCHOR_DISCRIMINATOR_SIZE_IN_BYTE = 8
+        self.logger = logger
+        self.known_discriminators = {
+            "11d8f68ee1c7da38": "DynamicTickArray",
+            "4561bdbe6e0742bb": "TickArray",
+            "3f95d10ce1806309": "Whirlpool",
+            "8bc283b38cb3e5f4": "Oracle",
+        }
+
+    def __to_dict(self, obj) -> dict | list | int | str:
+        if isinstance(obj, ListContainer):
+            return [self.__to_dict(v) for v in obj]
+
+        elif isinstance(obj, Container):
+            try:
+                return_data = {}
+                for k, v in obj.items():
+                    if k == "_io":
+                        continue
+                    return_data[k] = self.__to_dict(v)
+                return return_data
+            except AttributeError as e:
+                return str(obj)
+
+        else:
+            return obj
+
+    def __determine_name(self, data: hex):
+        discriminator = str(data)[:self.ANCHOR_DISCRIMINATOR_SIZE_IN_HEX]
+        name = self.known_discriminators.get(discriminator)
+        if not name:
+            raise Exception(f"Unknown discriminator: {discriminator}")
+
+        return name
+
+    def __translateSPLWallet(self, data: hex) -> dict:
+        data_bytes = bytes.fromhex(data)
+        return self.__to_dict(self.structure_builder.TokenAccount.parse(data_bytes))
+
+    def __translateDynamicTickArrayOrca(self, data: hex) -> dict:
+        data_bytes = bytes.fromhex(data[self.ANCHOR_DISCRIMINATOR_SIZE_IN_HEX:])
+        return self.structure_builder.DynamicTickArray.parse(data_bytes)
+
+    def translate(self, data: str, market: str, name: str = None) -> dict:
+        try:
+            data = base64.b64decode(data).hex() if isinstance(data, str) else None
+            if not data:
+                return {}
+
+            if not name:
+                name = self.__determine_name(data)
+
+            if name == "SPLWallet":
+                return self.__translateSPLWallet(data)
+            elif name == "DynamicTickArray":
+                return self.__translateDynamicTickArrayOrca(data)
+
+
+
+            data_bytes = bytes.fromhex(data[self.ANCHOR_DISCRIMINATOR_SIZE_IN_HEX:])
+            structure = self.structure_builder.get_Struct_from_IDL(name=name, market=market)
+
+            parsed_data = structure.parse(data_bytes)
+            return self.__to_dict(parsed_data)
+        except Exception as e:
+            self.logger.error(f"Failed to translate account '{name}' for market '{market}': {e}")
+            return {}

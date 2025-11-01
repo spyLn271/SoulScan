@@ -2,10 +2,11 @@ import aiohttp
 import asyncio
 import time
 import tenacity
+from solders.pubkey import Pubkey as SolanaPubkey
 
 ####################################
 from src.Config import config
-from src.DEX.DEX_RPC.toolsKit.helper import Helper
+from src.DEX.tools.helpers.helper import Helper
 ####################################
 
 
@@ -50,11 +51,16 @@ class Solana(Helper):
             ]
         }
 
-        async with self.session.post(self.SOLANA_RPC_ENDPOINT, json=payload, timeout=20) as response:
-            response.raise_for_status()
-            return await response.json()
+        try:
+            async with self.session.post(self.SOLANA_RPC_ENDPOINT, json=payload, timeout=20) as response:
+                response.raise_for_status()
+                return await response.json()
+        except Exception as e:
+            self.logger.error(f"Error calling RPC method {method} for address {address}: {e}")
+            raise e
 
-    async def getMultipleAccounts(self, addresses: list, field: list = None, funcs: dict = None) -> dict:
+    async def getMultipleAccounts(self, addresses: list,
+                                  field: list = None, funcs: dict = None) -> dict[str, list[dict]]:
         return_data = {}
         chunk_index = 0
         funcs = {} if funcs is None else funcs
@@ -79,16 +85,21 @@ class Solana(Helper):
                 values = result.get('result', {}).get('value', []) if isinstance(result, dict) else []
 
                 for i, value in enumerate(values):
-                    address = original_chunk[i]
-                    return_data[address] = {}
+                    try:
+                        address = original_chunk[i]
 
-                    if isinstance(field, list):
-                        for field_name in field:
-                            func = funcs.get(field_name, funcs['default'])
-                            return_data[address][field_name] = func(
-                                value.get(field_name) if isinstance(value, dict) else None)
-                    else:
-                        return_data[address] = value
+                        if isinstance(field, list):
+                            processed_fields = {}
+                            for field_name in field:
+                                func = funcs.get(field_name, funcs['default'])
+                                raw_field_data = func(value.get(field_name) if isinstance(value, dict) else None)
+                                processed_fields[field_name] = raw_field_data
+                            return_data.setdefault(address, []).append(processed_fields)
+                        else:
+                            return_data.setdefault(address, []).append(value)
+                    except Exception as e:
+                        self.logger.error(f"Error processing address {original_chunk[i]}: {e}")
+                        continue
 
             chunk_index += 1
         self.logger.info(f"Data processing took {time.time() - start_time} seconds.")
@@ -97,5 +108,23 @@ class Solana(Helper):
 
     async def getMultipleSPLAccountsBalance(self, addresses: list) -> dict:
         field = ['data', 'lamports']
-        funcs = {'data': lambda x: self.translateSPLWallet(x[0])}
+        funcs = {'data': lambda x: self.translater.translate(x[0], market='oracle', name='SPLWallet')}
         return await self.getMultipleAccounts(addresses, field, funcs)
+
+    async def getMultiplePDAs(self, seeds: list, program_id: list | SolanaPubkey,
+                              type_name: str, market: str, funcs: callable = None) -> dict:
+        return_data: dict
+        if isinstance(program_id, list) and len(program_id) != len(seeds):
+            raise Exception("program_id and seeds must have the same length.")
+
+        PDAs = self.findPDAs(seeds, program_id)
+        field = ['data']
+        funcs = {'data': lambda x: self.translater.translate(
+            data=x[0],
+            name=type_name,
+            market=market
+        )} if funcs is None else funcs
+
+        return_data = await self.getMultipleAccounts(PDAs, field, funcs)
+
+        return return_data

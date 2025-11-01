@@ -6,4 +6,6 @@ REDIS_PORT = 6379
 REDIS_METADATA_KEY = 'snapshot:metadata:%s:%s'
 POOLS_CURRENT_STATE_DICT_REDIS_KEY = 'snapshot:%s:%s'
 
-LOG_MAIN_FOLDER = 'LoggerHandler/LogFolder/'
+LOG_MAIN_FOLDER = 'LogFolder/'
+
+ORCA_CLMM_PROGRAM_ID = 'whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc'
