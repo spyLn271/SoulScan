@@ -73,9 +73,12 @@ class DynamicTickArray(Adapter):
 
         ticks = []
         for i in range(self.TICK_ARRAY_SIZE):
-            is_initialized = Int8ul.parse_stream(stream)
+            is_initialized = (tick_bitmap & (1 << i)) != 0
 
             if is_initialized:
+                discriminator = Int8ul.parse_stream(stream)
+                if discriminator != 1: raise Exception("Invalid tick data")
+
                 tick_data = {
                     'initialized': True,
                     'liquidityNet': Int128sl().parse_stream(stream),
@@ -90,6 +93,9 @@ class DynamicTickArray(Adapter):
                 }
                 ticks.append(tick_data)
             else:
+                discriminator = Int8ul.parse_stream(stream)
+                if discriminator != 0: raise Exception("Invalid tick data")
+
                 ticks.append({
                     'initialized': False,
                     'liquidity_net': 0,

@@ -1,4 +1,5 @@
 from solders.pubkey import Pubkey as SolanaPubkey
+import pydantic
 
 ####################################
 from src.Config import config
@@ -6,6 +7,16 @@ from src.DEX.tools.rpc.Solana import Solana
 from src.DEX.tools.helpers.translater import Translater
 from src.LoggerHandler.logger import setup_logger, get_logger
 ####################################
+
+
+class WhirlpoolDependencies(pydantic.BaseModel):
+    Address: str
+    PDAs: list[str]
+    BaseInfo: list[str]
+    Oracle: list[str]
+    start_indexes: list[int]
+    tick_spacing: int
+
 
 class OrcaCLMMTranslator(Translater):
     def __init__(self, logger):

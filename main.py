@@ -1,6 +1,6 @@
 import json
 import asyncio
-from src import OrcaCLMM, Solana
+from src import OrcaCLMM, Solana, MeteoraDLMM
 
 
 async def testSolana():
@@ -13,18 +13,41 @@ async def testSolana():
 async def testOrcaCLMM():
     async with OrcaCLMM() as orcaCLMM:
         addresses = [
-                     '7w3hpYQ1WkNU5CEGhLWxoB7iNFD6WdmxkvHRYrdQKPia']
+            '7w3hpYQ1WkNU5CEGhLWxoB7iNFD6WdmxkvHRYrdQKPia',
+        ]
 
-        # data = await orcaCLMM.getBigBox(addresses=addresses,
-        #                                 tick_spacing_list=[128],
-        #                                 current_tick_list=[-450560])
-        # print(json.dumps(data, indent=4))
-        cache_data = await orcaCLMM.getCacheData(addresses=addresses, af=True)
-        print(json.dumps(cache_data, indent=4))
+        data = await orcaCLMM.getBigBox(addresses=addresses,
+                                        tick_spacing_list=[128],
+                                        current_tick_list=[-450560],
+                                        af=True)
+        print(json.dumps(data, indent=4))
+        # cache_data = await orcaCLMM.getCacheData(addresses=addresses, af=True)
+        # print(json.dumps(cache_data, indent=4))
+
+async def testMeteoraDLMM():
+    async with MeteoraDLMM() as dlmm:
+        # addresses = ['5rCf1DM8LjKTw4YqhnoLcngyZYeNnQqztScTogYHAS6',
+        #              'tcQjxoHqrDjZAwBaWggZcaZhXvrard9VDvbuz2shsXH']
+        # cache = await dlmm.getCacheData(addresses=addresses)
+        # print(json.dumps(cache, indent=4))
+
+        # ingredient = dlmm._create_calldata_for_LbPair(address='5rCf1DM8LjKTw4YqhnoLcngyZYeNnQqztScTogYHAS6',
+        #                                               bin_id=-4209, bin_step=4)
+        # print(ingredient)
+
+        bigbox = await dlmm.getBigBox(addresses=['5rCf1DM8LjKTw4YqhnoLcngyZYeNnQqztScTogYHAS6'],
+                                      bin_id_list=[-4342])
+        bins = bigbox.get('5rCf1DM8LjKTw4YqhnoLcngyZYeNnQqztScTogYHAS6', {}).get('bins', {})
+
+        prev_bin = int(list(bins.keys())[0])
+
+        print(json.dumps(bigbox, indent=4))
+
+
 
 
 if __name__ == '__main__':
-    asyncio.run(testOrcaCLMM())
+    asyncio.run(testMeteoraDLMM())
 
 """
 [
