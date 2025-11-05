@@ -1,6 +1,7 @@
 import json
 import asyncio
-from src import OrcaCLMM, Solana, MeteoraDLMM
+from src import OrcaCLMM, Solana, MeteoraDLMM, MeteoraDAMMv2
+from src.DEX.tools.helpers.struct_builder import StructBuilder
 
 
 async def testSolana():
@@ -16,13 +17,13 @@ async def testOrcaCLMM():
             '7w3hpYQ1WkNU5CEGhLWxoB7iNFD6WdmxkvHRYrdQKPia',
         ]
 
-        data = await orcaCLMM.getBigBox(addresses=addresses,
-                                        tick_spacing_list=[128],
-                                        current_tick_list=[-450560],
-                                        af=True)
-        print(json.dumps(data, indent=4))
-        # cache_data = await orcaCLMM.getCacheData(addresses=addresses, af=True)
-        # print(json.dumps(cache_data, indent=4))
+        # data = await orcaCLMM.getBigBox(addresses=addresses,
+        #                                 tick_spacing_list=[128],
+        #                                 current_tick_list=[-450560],
+        #                                 af=True)
+        # print(json.dumps(data, indent=4))
+        cache_data = await orcaCLMM.getCacheData(addresses=addresses, af=True)
+        print(json.dumps(cache_data, indent=4))
 
 async def testMeteoraDLMM():
     async with MeteoraDLMM() as dlmm:
@@ -43,11 +44,23 @@ async def testMeteoraDLMM():
 
         print(json.dumps(bigbox, indent=4))
 
+async def testMeteoraDAMMv2():
+    async with MeteoraDAMMv2() as dammv2:
+        addresses = ['8Pm2kZpnxD3hoMmt4bjStX2Pw2Z9abpbHzZxMPqxPmie',
+                     '8X5yDboAEtV1SeoZoG3issAc9zB6qGSe5ZCtJyUz2S5W']
+        big_box = await dammv2.getBigBox(addresses=addresses)
+        print(json.dumps(big_box, indent=4))
+
+def testStructBuilder():
+    builder = StructBuilder()
+    builder.get_Struct_from_IDL(name='Pool', market='ammV2')
+
 
 
 
 if __name__ == '__main__':
-    asyncio.run(testMeteoraDLMM())
+    asyncio.run(testMeteoraDAMMv2())
+    # testStructBuilder()
 
 """
 [

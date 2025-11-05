@@ -169,11 +169,13 @@ class StructBuilder:
         self.definition = {
             'orca': ('defined',),
             'dlmm': ('defined', 'name'),
+            'ammV2': ('defined', 'name'),
         }
 
         self.merging = {
             'orca': ('types', 'accounts'),
             'dlmm': ('types',),
+            'ammV2': ('types',),
         }
 
         self.StructCache: Dict[str, Struct] = {}

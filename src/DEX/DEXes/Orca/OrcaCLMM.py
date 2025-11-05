@@ -6,23 +6,15 @@ from src.Config import config
 from src.DEX.tools.rpc.Solana import Solana
 from src.DEX.tools.helpers.translater import Translater
 from src.LoggerHandler.logger import setup_logger, get_logger
+from src.DEX.DEXes.Orca.OrcaScheme import WhirlpoolDependenciesScheme, WhirlpoolCacheDependenciesScheme
 ####################################
-
-
-class WhirlpoolDependencies(pydantic.BaseModel):
-    Address: str
-    PDAs: list[str]
-    BaseInfo: list[str]
-    Oracle: list[str]
-    start_indexes: list[int]
-    tick_spacing: int
 
 
 class OrcaCLMMTranslator(Translater):
     def __init__(self, logger):
         super().__init__(logger)
 
-    def tick_array_func(self, x: str, _tick_spacing, _start_indexes) -> dict | None:
+    def tick_array_func(self, x: str, _tick_spacing, _start_indexes) -> dict:
         try:
             parsed_data = self.translate(x, market="orca")
             if not parsed_data: raise Exception('No parsed_data tick_array info found')
@@ -41,9 +33,9 @@ class OrcaCLMMTranslator(Translater):
 
         except Exception as e:
             self.logger.error(f"Error parsing TickArray data: {e}")
-            return None
+            return {}
 
-    def base_info_func(self, x: str) -> dict | None:
+    def base_info_func(self, x: str) -> dict:
         try:
             parsed_data = self.translate(x, market="orca")
             if not parsed_data: raise Exception('No parsed_data base info found')
@@ -60,9 +52,9 @@ class OrcaCLMMTranslator(Translater):
             return base_info_dict
         except Exception as e:
             self.logger.error(f"Error parsing BaseInfo data: {e}")
-            return None
+            return {}
 
-    def oracle_func(self, x: str) -> dict | None:
+    def oracle_func(self, x: str) -> dict:
         try:
             parsed_data = self.translate(x, name="Oracle", market="orca")
             if not parsed_data: raise Exception("No dparsed_data oracle info found")
@@ -80,7 +72,7 @@ class OrcaCLMMTranslator(Translater):
             return oracle_dict
         except Exception as e:
             self.logger.error(f"Error parsing TickArray data: {e}")
-            return None
+            return {}
 
 class OrcaCLMM(Solana):
     def __init__(self, SOLANA_RPC_ENDPOINT=config.SOLANA_RPC_ENDPOINT, logger_name='OrcaCLMM',
@@ -105,7 +97,7 @@ class OrcaCLMM(Solana):
 
     # FOR FETCHING BIG BOX
     def _create_calldata_for_whirlpool(self, address: str, tick_spacing: int,
-                                       current_tick: int, af: bool = False) -> dict:
+                                       current_tick: int, af: bool = False) -> WhirlpoolDependenciesScheme:
         start_index = self._get_start_index(current_tick, tick_spacing)
         offset = self._get_offset(tick_spacing)
         start_indexes = [start_index - 2 * offset, start_index - 1 * offset, start_index,
@@ -122,27 +114,26 @@ class OrcaCLMM(Solana):
             Oracle = [
                 self.findProgramDerivedAddress([b"oracle", bytes(SolanaPubkey.from_string(address))], self.program_id)]
 
-        dependencies = {"Address": address,
-                        "PDAs": PDAs,
-                        "BaseInfo": baseInfo,
-                        "Oracle": Oracle,
-                        "start_indexes": start_indexes,
-                        "tick_spacing": tick_spacing,
-                        }
+        dependencies = WhirlpoolDependenciesScheme(Address=address,
+                                                   PDAs=PDAs,
+                                                   BaseInfo=baseInfo,
+                                                   Oracle=Oracle,
+                                                   start_indexes=start_indexes,
+                                                   tick_spacing=tick_spacing)
 
         return dependencies
 
-    def _assemble_whirlpool_data(self, raw_data: dict, dependencies_list: list,
+    def _assemble_whirlpool_data(self, raw_data: dict, dependencies_list: list[WhirlpoolDependenciesScheme],
                                  af: bool = False) -> dict:
         final_assembled_pools = {}
 
         for dependencies in dependencies_list:
-            address = dependencies.get('Address')
-            tick_spacing = dependencies.get('tick_spacing')
-            start_indexes = dependencies.get('start_indexes')
-            base_info = dependencies.get('BaseInfo')
-            oracle = dependencies.get('Oracle')
-            pdas = dependencies.get('PDAs')
+            address = dependencies.Address
+            tick_spacing = dependencies.tick_spacing
+            start_indexes = dependencies.start_indexes
+            base_info = dependencies.BaseInfo
+            oracle = dependencies.Oracle
+            pdas = dependencies.PDAs
 
             processed_data = {address: {}}
             raw_base_info = raw_data.get(base_info[0], [{}])[0].get('data')
@@ -188,8 +179,8 @@ class OrcaCLMM(Solana):
 
         return final_assembled_pools
 
-    def _create_calldata(self, addresses: list, tick_spacing_list: list,
-                         current_tick_list: list, af: bool = False) -> tuple[list, list]:
+    def _create_calldata(self, addresses: list, tick_spacing_list: list, current_tick_list: list,
+                         af: bool = False) -> tuple[list, list[WhirlpoolDependenciesScheme]]:
         if len(addresses) != len(tick_spacing_list) or len(addresses) != len(current_tick_list):
             self.logger.error("addresses, tick_spacing_list and current_tick_list must have the same length.")
             raise Exception("addresses, tick_spacing_list and current_tick_list must have the same length.")
@@ -202,9 +193,9 @@ class OrcaCLMM(Solana):
                 dependencies = self._create_calldata_for_whirlpool(address, tick_spacing_list[i],
                                                                    current_tick_list[i], af)
                 dependencies_list.append(dependencies)
-                PDAs = dependencies.get('PDAs')
-                Oracle = dependencies.get('Oracle')
-                BaseInfo = dependencies.get('BaseInfo')
+                PDAs = dependencies.PDAs
+                Oracle = dependencies.Oracle
+                BaseInfo = dependencies.BaseInfo
                 calldata = PDAs + Oracle + BaseInfo
                 calldata_list.extend(calldata)
             except Exception as e:
@@ -218,16 +209,19 @@ class OrcaCLMM(Solana):
 
 
     # FOR ESTABLISHING CACHE DATA
-    def _create_cache_calldata_for_whirlpool(self, address: str, af: bool = False) -> dict:
+    def _create_cache_calldata_for_whirlpool(self, address: str,
+                                             af: bool = False) -> WhirlpoolCacheDependenciesScheme:
         BaseInfo = [address]
         Oracle = []
         if af:
             Oracle = [
-                self.findProgramDerivedAddress([b"oracle", bytes(SolanaPubkey.from_string(address))], self.program_id)]
+                self.findProgramDerivedAddress([b"oracle", bytes(SolanaPubkey.from_string(address))],
+                                               self.program_id)]
 
-        return {"Address": address, "BaseInfo": BaseInfo, "Oracle": Oracle}
+        return WhirlpoolCacheDependenciesScheme(Address=address, BaseInfo=BaseInfo, Oracle=Oracle)
 
-    def _create_cache_calldata(self, addresses: list, af: bool = False) -> tuple[list, list]:
+    def _create_cache_calldata(self, addresses: list,
+                               af: bool = False) -> tuple[list, list[WhirlpoolCacheDependenciesScheme]]:
         dependencies_list = []
         calldata_list = []
 
@@ -236,8 +230,8 @@ class OrcaCLMM(Solana):
                 dependencies = self._create_cache_calldata_for_whirlpool(address, af)
 
                 dependencies_list.append(dependencies)
-                Oracle = dependencies.get('Oracle')
-                BaseInfo = dependencies.get('BaseInfo')
+                Oracle = dependencies.Oracle
+                BaseInfo = dependencies.BaseInfo
                 calldata = Oracle + BaseInfo
                 calldata_list.extend(calldata)
             except Exception as e:
@@ -247,13 +241,14 @@ class OrcaCLMM(Solana):
 
         return calldata_list, dependencies_list
 
-    def _assemble_cache_data(self, raw_data: dict, dependencies_list: list, af: bool = False) -> dict:
+    def _assemble_cache_data(self, raw_data: dict, dependencies_list: list[WhirlpoolCacheDependenciesScheme],
+                             af: bool = False) -> dict:
         final_assembled_cache_data = {}
 
         for dependencies in dependencies_list:
-            address = dependencies.get('Address')
-            base_info = dependencies.get('BaseInfo')
-            oracle = dependencies.get('Oracle')
+            address = dependencies.Address
+            base_info = dependencies.BaseInfo
+            oracle = dependencies.Oracle
 
             processed_data = {address: {}}
             raw_base_info = raw_data.get(base_info[0], [{}])[0].get('data')

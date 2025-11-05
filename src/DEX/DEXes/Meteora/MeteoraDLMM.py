@@ -7,21 +7,14 @@ from src.Config import config
 from src.DEX.tools.rpc.Solana import Solana
 from src.DEX.tools.helpers.translater import Translater
 from src.LoggerHandler.logger import setup_logger, get_logger
+from src.DEX.DEXes.Meteora.MeteoraScheme import LbPairDependenciesScheme
 ####################################
-
-
-class LbPairDependencies(pydantic.BaseModel):
-    Address: str
-    PDA: list[str]
-    LbPair: list[str]
-    start_indexes: list[int]
-
 
 class MeteoraDLMMTranslator(Translater):
     def __init__(self, logger):
         super().__init__(logger)
 
-    def translate_LbPair(self, x: str) -> dict | None:
+    def translate_LbPair(self, x: str) -> dict:
         try:
             parsed_data = self.translate(x, market="dlmm")
             if not parsed_data: raise Exception('No parsed_data LbPair info found')
@@ -43,9 +36,9 @@ class MeteoraDLMMTranslator(Translater):
                 'oracle': oracle}
         except Exception as e:
             self.logger.error(f"Error parsing LbPair data: {e}")
-            return None
+            return {}
 
-    def translate_BinArray(self, x: str, start_index: int) -> dict | None:
+    def translate_BinArray(self, x: str, start_index: int) -> dict:
         try:
             parsed_data = self.translate(x, market="dlmm", name='BinArray')
             if not parsed_data: raise Exception('No parsed_data BinArray info found')
@@ -60,7 +53,7 @@ class MeteoraDLMMTranslator(Translater):
             return {'bins': binArray, 'lb_pair': lb_pair}
         except Exception as e:
             self.logger.error(f"Error parsing BinArray data: {e}")
-            return None
+            return {}
 
 
 
@@ -81,7 +74,7 @@ class MeteoraDLMM(Solana):
 
 
     # FOR FETCHING BIG BOX
-    def _create_calldata_for_LbPair(self, address: str, bin_id: int) -> LbPairDependencies:
+    def _create_calldata_for_LbPair(self, address: str, bin_id: int) -> LbPairDependenciesScheme:
         bin_array_index = self.bin_id_to_bin_array_index(bin_id)
         bin_array_list = [bin_array_index - 1,
                           bin_array_index,
@@ -95,7 +88,7 @@ class MeteoraDLMM(Solana):
                                            self.program_id))
 
         LbPair = [address]
-        dependencies = LbPairDependencies(
+        dependencies = LbPairDependenciesScheme(
             Address=address,
             PDA=PDA,
             LbPair=LbPair,
@@ -103,7 +96,7 @@ class MeteoraDLMM(Solana):
         )
         return dependencies
 
-    def _create_calldata(self, addresses: list, bin_id_list: list) -> tuple[list, List[LbPairDependencies]]:
+    def _create_calldata(self, addresses: list, bin_id_list: list) -> tuple[list, List[LbPairDependenciesScheme]]:
         dependencies_list = []
         calldata_list = []
         if len(addresses) != len(bin_id_list):
@@ -128,7 +121,7 @@ class MeteoraDLMM(Solana):
 
         return calldata_list, dependencies_list
 
-    def _assemble_LbPair_data(self, raw_data: dict, dependencies_list: List[LbPairDependencies],) -> dict:
+    def _assemble_LbPair_data(self, raw_data: dict, dependencies_list: List[LbPairDependenciesScheme], ) -> dict:
         final_assembled_pools = {}
 
         for dependencies in dependencies_list:
