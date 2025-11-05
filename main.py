@@ -17,13 +17,13 @@ async def testOrcaCLMM():
             '7w3hpYQ1WkNU5CEGhLWxoB7iNFD6WdmxkvHRYrdQKPia',
         ]
 
-        # data = await orcaCLMM.getBigBox(addresses=addresses,
-        #                                 tick_spacing_list=[128],
-        #                                 current_tick_list=[-450560],
-        #                                 af=True)
-        # print(json.dumps(data, indent=4))
-        cache_data = await orcaCLMM.getCacheData(addresses=addresses, af=True)
-        print(json.dumps(cache_data, indent=4))
+        data = await orcaCLMM.getBigBox(addresses=addresses,
+                                        tick_spacing_list=[128],
+                                        current_tick_list=[-450560],
+                                        af=True)
+        print(json.dumps(data, indent=4))
+        # cache_data = await orcaCLMM.getCacheData(addresses=addresses, af=True)
+        # print(json.dumps(cache_data, indent=4))
 
 async def testMeteoraDLMM():
     async with MeteoraDLMM() as dlmm:
@@ -59,7 +59,7 @@ def testStructBuilder():
 
 
 if __name__ == '__main__':
-    asyncio.run(testMeteoraDAMMv2())
+    asyncio.run(testMeteoraDLMM())
     # testStructBuilder()
 
 """
