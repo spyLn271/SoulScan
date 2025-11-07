@@ -10,7 +10,7 @@ from src.LoggerHandler.logger import setup_logger, get_logger
 from src.DEX.DEXes.Meteora.MeteoraScheme import LbPairDependenciesScheme
 ####################################
 
-class MeteoraDLMMTranslator(Translater):
+class MeteoraDLMMTranslater(Translater):
     def __init__(self, logger):
         super().__init__(logger)
 
@@ -64,7 +64,7 @@ class MeteoraDLMM(Solana):
 
         setup_logger(logger_name=logger_name, log_file=f"{config.LOG_MAIN_FOLDER}{logger_file}")
         self.logger = get_logger(logger_name)
-        self.translater = MeteoraDLMMTranslator(self.logger)
+        self.translater = MeteoraDLMMTranslater(self.logger)
         self.program_id = SolanaPubkey.from_string(config.METEORA_DLMM_PROGRAM_ID)
 
     @staticmethod

@@ -2,36 +2,16 @@ from construct import *
 from typing import *
 import base58
 import pydantic
-from io import BytesIO
 
 ####################################
 from src.Config import IDLs
+from src.DEX.tools.helpers.Types import (Int128ul, Int128sl, Bool, DynamicTickArray,
+                                         PoolStateRaydium, TickArrayStateRaydium)
 ####################################
 
-
-class Int128ul(Adapter):
-    def __init__(self):
-        super().__init__(Bytes(16))
-
-    def _decode(self, obj, context, path):
-        return int.from_bytes(obj, 'little',)
-
-    def _encode(self, obj, context, path):
-        if not isinstance(obj, int):
-            raise Exception("value is not an integer")
-        return obj.to_bytes(16, 'little')
-
-class Int128sl(Adapter):
-    def __init__(self):
-        super().__init__(Bytes(16))
-
-    def _decode(self, obj, context, path):
-        return int.from_bytes(obj, 'little', signed=True)
-
-    def _encode(self, obj, context, path):
-        if not isinstance(obj, int):
-            raise Exception("value is not an integer")
-        return obj.to_bytes(16, 'little', signed=True)
+class IDLScheme(pydantic.BaseModel):
+    fields: list[dict]
+    type: str
 
 class PubKey(Adapter):
     def __init__(self):
@@ -42,101 +22,6 @@ class PubKey(Adapter):
 
     def _encode(self, obj, context, path):
         return base58.b58decode(obj)
-
-class Bool(Adapter):
-    def __init__(self):
-        super().__init__(Bytes(1))
-
-    def _decode(self, obj, context, path):
-        parsed = Int8ul.parse(obj)
-        return bool(parsed)
-
-    def _encode(self, obj, context, path):
-        if not isinstance(obj, bool):
-            raise Exception("value is not a boolean")
-        return Int8ul.build(1 if obj else 0)
-
-class DynamicTickArray(Adapter):
-    TICK_ARRAY_SIZE = 88
-    UNINITIALIZED_LEN = 1
-    INITIALIZED_LEN = 113
-
-    def __init__(self):
-        super().__init__(GreedyBytes)
-
-    def _decode(self, obj, context, path):
-        stream = BytesIO(obj)
-
-        start_tick_index = Int32sl.parse_stream(stream)
-        whirlpool = PubKey().parse_stream(stream)
-        tick_bitmap = Int128ul().parse_stream(stream)
-
-        ticks = []
-        for i in range(self.TICK_ARRAY_SIZE):
-            is_initialized = (tick_bitmap & (1 << i)) != 0
-
-            if is_initialized:
-                discriminator = Int8ul.parse_stream(stream)
-                if discriminator != 1: raise Exception("Invalid tick data")
-
-                tick_data = {
-                    'initialized': True,
-                    'liquidityNet': Int128sl().parse_stream(stream),
-                    'liquidityGross': Int128ul().parse_stream(stream),
-                    'feeGrowthOutsideA': Int128ul().parse_stream(stream),
-                    'feeGrowthOutsideB': Int128ul().parse_stream(stream),
-                    'reward_growths_outside': [
-                        Int128ul().parse_stream(stream),
-                        Int128ul().parse_stream(stream),
-                        Int128ul().parse_stream(stream)
-                    ]
-                }
-                ticks.append(tick_data)
-            else:
-                discriminator = Int8ul.parse_stream(stream)
-                if discriminator != 0: raise Exception("Invalid tick data")
-
-                ticks.append({
-                    'initialized': False,
-                    'liquidity_net': 0,
-                    'liquidity_gross': 0,
-                    'fee_growth_outside_a': 0,
-                    'fee_growth_outside_b': 0,
-                    'reward_growths_outside': [0, 0, 0]
-                })
-
-        return {
-            'start_tick_index': start_tick_index,
-            'whirlpool': whirlpool,
-            'tick_bitmap': tick_bitmap,
-            'ticks': ticks
-        }
-
-    def _encode(self, obj, context, path):
-        stream = BytesIO()
-
-        stream.write(Int32sl.build(obj['start_tick_index']))
-        stream.write(PubKey().build(obj['whirlpool']))
-        stream.write(Int128ul().build(obj['tick_bitmap']))
-
-        for tick in obj['ticks']:
-            if tick['initialized']:
-                stream.write(Int8ul.build(1))
-                stream.write(Int128sl().build(tick['liquidity_net']))
-                stream.write(Int128ul().build(tick['liquidity_gross']))
-                stream.write(Int128ul().build(tick['fee_growth_outside_a']))
-                stream.write(Int128ul().build(tick['fee_growth_outside_b']))
-                for reward in tick['reward_growths_outside']:
-                    stream.write(Int128ul().build(reward))
-            else:
-                stream.write(Int8ul.build(0))
-
-        return stream.getvalue()
-
-class IDL(pydantic.BaseModel):
-    fields: list[dict]
-    type: str
-
 
 class StructBuilder:
     def __init__(self):
@@ -179,14 +64,14 @@ class StructBuilder:
         }
 
         self.StructCache: Dict[str, Struct] = {}
-        self.sterilized_idl: Dict[str, Dict[str, IDL]] = {}
+        self.sterilized_idl: Dict[str, Dict[str, IDLScheme]] = {}
 
         self.idls = IDLs.idls
 
         # TokenAccount
         COption_Pubkey = Struct(
             "option" / Int32ul,
-            "value" / If(this.option == 1, PubKey())
+            "value" / If(this.option == 1, self.SolanaPubkey)
         )
 
         COption_U64 = Struct(
@@ -206,25 +91,27 @@ class StructBuilder:
         )
 
         self.DynamicTickArray = DynamicTickArray()
+        self.PoolStateRaydium = PoolStateRaydium
+        self.TickArrayStateRaydium = TickArrayStateRaydium
 
 
-    def _sterilize_idl(self, idl: dict, merging: tuple, market: str) -> Dict[str, IDL]:
+    def _sterilize_idl(self, idl: dict, merging: tuple, market: str) -> Dict[str, IDLScheme]:
         if market in self.sterilized_idl:
             return self.sterilized_idl[market]
 
-        sterilized_idl: Dict[str, IDL] = {}
+        sterilized_idl: Dict[str, IDLScheme] = {}
 
         for key in merging:
             for value in idl[key]:
                 type = value.get('type', {}).get('kind')
 
                 if type == 'struct':
-                    sterilized_idl[value['name']] = IDL(fields=value.get('type', {}).get('fields'),
-                                                          type=type)
+                    sterilized_idl[value['name']] = IDLScheme(fields=value.get('type', {}).get('fields'),
+                                                              type=type)
 
                 elif type == 'enum':
-                    sterilized_idl[value['name']] = IDL(fields=value.get('type', {}).get('variants'),
-                                                          type=type)
+                    sterilized_idl[value['name']] = IDLScheme(fields=value.get('type', {}).get('variants'),
+                                                              type=type)
 
         self.sterilized_idl[market] = sterilized_idl
         return sterilized_idl
@@ -238,7 +125,7 @@ class StructBuilder:
             raise Exception("Failed to resolve type: {typedef}")
         return cur
 
-    def _create_struct(self, idl_name: str, sterilized_idl: Dict[str, IDL], definition: tuple[str]) -> Struct | Any:
+    def _create_struct(self, idl_name: str, sterilized_idl: Dict[str, IDLScheme], definition: tuple[str]) -> Struct | Any:
         target_fields = sterilized_idl.get(idl_name)
         if not target_fields: raise Exception(f"Struct {idl_name} not found in IDL.")
 
@@ -277,7 +164,7 @@ class StructBuilder:
 
         return Struct(*[name / field for name, field in struct_fields])
 
-    def _create_enum(self, idl_name: str, sterilized_idl: Dict[str, IDL], definition: tuple[str]) -> Switch | Any:
+    def _create_enum(self, idl_name: str, sterilized_idl: Dict[str, IDLScheme], definition: tuple[str]) -> Switch | Any:
         target_fields = sterilized_idl.get(idl_name)
         if not target_fields: raise Exception(f"Struct {idl_name} not found in IDL.")
 

@@ -1,15 +1,18 @@
 import json
 import asyncio
-from src import OrcaCLMM, Solana, MeteoraDLMM, MeteoraDAMMv2
+from src import OrcaCLMM, Solana, MeteoraDLMM, MeteoraDAMMv2, RaydiumCLMM
 from src.DEX.tools.helpers.struct_builder import StructBuilder
 
 
 async def testSolana():
     async with Solana() as solana:
-        addresses = ['Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE',]
+        addresses = ['3ucNos4NbumPLZNWztqGHNFFgkHeRMBQAVemeeomsUxv',]
 
-        # data = await solana.getMultipleAccounts(addresses, field=['data'])
-        # print(json.dumps(data, indent=4))
+        res = await solana.getMultipleAccounts(addresses, field=['data'], funcs={'data': lambda x: x[0]})
+        data = res.get(addresses[0], [{}])[0].get('data')
+        print(data)
+        parsed_data = solana.translater.translate(data=data, market='raydium', name='PoolState')
+        print(json.dumps(parsed_data, indent=4))
 
 async def testOrcaCLMM():
     async with OrcaCLMM() as orcaCLMM:
@@ -19,11 +22,12 @@ async def testOrcaCLMM():
 
         data = await orcaCLMM.getBigBox(addresses=addresses,
                                         tick_spacing_list=[128],
-                                        current_tick_list=[-450560],
+                                        current_tick_list=[-59663],
                                         af=True)
         print(json.dumps(data, indent=4))
-        # cache_data = await orcaCLMM.getCacheData(addresses=addresses, af=True)
-        # print(json.dumps(cache_data, indent=4))
+        cache_data = await orcaCLMM.getCacheData(addresses=addresses, af=True)
+        print(json.dumps(cache_data, indent=4))
+        print(orcaCLMM.translater.structure_builder.StructCache)
 
 async def testMeteoraDLMM():
     async with MeteoraDLMM() as dlmm:
@@ -36,11 +40,8 @@ async def testMeteoraDLMM():
         #                                               bin_id=-4209, bin_step=4)
         # print(ingredient)
 
-        bigbox = await dlmm.getBigBox(addresses=['5rCf1DM8LjKTw4YqhnoLcngyZYeNnQqztScTogYHAS6'],
-                                      bin_id_list=[-4342])
-        bins = bigbox.get('5rCf1DM8LjKTw4YqhnoLcngyZYeNnQqztScTogYHAS6', {}).get('bins', {})
-
-        prev_bin = int(list(bins.keys())[0])
+        bigbox = await dlmm.getBigBox(addresses=['B1ajRc5TgtEpPHgP5Pzyb6YrHJ6TZWJ3mzoZs41sT8EF'],
+                                      bin_id_list=[27])
 
         print(json.dumps(bigbox, indent=4))
 
@@ -50,6 +51,17 @@ async def testMeteoraDAMMv2():
                      '8X5yDboAEtV1SeoZoG3issAc9zB6qGSe5ZCtJyUz2S5W']
         big_box = await dammv2.getBigBox(addresses=addresses)
         print(json.dumps(big_box, indent=4))
+
+
+async def testRaydiumCLMM():
+    async with RaydiumCLMM() as clmm:
+        addresses = ['3ucNos4NbumPLZNWztqGHNFFgkHeRMBQAVemeeomsUxv']
+        calldata = await clmm.getBigBox(addresses=addresses, current_tick_list=[-18454],
+        tick_spacing_list=[1])
+        print(json.dumps(calldata, indent=4))
+
+        cache_data = await clmm.getCacheData(addresses=addresses)
+        print(json.dumps(cache_data, indent=4))
 
 def testStructBuilder():
     builder = StructBuilder()

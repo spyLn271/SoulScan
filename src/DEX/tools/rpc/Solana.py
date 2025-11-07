@@ -37,7 +37,7 @@ class Solana(Helper):
             self.logger.warning("Solana session already closed.")
 
     @tenacity.retry(wait=tenacity.wait_fixed(1), stop=tenacity.stop_after_attempt(3))
-    async def RPC_call(self, method: str, address: str | list, commitment: dict = None) -> bytes | None:
+    async def RPC_call(self, method: str, address: str | list, commitment: dict = None) -> dict:
         if not commitment:
             commitment = {"encoding": "base64"}
 

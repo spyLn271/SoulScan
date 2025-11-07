@@ -10,7 +10,7 @@ from src.DEX.DEXes.Orca.OrcaScheme import WhirlpoolDependenciesScheme, Whirlpool
 ####################################
 
 
-class OrcaCLMMTranslator(Translater):
+class OrcaCLMMTranslater(Translater):
     def __init__(self, logger):
         super().__init__(logger)
 
@@ -80,7 +80,7 @@ class OrcaCLMM(Solana):
         super().__init__(SOLANA_RPC_ENDPOINT)
 
         setup_logger(logger_name=logger_name, log_file=f'{config.LOG_MAIN_FOLDER}{logger_file}')
-        self.translater = OrcaCLMMTranslator(logger=logger_name)
+        self.translater = OrcaCLMMTranslater(logger=logger_name)
         self.logger = get_logger(logger_name)
         self.program_id = SolanaPubkey.from_string(config.ORCA_CLMM_PROGRAM_ID)
 

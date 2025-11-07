@@ -1,6 +1,9 @@
 import base64
+from typing import Literal
+
 from construct import *
 
+from src.DEX.tools.helpers.Types import DynamicTickArray
 ####################################
 from src.DEX.tools.helpers.struct_builder import StructBuilder
 ####################################
@@ -55,7 +58,18 @@ class Translater:
         data_bytes = bytes.fromhex(data[self.ANCHOR_DISCRIMINATOR_SIZE_IN_HEX:])
         return self.structure_builder.DynamicTickArray.parse(data_bytes)
 
-    def translate(self, data: str, market: str, name: str = None) -> dict:
+    def __translateRaydiumCLMMPoolState(self, data: hex) -> dict:
+        data_bytes = bytes.fromhex(data[self.ANCHOR_DISCRIMINATOR_SIZE_IN_HEX:])
+        parsed_data = self.structure_builder.PoolStateRaydium.parse(data_bytes)
+        return self.__to_dict(parsed_data)
+
+    def __translateRaydiumCLMMTickArray(self, data: hex) -> dict:
+        data_bytes = bytes.fromhex(data[self.ANCHOR_DISCRIMINATOR_SIZE_IN_HEX:])
+        parsed_data = self.structure_builder.TickArrayStateRaydium.parse(data_bytes)
+        return self.__to_dict(parsed_data)
+
+    def translate(self, data: str, market: Literal["raydium", "dlmm", "ammV2", "ammV1", "orca"],
+                  name: str = None) -> dict:
         try:
             data = base64.b64decode(data).hex() if isinstance(data, str) else None
             if not data:
@@ -68,6 +82,10 @@ class Translater:
                 return self.__translateSPLWallet(data)
             elif name == "DynamicTickArray":
                 return self.__translateDynamicTickArrayOrca(data)
+            elif name == "PoolState" and market == "raydium":
+                return self.__translateRaydiumCLMMPoolState(data)
+            elif name == "TickArray" and market == "raydium":
+                return self.__translateRaydiumCLMMTickArray(data)
 
 
 
