@@ -94,10 +94,10 @@ class DynamicTickArray(Adapter):
 
                 ticks.append({
                     'initialized': False,
-                    'liquidity_net': 0,
-                    'liquidity_gross': 0,
-                    'fee_growth_outside_a': 0,
-                    'fee_growth_outside_b': 0,
+                    'liquidityNet': 0,
+                    'liquidityGross': 0,
+                    'feeGrowthOutsideA': 0,
+                    'feeGrowthOutsideB': 0,
                     'reward_growths_outside': [0, 0, 0]
                 })
 

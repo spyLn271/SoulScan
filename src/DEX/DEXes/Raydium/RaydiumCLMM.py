@@ -75,7 +75,7 @@ class RaydiumCLMMTranslater(Translater):
             ticks_array = parsed_data['ticks']
             ticks_dict = {}
             for i, tick in enumerate(ticks_array):
-                ticks_dict[start_index + i * tick_spacing] = {
+                ticks_dict[str(start_index + i * tick_spacing)] = {
                     "liquidity_net": tick["liquidity_net"],
                     "liquidity_gross": tick["liquidity_gross"]
                 }

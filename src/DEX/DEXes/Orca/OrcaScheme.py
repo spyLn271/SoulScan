@@ -21,17 +21,21 @@ class WhirlpoolCacheDependenciesScheme(pydantic.BaseModel):
 
 # Whirlpool Data Scheme
 class TickScheme(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(extra='forbid')
+
     initialized: bool
-    liquidityNet: int | None
-    liquidityGross: int | None
-    feeGrowthOutsideA: int | None
-    feeGrowthOutsideB: int | None
+    liquidityNet: int
+    liquidityGross: int
+    feeGrowthOutsideA: int
+    feeGrowthOutsideB: int
 
 
 
 
 
 class AdaptiveFeeConstantsScheme(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(extra='forbid')
+
     filterPeriod: int
     decayPeriod: int
     reductionFactor: int
@@ -41,6 +45,8 @@ class AdaptiveFeeConstantsScheme(pydantic.BaseModel):
     majorSwapThresholdTicks: int
 
 class AdaptiveFeeVariablesScheme(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(extra='forbid')
+
     lastReferenceUpdateTimestamp: int
     lastMajorSwapTimestamp: int
     volatilityReference: int
@@ -48,6 +54,8 @@ class AdaptiveFeeVariablesScheme(pydantic.BaseModel):
     volatilityAccumulator: int
 
 class OracleScheme(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(extra='forbid')
+
     adaptiveFeeConstants: AdaptiveFeeConstantsScheme
     adaptiveFeeVariables: AdaptiveFeeVariablesScheme
 
@@ -55,6 +63,8 @@ class OracleScheme(pydantic.BaseModel):
 
 
 class WhirlpoolScheme(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(extra='forbid')
+
     tickSpacing: int
     feeRate: int
     liquidity: int
@@ -65,10 +75,14 @@ class WhirlpoolScheme(pydantic.BaseModel):
 
 
 class WhirlpoolCacheScheme(pydantic.BaseModel):
-    baseInfo: WhirlpoolScheme
+    model_config = pydantic.ConfigDict(extra='forbid')
+
+    base_info: WhirlpoolScheme
     oracle: OracleScheme | None
 
-class WhirlpoolBigBoxScheme(pydantic.BaseModel):
-    baseInfo: WhirlpoolScheme
-    oracle: WhirlpoolScheme | None
+class WhirlpoolClmmScheme(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(extra='forbid')
+
+    base_info: WhirlpoolScheme
+    oracle: OracleScheme | None = None
     ticks: Dict[str, TickScheme]
