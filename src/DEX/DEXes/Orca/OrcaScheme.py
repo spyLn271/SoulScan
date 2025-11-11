@@ -73,16 +73,11 @@ class WhirlpoolScheme(pydantic.BaseModel):
     rewardLastUpdatedTimestamp: int
 
 
-
-class WhirlpoolCacheScheme(pydantic.BaseModel):
-    model_config = pydantic.ConfigDict(extra='forbid')
-
-    base_info: WhirlpoolScheme
-    oracle: OracleScheme | None
-
 class WhirlpoolClmmScheme(pydantic.BaseModel):
-    model_config = pydantic.ConfigDict(extra='forbid')
-
     base_info: WhirlpoolScheme
     oracle: OracleScheme | None = None
     ticks: Dict[str, TickScheme]
+
+class WhirlpoolCacheClmmScheme(pydantic.BaseModel):
+    base_info: WhirlpoolScheme
+    oracle: OracleScheme | None

@@ -51,11 +51,11 @@ class MeteoraLbPairScheme(pydantic.BaseModel):
     oracle: str
 
 class MeteoraDlmmScheme(pydantic.BaseModel):
-    model_config = pydantic.ConfigDict(extra='forbid')
-
     LbPair: MeteoraLbPairScheme
     bins: dict[str, MeteoraBinScheme]
 
+class MeteoraDlmmCacheScheme(MeteoraLbPairScheme):
+    pass
 
 
 # DAMM V2 Scheme
@@ -86,8 +86,6 @@ class MeteoraDynamicFeeScheme(pydantic.BaseModel):
     volatility_reference: int
 
 class MeteoraDammV2Scheme(pydantic.BaseModel):
-    model_config = pydantic.ConfigDict(extra='forbid')
-
     base_fee: MeteoraBaseFeeScheme
     dynamic_fee: MeteoraDynamicFeeScheme
     liquidity: int

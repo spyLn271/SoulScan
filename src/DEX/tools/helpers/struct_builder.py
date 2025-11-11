@@ -6,7 +6,7 @@ import pydantic
 ####################################
 from src.Config import IDLs
 from src.DEX.tools.helpers.Types import (Int128ul, Int128sl, Bool, DynamicTickArray,
-                                         PoolStateRaydium, TickArrayStateRaydium)
+                                         PoolStateRaydium, TickArrayStateRaydium, RaydiumAmmInfo)
 ####################################
 
 class IDLScheme(pydantic.BaseModel):
@@ -93,6 +93,7 @@ class StructBuilder:
         self.DynamicTickArray = DynamicTickArray()
         self.PoolStateRaydium = PoolStateRaydium
         self.TickArrayStateRaydium = TickArrayStateRaydium
+        self.RaydiumAmmInfo = RaydiumAmmInfo
 
 
     def _sterilize_idl(self, idl: dict, merging: tuple, market: str) -> Dict[str, IDLScheme]:

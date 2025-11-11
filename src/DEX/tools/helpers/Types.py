@@ -52,6 +52,8 @@ class Bool(Adapter):
             raise Exception("value is not a boolean")
         return Int8ul.build(1 if obj else 0)
 
+
+# Orca Type. For parsing DynamicTickArray
 class DynamicTickArray(Adapter):
     TICK_ARRAY_SIZE = 88
     UNINITIALIZED_LEN = 1
@@ -128,8 +130,10 @@ class DynamicTickArray(Adapter):
                 stream.write(Int8ul.build(0))
 
         return stream.getvalue()
+###########
 
 
+# Raydium CLMM
 __RewardInfoStruct = Struct(
     "reward_state" / Int8ul,
     "open_time" / Int64ul,
@@ -204,4 +208,65 @@ TickArrayStateRaydium = Struct(
     "initialized_tick_count" / Int8ul,
     "recent_epoch" / Int64ul,
     "padding" / Array(107, Int8ul),
+)
+###########
+
+
+# Raydium AMM
+RaydiumAmmInfo = Struct(
+    "status" / Int64ul,
+    "nonce" / Int64ul,
+    "maxOrder" / Int64ul,
+    "depth" / Int64ul,
+    "baseDecimal" / Int64ul,
+    "quoteDecimal" / Int64ul,
+    "state" / Int64ul,
+    "resetFlag" / Int64ul,
+    "minSize" / Int64ul,
+    "volMaxCutRatio" / Int64ul,
+    "amountWaveRatio" / Int64ul,
+    "baseLotSize" / Int64ul,
+    "quoteLotSize" / Int64ul,
+    "minPriceMultiplier" / Int64ul,
+    "maxPriceMultiplier" / Int64ul,
+    "systemDecimalValue" / Int64ul,
+
+    "minSeparateNumerator" / Int64ul,
+    "minSeparateDenominator" / Int64ul,
+    "tradeFeeNumerator" / Int64ul,
+    "tradeFeeDenominator" / Int64ul,
+    "pnlNumerator" / Int64ul,
+    "pnlDenominator" / Int64ul,
+    "swapFeeNumerator" / Int64ul,
+    "swapFeeDenominator" / Int64ul,
+
+    "baseNeedTakePnl" / Int64ul,
+    "quoteNeedTakePnl" / Int64ul,
+    "quoteTotalPnl" / Int64ul,
+    "baseTotalPnl" / Int64ul,
+    "poolOpenTime" / Int64ul,
+    "punishPcAmount" / Int64ul,
+    "punishCoinAmount" / Int64ul,
+    "orderbookToInitTime" / Int64ul,
+    "swapBaseInAmount" / Int128ul(),
+    "swapQuoteOutAmount" / Int128ul(),
+    "swapBase2QuoteFee" / Int64ul,
+    "swapQuoteInAmount" / Int128ul(),
+    "swapBaseOutAmount" / Int128ul(),
+    "swapQuote2BaseFee" / Int64ul,
+
+    "baseVault" / PubKey(),
+    "quoteVault" / PubKey(),
+    "baseMint" / PubKey(),
+    "quoteMint" / PubKey(),
+    "lpMint" / PubKey(),
+    "openOrders" / PubKey(),
+    "marketId" / PubKey(),
+    "marketProgramId" / PubKey(),
+    "targetOrders" / PubKey(),
+    "withdrawQueue" / PubKey(),
+    "lpVault" / PubKey(),
+    "owner" / PubKey(),
+    "lpReserve" / Int64ul,
+    "padding" / Array(3, Int64ul),
 )

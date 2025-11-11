@@ -86,13 +86,12 @@ class OrcaCLMM(Solana):
 
     @staticmethod
     def _get_start_index(current_tick, tick_spacing) -> int:
-        TICK_ARRAY_SIZE = 88
-        return int((current_tick // (TICK_ARRAY_SIZE * tick_spacing)) * (TICK_ARRAY_SIZE * tick_spacing))
+        return int((current_tick // (config.TICK_ARRAY_SIZE_ORCA_CLMM * tick_spacing)) *
+                   (config.TICK_ARRAY_SIZE_ORCA_CLMM * tick_spacing))
 
     @staticmethod
     def _get_offset(tick_spacing) -> int:
-        TICK_ARRAY_SIZE = 88
-        return int(TICK_ARRAY_SIZE * tick_spacing)
+        return int(config.TICK_ARRAY_SIZE_ORCA_CLMM * tick_spacing)
 
 
     # FOR FETCHING BIG BOX

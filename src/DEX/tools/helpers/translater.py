@@ -68,6 +68,11 @@ class Translater:
         parsed_data = self.structure_builder.TickArrayStateRaydium.parse(data_bytes)
         return self.__to_dict(parsed_data)
 
+    def __translateRaydiumAMMInfo(self, data: hex) -> dict:
+        data_bytes = bytes.fromhex(data)
+        parsed_data = self.structure_builder.RaydiumAmmInfo.parse(data_bytes)
+        return self.__to_dict(parsed_data)
+
     def translate(self, data: str, market: Literal["raydium", "dlmm", "ammV2", "ammV1", "orca"],
                   name: str = None) -> dict:
         try:
@@ -86,6 +91,8 @@ class Translater:
                 return self.__translateRaydiumCLMMPoolState(data)
             elif name == "TickArray" and market == "raydium":
                 return self.__translateRaydiumCLMMTickArray(data)
+            elif name == "AmmInfo" and market == "raydium":
+                return self.__translateRaydiumAMMInfo(data)
 
 
 
