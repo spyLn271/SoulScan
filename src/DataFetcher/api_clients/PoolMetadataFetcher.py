@@ -41,7 +41,8 @@ class PoolMetadataFetcher:
 
     async def __aenter__(self):
         if not self._is_session_open:
-            self.session = aiohttp.ClientSession()
+            timeout = aiohttp.ClientTimeout(total=30)
+            self.session = aiohttp.ClientSession(timeout=timeout)
             self._is_session_open = True
             self.logger.info("PoolMetadataFetcher session opened.")
         else:

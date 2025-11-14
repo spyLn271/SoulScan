@@ -143,4 +143,4 @@ async def testRaydiumHybridAmmMetadata():
 
 
 if __name__ == '__main__':
-    asyncio.run(testRaydiumHybridAmmMetadata())
+    asyncio.run(testMeteoraDLMM())

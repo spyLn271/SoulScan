@@ -14,8 +14,9 @@ from src.DEX.tools.helpers.helper import Helper
 
 
 class Solana(Helper):
-    def __init__(self, SOLANA_RPC_ENDPOINT=config.SOLANA_RPC_ENDPOINT):
+    def __init__(self, SOLANA_RPC_ENDPOINT=config.SOLANA_RPC_ENDPOINT, logger=None):
         super().__init__()
+        self.logger = logger if logger else self.logger
 
         self.SOLANA_RPC_ENDPOINT = SOLANA_RPC_ENDPOINT
         self.session: aiohttp.ClientSession
@@ -23,7 +24,8 @@ class Solana(Helper):
 
     async def __aenter__(self):
         if not self._is_session_open:
-            self.session = aiohttp.ClientSession()
+            timeout = aiohttp.ClientTimeout(total=30)
+            self.session = aiohttp.ClientSession(timeout=timeout)
             self._is_session_open = True
             self.logger.info("Solana session opened.")
         else:

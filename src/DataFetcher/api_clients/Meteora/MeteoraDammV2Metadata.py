@@ -7,7 +7,7 @@ from src import Solana
 ####################################
 
 
-class MeteoraDammV2Metadata(PoolMetadataFetcher, Solana):
+class MeteoraDammV2Metadata(PoolMetadataFetcher):
     METEORA_DAMM_V2_URL = "https://dammv2-api.meteora.ag/pools?tokens_verified=true&order_by=volume24h&order=desc&limit=100&offset=%s"
     OFFSET = 100
     CYCLE = 3
@@ -24,7 +24,8 @@ class MeteoraDammV2Metadata(PoolMetadataFetcher, Solana):
 
     async def _get_decimals(self, target_mints: list) -> dict:
         decimals_dict = {}
-        mints = await self.getMultipleMintAccounts(target_mints)
+        async with Solana(logger=self.logger) as solana:
+            mints = await solana.getMultipleMintAccounts(target_mints)
 
         if not mints:
             raise Exception(f"No mints found for {target_mints}")
@@ -115,10 +116,6 @@ class MeteoraDammV2Metadata(PoolMetadataFetcher, Solana):
             pool_data_chunk, mint_list = result
             pools.update(pool_data_chunk)
             target_mints = self._combine_unique(target_mints, mint_list)
-
-        mints = await self.getMultipleMintAccounts(target_mints)
-        if not mints:
-            raise Exception(f"No mints found for {target_mints}")
 
         decimals_dict = await self._get_decimals(target_mints)
         if not decimals_dict:

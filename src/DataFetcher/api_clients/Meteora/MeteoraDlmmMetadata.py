@@ -5,7 +5,7 @@ from src import Solana
 ####################################
 
 
-class MeteoraDlmmMetadata(PoolMetadataFetcher, Solana):
+class MeteoraDlmmMetadata(PoolMetadataFetcher):
     METEORA_URL = "https://dlmm-api.meteora.ag/pair/all?include_unknown=true"
     MARKET, VERSION = config.MARKETS.get('meteora_dlmm').values()
 
@@ -15,7 +15,8 @@ class MeteoraDlmmMetadata(PoolMetadataFetcher, Solana):
 
     async def _get_decimals(self, target_mints: list) -> dict:
         decimals_dict = {}
-        mints = await self.getMultipleMintAccounts(target_mints)
+        async with Solana(logger=self.logger) as solana:
+            mints = await solana.getMultipleMintAccounts(target_mints)
 
         if not mints:
             raise Exception(f"No mints found for {target_mints}")
