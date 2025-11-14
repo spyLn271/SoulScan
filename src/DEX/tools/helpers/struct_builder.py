@@ -68,26 +68,29 @@ class StructBuilder:
 
         self.idls = IDLs.idls
 
-        # TokenAccount
-        COption_Pubkey = Struct(
-            "option" / Int32ul,
-            "value" / If(this.option == 1, self.SolanaPubkey)
-        )
-
-        COption_U64 = Struct(
-            "option" / Int32ul,
-            "value" / If(this.option == 1, Int64ul)
-        )
 
         self.TokenAccount = Struct(
             "mint" / PubKey(),
             "owner" / PubKey(),
             "amount" / Int64ul,
-            "delegate" / COption_Pubkey,
+            "delegate_option" / Int32ul,
+            "delegate" / self.SolanaPubkey,
             "state" / Int8ul,
-            "is_native" / COption_U64,
+            "is_native_option" / Int32ul,
+            "is_native" / Int64ul,
             "delegated_amount" / Int64ul,
-            "close_authority" / COption_Pubkey
+            "close_authority_option" / Int32ul,
+            "close_authority" / self.SolanaPubkey,
+        )
+
+        self.MintAccount = Struct(
+            "mint_authority_option" / Int32ul,
+            "mint_authority" / self.SolanaPubkey,
+            "supply" / Int64ul,
+            "decimals" / Int8ul,
+            "is_initialized" / Bool(),
+            "freeze_authority_option" / Int32ul,
+            "freeze_authority" / self.SolanaPubkey,
         )
 
         self.DynamicTickArray = DynamicTickArray()

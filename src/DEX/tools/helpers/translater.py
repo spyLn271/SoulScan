@@ -54,6 +54,10 @@ class Translater:
         data_bytes = bytes.fromhex(data)
         return self.__to_dict(self.structure_builder.TokenAccount.parse(data_bytes))
 
+    def __translateMintAccount(self, data: hex) -> dict:
+        data_bytes = bytes.fromhex(data)
+        return self.__to_dict(self.structure_builder.MintAccount.parse(data_bytes))
+
     def __translateDynamicTickArrayOrca(self, data: hex) -> dict:
         data_bytes = bytes.fromhex(data[self.ANCHOR_DISCRIMINATOR_SIZE_IN_HEX:])
         return self.structure_builder.DynamicTickArray.parse(data_bytes)
@@ -85,6 +89,8 @@ class Translater:
 
             if name == "SPLWallet":
                 return self.__translateSPLWallet(data)
+            elif name == "MintAccount":
+                return self.__translateMintAccount(data)
             elif name == "DynamicTickArray":
                 return self.__translateDynamicTickArrayOrca(data)
             elif name == "PoolState" and market == "raydium":

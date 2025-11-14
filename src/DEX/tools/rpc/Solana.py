@@ -128,3 +128,8 @@ class Solana(Helper):
         return_data = await self.getMultipleAccounts(PDAs, field, funcs)
 
         return return_data
+
+    async def getMultipleMintAccounts(self, addresses: list) -> dict:
+        field = ['data']
+        funcs = {'data': lambda x: self.translater.translate(x[0], market='ammV2', name='MintAccount')}
+        return await self.getMultipleAccounts(addresses, field, funcs)
