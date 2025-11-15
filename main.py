@@ -111,6 +111,7 @@ async def testRaydiumAMM():
         }
 
         data = await amm.getBigBox(addresses=address_dict)
+        print(json.dumps(data, indent=4))
         print(RaydiumHybridAmmScheme(**data.get(addresses[0])))
 
 
@@ -143,4 +144,4 @@ async def testRaydiumHybridAmmMetadata():
 
 
 if __name__ == '__main__':
-    asyncio.run(testMeteoraDLMM())
+    asyncio.run(testRaydiumAMM())

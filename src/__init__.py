@@ -13,6 +13,9 @@ from src.DEX.DEXes.Raydium.RaydiumScheme import RaydiumClmmScheme, RaydiumHybrid
 from src.DEX.DEXes.Meteora.MeteoraScheme import MeteoraDlmmScheme, MeteoraDammV2Scheme, MeteoraDlmmCacheScheme
 
 
+from src import DataFetcher
+
+
 __all__ = ['OrcaCLMM',
            'MeteoraDLMM',
            'Solana',
@@ -28,4 +31,6 @@ __all__ = ['OrcaCLMM',
            "RaydiumHybridAmmCacheScheme",
            'WhirlpoolClmmScheme',
            'WhirlpoolCacheClmmScheme',
+
+           'DataFetcher',
            ]
