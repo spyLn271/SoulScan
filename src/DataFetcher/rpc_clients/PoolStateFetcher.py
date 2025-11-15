@@ -7,7 +7,7 @@ import time
 
 
 ####################################
-from src.Config import config
+from src.Config import config, DefaultMetadata
 from src.LoggerHandler.logger import get_logger, setup_logger
 from src import MeteoraDLMM, MeteoraDAMMv2, OrcaCLMM, RaydiumCLMM, RaydiumHybridAMM
 ####################################
@@ -68,7 +68,7 @@ class PoolStateFetcher:
             raise Exception("Error getting metadata.")
 
     def _get_default_metadata(self) -> dict:
-        pass
+        return DefaultMetadata.default_metadata.get(self.market, {}).get(self.version, {})
 
     def _get_default_state(self) -> tuple[dict, list]:
         metadata = self._get_pool_metadata()
@@ -76,6 +76,8 @@ class PoolStateFetcher:
             self.logger.error(f"Metadata for {self.market} {self.version} not found.")
             self.logger.info(f"Getting default metadata for {self.market} {self.version}.")
             metadata = self._get_default_metadata()
+            if not metadata:
+                raise Exception("Default Metadata not found.")
             self.logger.info(f"Default metadata for {self.market} {self.version} fetched.")
         addresses = self._get_pool_addresses(metadata)
         return metadata, addresses
