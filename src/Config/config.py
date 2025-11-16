@@ -4,7 +4,7 @@ REDIS_HOST = "localhost"
 REDIS_PORT = 6379
 
 REDIS_METADATA_KEY = 'snapshot:metadata:%s:%s'  # market and version
-POOLS_CURRENT_STATE_DICT_REDIS_KEY = 'snapshot:%s:%s'  # market and version
+POOLS_CURRENT_STATE_DICT_REDIS_KEY = 'snapshot:state:%s:%s'  # market and version
 
 LOG_MAIN_FOLDER = 'LogFolder/'
 

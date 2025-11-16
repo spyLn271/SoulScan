@@ -3,12 +3,14 @@ import json
 import redis
 import pydantic
 import time
+from typing import Union, Type
 
 
 
 ####################################
 from src.Config import config, DefaultMetadata
 from src.LoggerHandler.logger import get_logger, setup_logger
+from src.DataFetcher.rpc_clients import pfsException
 from src import MeteoraDLMM, MeteoraDAMMv2, OrcaCLMM, RaydiumCLMM, RaydiumHybridAMM
 ####################################
 
@@ -20,7 +22,15 @@ class PoolStateConfigScheme(pydantic.BaseModel):
     version: str
     logger_name: str = "PSF"
     logger_file: str = "PSF.log"
-    provider: MeteoraDLMM | MeteoraDAMMv2 | OrcaCLMM | RaydiumCLMM | RaydiumHybridAMM
+    provider: Union[
+        Type[MeteoraDLMM],
+        Type[MeteoraDAMMv2],
+        Type[OrcaCLMM],
+        Type[RaydiumCLMM],
+        Type[RaydiumHybridAMM]
+    ]
+
+    provider_kwargs: dict
 
 
 
@@ -35,55 +45,64 @@ class PoolStateFetcher:
         self.cache_update_time = conf.cache_update_time
         self.error_sleep_time = conf.error_sleep_time
         self.provider = conf.provider
+        self.provider_kwargs = conf.provider_kwargs
         log_name = f"{self.market}_{self.version}"
         log_file = f"{config.LOG_MAIN_FOLDER}{self.market}_{self.version}_{self.logger_file}"
         setup_logger(logger_name=log_name, log_file=log_file)
 
-        self.r = redis.Redis(host=config.REDIS_HOST, port=config.REDIS_PORT)
+        self.r = redis.Redis(host=config.REDIS_HOST, port=config.REDIS_PORT, decode_responses=True)
         self.logger = get_logger(log_name)
         self.logger.info(f"PoolMetadataFetcher initialized for {self.market} {self.version}.")
 
         self.cache = {}
+        self.buffer = {}
 
 
-    def _save_state(self, pool_state: dict) -> bool:
+    def __save_state(self, pool_state: dict) -> bool:
         try:
             self.logger.info(f"Saving state for {self.market} {self.version} to redis. "
                              f"Saving data length: {len(pool_state)}.")
-            self.r.set(config.REDIS_METADATA_KEY % (self.market, self.version), json.dumps(pool_state))
+            self.r.set(config.POOLS_CURRENT_STATE_DICT_REDIS_KEY %
+                       (self.market, self.version), json.dumps(pool_state))
             self.logger.info(f"State for {self.market} {self.version} saved.")
             return True
         except Exception as e:
             self.logger.error(f"Error saving state for {self.market} {self.version}: {e}")
             return False
 
-    def _get_pool_metadata(self) -> dict:
+    def __get_pool_metadata(self) -> dict:
         try:
             self.logger.info(f"Getting metadata for {self.market} {self.version} from redis.")
-            metadata = json.loads(self.r.get(config.REDIS_METADATA_KEY % (self.market, self.version)))
+            raw = self.r.get(config.REDIS_METADATA_KEY % (self.market, self.version))
+
+            if not isinstance(raw, str):
+                self.logger.error(f"Metadata for {self.market} {self.version} not found.")
+                return {}
+            metadata = json.loads(raw)
+
             self.logger.info(f"Metadata for {self.market} {self.version} fetched.")
             return metadata
         except Exception as e:
             self.logger.error(f"Error getting metadata for {self.market} {self.version}: {e}")
-            raise Exception("Error getting metadata.")
+            return {}
 
-    def _get_default_metadata(self) -> dict:
+    def __get_default_metadata(self) -> dict:
         return DefaultMetadata.default_metadata.get(self.market, {}).get(self.version, {})
 
-    def _get_default_state(self) -> tuple[dict, list]:
-        metadata = self._get_pool_metadata()
+    def __get_metadata_and_addresses(self) -> tuple[dict, list]:
+        metadata = self.__get_pool_metadata()
         if not metadata:
             self.logger.error(f"Metadata for {self.market} {self.version} not found.")
             self.logger.info(f"Getting default metadata for {self.market} {self.version}.")
-            metadata = self._get_default_metadata()
+            metadata = self.__get_default_metadata()
             if not metadata:
-                raise Exception("Default Metadata not found.")
+                raise pfsException.NoMetadataException(f"No metadata found for {self.market} {self.version}.")
             self.logger.info(f"Default metadata for {self.market} {self.version} fetched.")
-        addresses = self._get_pool_addresses(metadata)
+        addresses = self.__get_pool_addresses(metadata)
         return metadata, addresses
 
 
-    def _get_pool_addresses(self, metadata: dict) -> list:
+    def __get_pool_addresses(self, metadata: dict) -> list:
         addresses = []
         for pool in metadata:
             addresses.append(pool)
@@ -97,21 +116,38 @@ class PoolStateFetcher:
         raise Exception("state_fetcher not implemented.")
 
     async def main(self):
-        metadata, addresses = self._get_default_state()
-        await self._set_up_cache(self.provider, metadata, addresses)
-        last_cache_update_time = time.time()
+        metadata, addresses = self.__get_metadata_and_addresses()
+        last_cache_update_time = 0
 
-        while True:
-            try:
-                if time.time() - last_cache_update_time > self.cache_update_time:
-                    metadata, addresses = self._get_default_state()
-                    await self._set_up_cache(self.provider, metadata, addresses)
-                    last_cache_update_time = time.time()
-                pool_state = await self._state_fetcher(self.provider, metadata, addresses)
-                is_state_saved = self._save_state(pool_state)
-                if not is_state_saved:
-                    raise Exception("Error saving state.")
+        async with self.provider(**self.provider_kwargs) as provider_instance:
+            while True:
+                try:
+                    if int(time.time()) - last_cache_update_time > self.cache_update_time:
+                        if last_cache_update_time == 0:
+                            self.logger.info(f"Initializing cache for {self.market} {self.version}.")
+                        else:
+                            self.logger.info(f"Cache expired. Updating cache for {self.market} {self.version}.")
 
-            except Exception as e:
-                self.logger.error(f"Error in main loop: {e}")
-                await asyncio.sleep(self.error_sleep_time)
+                        is_cache_initialized = await self._set_up_cache(provider_instance, metadata, addresses)
+
+                        if not is_cache_initialized:
+                            self.logger.error("Cache initialization failed. Retrying...")
+                            await asyncio.sleep(self.error_sleep_time)
+                            continue
+                        else:
+                            metadata, addresses = self.__get_metadata_and_addresses()
+
+                        last_cache_update_time = int(time.time())
+                        self.logger.info(f"Cache updated. Next update in {self.cache_update_time} seconds.")
+
+                    pool_state = await self._state_fetcher(provider_instance, metadata, addresses)
+
+                    if not self.__save_state(pool_state):
+                        raise Exception("Error saving state to Redis.")
+
+                except pfsException.NoMetadataException as e:
+                    self.logger.error(f"No metadata found for {self.market} {self.version} ({e}).")
+                    break
+                except Exception as e:
+                    self.logger.error(f"Error in main loop: {e}")
+                    await asyncio.sleep(self.error_sleep_time)
