@@ -52,10 +52,8 @@ class RaydiumHybridAMMTranslater(Translater):
                 "status": parsed_data["status"],
                 "baseVault": parsed_data["baseVault"],
                 "quoteVault": parsed_data["quoteVault"],
-                "swapFeeNumerator": parsed_data["swapFeeNumerator"],
-                "swapFeeDenominator": parsed_data["swapFeeDenominator"],
-                "baseNeedTakePnl": parsed_data["baseNeedTakePnl"],
-                "quoteNeedTakePnl": parsed_data["quoteNeedTakePnl"],
+                "baseNeedTakePnl": parsed_data.get('baseNeedTakePnl', 0),
+                "quoteNeedTakePnl": parsed_data.get('quoteNeedTakePnl', 0),
             }
         except Exception as e:
             self.logger.error(e)
@@ -134,19 +132,29 @@ class RaydiumHybridAMM(Solana):
 
         return final_assembled_pools
 
+    def _assemble_cache_data(self, raw_data: dict) -> dict:
+        processed_data = {}
+        for address, data_list in raw_data.items():
+            try:
+                raw = data_list[0].get('data')
+                if not raw:
+                    self.logger.error(f"Cache data for address {address} has no data")
+                    continue
+                amm_info = self.translater.translate_AmmInfo(raw)
+                if not amm_info:
+                    self.logger.error(f"Cache data for address {address} couldn't be translated")
+                    continue
+                processed_data[address] = amm_info
+            except Exception as e:
+                self.logger.error(f"Error in processing cache data for address {address}: {e}")
 
+        return processed_data
 
     async def getCacheData(self, addresses: list) -> dict:
         try:
             raw_data = await self.getMultipleAccounts(addresses=addresses, field=['data'],
-                                                      funcs={'data': lambda x: self.translater.translate_AmmInfo(x[0])})
-            processed_data = {}
-            for address, data_list in raw_data.items():
-                try:
-                    processed_data[address] = data_list[0].get('data')
-                except Exception as e:
-                    self.logger.error(e)
-            return processed_data
+                                                      funcs={'data': lambda x: x[0]})
+            return self._assemble_cache_data(raw_data)
         except Exception as e:
             self.logger.error(e)
             return {}

@@ -118,12 +118,12 @@ class OrcaCLMM(Solana):
                                                    BaseInfo=baseInfo,
                                                    Oracle=Oracle,
                                                    start_indexes=start_indexes,
-                                                   tick_spacing=tick_spacing)
+                                                   tick_spacing=tick_spacing,
+                                                   af=af)
 
         return dependencies
 
-    def _assemble_whirlpool_data(self, raw_data: dict, dependencies_list: list[WhirlpoolDependenciesScheme],
-                                 af: bool = False) -> dict:
+    def _assemble_whirlpool_data(self, raw_data: dict, dependencies_list: list[WhirlpoolDependenciesScheme]) -> dict:
         final_assembled_pools = {}
 
         for dependencies in dependencies_list:
@@ -133,6 +133,7 @@ class OrcaCLMM(Solana):
             base_info = dependencies.BaseInfo
             oracle = dependencies.Oracle
             pdas = dependencies.PDAs
+            af = dependencies.af
 
             processed_data = {address: {}}
             raw_base_info = raw_data.get(base_info[0], [{}])[0].get('data')
@@ -179,7 +180,7 @@ class OrcaCLMM(Solana):
         return final_assembled_pools
 
     def _create_calldata(self, addresses: list, tick_spacing_list: list, current_tick_list: list,
-                         af: bool = False) -> tuple[list, list[WhirlpoolDependenciesScheme]]:
+                         af_list: list) -> tuple[list, list[WhirlpoolDependenciesScheme]]:
         if len(addresses) != len(tick_spacing_list) or len(addresses) != len(current_tick_list):
             self.logger.error("addresses, tick_spacing_list and current_tick_list must have the same length.")
             raise Exception("addresses, tick_spacing_list and current_tick_list must have the same length.")
@@ -190,7 +191,7 @@ class OrcaCLMM(Solana):
         for i, address in enumerate(addresses):
             try:
                 dependencies = self._create_calldata_for_whirlpool(address, tick_spacing_list[i],
-                                                                   current_tick_list[i], af)
+                                                                   current_tick_list[i], af_list[i])
                 dependencies_list.append(dependencies)
                 PDAs = dependencies.PDAs
                 Oracle = dependencies.Oracle
@@ -287,13 +288,13 @@ class OrcaCLMM(Solana):
 
 
     async def getBigBox(self, addresses: list, current_tick_list: list,
-                        tick_spacing_list: list, af: bool = False) -> dict:
+                        tick_spacing_list: list, af_list: list) -> dict:
         try:
             calldata_list, dependencies_list = self._create_calldata(addresses, tick_spacing_list,
-                                                                     current_tick_list, af)
+                                                                     current_tick_list, af_list)
         except Exception as e:
             self.logger.error(f"Error creating calldata: {e}")
             return {}
         raw_result = await self.getMultipleAccounts(calldata_list, ['data'], {'data': lambda x: x[0]})
 
-        return self._assemble_whirlpool_data(raw_result, dependencies_list, af)
+        return self._assemble_whirlpool_data(raw_result, dependencies_list)

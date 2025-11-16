@@ -13,6 +13,7 @@ class WhirlpoolDependenciesScheme(pydantic.BaseModel):
     Oracle: list[str]
     start_indexes: list[int]
     tick_spacing: int
+    af: bool
 
 class WhirlpoolCacheDependenciesScheme(pydantic.BaseModel):
     Address: str

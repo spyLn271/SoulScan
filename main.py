@@ -12,23 +12,25 @@ from src.DataFetcher.api_clients.Raydium.RaydiumHybridAmmMetadata import Raydium
 
 async def testSolana():
     async with Solana() as solana:
-        addresses = ['EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-                     'So11111111111111111111111111111111111111112',
-                     '5NVMLv5558eMnGxh3RQadpooxtY1YQTeFxu3EtoKpump',
-                     'GrtvB1k2AkNaqDb7dsFJoLrrSpqMoiYEu6ZU1dARWme3']
+        addresses = ['8tcdTg9TVHzshwRZfh8vgUuzwykk34HRqQnNiCxtGbG']
 
-        res = await solana.getMultipleMintAccounts(addresses)
+        res = await solana.getMultipleAccounts(addresses)
         print(
             json.dumps(res, indent=4)
         )
-        SPLWallets = [
-            '82ex7Yderfb229MDeGD2H8jGqj8C4HDsJM1trAALirYB',
-            'EvWUnSJRSkbamkQ2RDx6SwGBWg1jAwpWJ4rrNsRmgcEz',
-            'H6Fmq7YzhBsCUnn7DheQEzrdEaCS7xW8AvcW14bHSb47',
-            'C1roWZ7WQP9zohAVFH4U9ecivQ7cz33PUDUWjP5z4Sar'
-        ]
-        res = await solana.getMultipleSPLAccountsBalance(SPLWallets)
-        print(json.dumps(res, indent=4))
+
+        # res = await solana.getMultipleMintAccounts(addresses)
+        # print(
+        #     json.dumps(res, indent=4)
+        # )
+        # SPLWallets = [
+        #     '82ex7Yderfb229MDeGD2H8jGqj8C4HDsJM1trAALirYB',
+        #     'EvWUnSJRSkbamkQ2RDx6SwGBWg1jAwpWJ4rrNsRmgcEz',
+        #     'H6Fmq7YzhBsCUnn7DheQEzrdEaCS7xW8AvcW14bHSb47',
+        #     'C1roWZ7WQP9zohAVFH4U9ecivQ7cz33PUDUWjP5z4Sar'
+        # ]
+        # res = await solana.getMultipleSPLAccountsBalance(SPLWallets)
+        # print(json.dumps(res, indent=4))
 
 
 async def testOrcaCLMM():
@@ -36,18 +38,18 @@ async def testOrcaCLMM():
 
     async with OrcaCLMM() as orcaCLMM:
         addresses = [
-            'FR1UT3zSrXkQVbsm3QhXwEa4a7P11eNBUyaUN4DNL7qW',
+            "9RqDTfwCx2SgxsvKpspQHc38HUo3B6hRd3oR9JR966Ps"
         ]
 
         data = await orcaCLMM.getBigBox(addresses=addresses,
-                                        tick_spacing_list=[128],
-                                        current_tick_list=[23135],
-                                        af=True)
+                                        tick_spacing_list=[1],
+                                        current_tick_list=[-2],
+                                        af_list=[False])
         print(json.dumps(data, indent=4))
-        print(WhirlpoolClmmScheme(**data.get(addresses[0])))
-        # cache_data = await orcaCLMM.getCacheData(addresses=addresses, af=True)
+
+        # cache_data = await orcaCLMM.getCacheData(addresses=addresses)
         # print(json.dumps(cache_data, indent=4))
-        # print(WhirlpoolCacheClmmScheme(**cache_data.get(addresses[0])))
+
 
 
 async def testMeteoraDLMM():
@@ -62,11 +64,10 @@ async def testMeteoraDLMM():
         #                                               bin_id=-4209, bin_step=4)
         # print(ingredient)
 
-        # bigbox = await dlmm.getBigBox(addresses=['B1ajRc5TgtEpPHgP5Pzyb6YrHJ6TZWJ3mzoZs41sT8EF'],
-        #                               bin_id_list=[27])
-        #
-        # # print(json.dumps(bigbox, indent=4))
-        # print(MeteoraDlmmScheme(**bigbox.get('B1ajRc5TgtEpPHgP5Pzyb6YrHJ6TZWJ3mzoZs41sT8EF')))
+        bigbox = await dlmm.getBigBox(addresses=['5rCf1DM8LjKTw4YqhnoLcngyZYeNnQqztScTogYHAS6'],
+                                      bin_id_list=[-4863])
+
+        print(json.dumps(bigbox, indent=4))
 
 async def testMeteoraDAMMv2():
     from src import MeteoraDammV2Scheme
@@ -142,6 +143,29 @@ async def testRaydiumHybridAmmMetadata():
         await raydiumHybridAmm.main()
 
 
+async def testMeteoraDlmmState():
+    from src.DataFetcher.rpc_clients.Meteora.MeteoraDlmmState import MeteoraDlmmState
+    dlmm_state = MeteoraDlmmState()
+    await dlmm_state.main()
+
+
+async def testMeteoraDammV2State():
+    from src.DataFetcher.rpc_clients.Meteora.MeteoraDammV2State import MeteoraDammV2State
+    dammv2_state = MeteoraDammV2State()
+    await dammv2_state.main()
+
+
+async def testOrcaCLMMState():
+    from src.DataFetcher.rpc_clients.Orca.OrcaClmmState import OrcaClmmState
+    orcaCLMM_state = OrcaClmmState()
+    await orcaCLMM_state.main()
+
+async def testRaydiumAmmState():
+    from src.DataFetcher.rpc_clients.Raydium.RaydiumAmmState import RaydiumAmmState
+    raydiumAmm_state = RaydiumAmmState()
+    await raydiumAmm_state.main()
+
+
 
 if __name__ == '__main__':
-    asyncio.run(testRaydiumAMM())
+    asyncio.run(testRaydiumAmmState())

@@ -70,6 +70,7 @@ class Solana(Helper):
         funcs.update({'default': lambda x: x})
 
         address_chunks = self._get_address_chunk(addresses)
+        self.logger.info(f"Calling RPC for {len(addresses)} addresses in {len(address_chunks)} chunks.")
 
         tasks = [self.RPC_call("getMultipleAccounts", chunk) for chunk in address_chunks]
 
@@ -89,6 +90,9 @@ class Solana(Helper):
                 for i, value in enumerate(values):
                     try:
                         address = original_chunk[i]
+                        if not value:
+                            self.logger.warning(f"Address {address} not found in Solana. Pls check it.")
+                            continue
 
                         if isinstance(field, list):
                             processed_fields = {}

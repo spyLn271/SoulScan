@@ -1,5 +1,5 @@
 from src.DataFetcher.api_clients.PoolMetadataFetcher import PoolMetadataFetcher, PoolMetadataConfigScheme
-from src.DataFetcher.rpc_clients.PoolStateFetcher import PoolStateFetcher
+from src.DataFetcher.rpc_clients.PoolStateFetcher import PoolStateFetcher, PoolStateConfigScheme
 
 # METADATA FETCHERS
 from src.DataFetcher.api_clients.Meteora.MeteoraDlmmMetadata import MeteoraDlmmMetadata
@@ -21,6 +21,7 @@ __all__ = ["PoolMetadataFetcher",
            "PoolMetadataConfigScheme",
 
            "PoolStateFetcher",
+           "PoolStateConfigScheme",
             # METADATA FETCHERS
            "MeteoraDlmmMetadata",
            "MeteoraDammV2Metadata",

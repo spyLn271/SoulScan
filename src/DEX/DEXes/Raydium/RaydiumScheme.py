@@ -56,8 +56,6 @@ class RaydiumClmmBaseInfo(pydantic.BaseModel):
     status: int
     baseVault: str
     quoteVault: str
-    swapFeeNumerator: int
-    swapFeeDenominator: int
     baseNeedTakePnl: int
     quoteNeedTakePnl: int
 

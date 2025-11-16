@@ -9,7 +9,11 @@ from src.DEX.DEXes.Raydium.RaydiumHybridAMM import RaydiumHybridAMM
 
 
 from src.DEX.DEXes.Orca.OrcaScheme import WhirlpoolClmmScheme, WhirlpoolCacheClmmScheme
-from src.DEX.DEXes.Raydium.RaydiumScheme import RaydiumClmmScheme, RaydiumHybridAmmScheme, RaydiumCacheClmmScheme, RaydiumHybridAmmCacheScheme
+from src.DEX.DEXes.Raydium.RaydiumScheme import (RaydiumClmmScheme,
+                                                 RaydiumHybridAmmScheme,
+                                                 RaydiumCacheClmmScheme,
+                                                 RaydiumHybridAmmCacheScheme,
+                                                 RaydiumBigBoxVaultAddressScheme)
 from src.DEX.DEXes.Meteora.MeteoraScheme import MeteoraDlmmScheme, MeteoraDammV2Scheme, MeteoraDlmmCacheScheme
 
 
@@ -24,6 +28,7 @@ __all__ = ['OrcaCLMM',
            'RaydiumHybridAMM',
            'RaydiumClmmScheme',
            'RaydiumHybridAmmScheme',
+           'RaydiumBigBoxVaultAddressScheme',
            'MeteoraDlmmScheme',
            'MeteoraDammV2Scheme',
            "MeteoraDlmmCacheScheme",

@@ -74,7 +74,15 @@ class Translater:
 
     def __translateRaydiumAMMInfo(self, data: hex) -> dict:
         data_bytes = bytes.fromhex(data)
-        parsed_data = self.structure_builder.RaydiumAmmInfo.parse(data_bytes)
+        try:
+            parsed_data = self.structure_builder.RaydiumAmmInfo.parse(data_bytes)
+        except Exception as e:
+            data_bytes = bytes.fromhex(data[self.ANCHOR_DISCRIMINATOR_SIZE_IN_HEX:])
+            parsed_data = self.structure_builder.RaydiumAlternativeAmmInfo.parse(data_bytes)
+            self.logger.warning(
+                "Raydium alternative AMM info detected. This is not a problem, but it might be a bug."
+                f" culprit e: {e}"
+            )
         return self.__to_dict(parsed_data)
 
     def translate(self, data: str, market: Literal["raydium", "dlmm", "ammV2", "ammV1", "orca"],

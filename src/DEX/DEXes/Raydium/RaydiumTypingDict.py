@@ -46,8 +46,6 @@ class RaydiumClmmBaseInfo(TypedDict):
     status: int
     baseVault: str
     quoteVault: str
-    swapFeeNumerator: int
-    swapFeeDenominator: int
     baseNeedTakePnl: int
     quoteNeedTakePnl: int
 

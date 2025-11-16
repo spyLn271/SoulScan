@@ -18,6 +18,7 @@ from src import MeteoraDLMM, MeteoraDAMMv2, OrcaCLMM, RaydiumCLMM, RaydiumHybrid
 class PoolStateConfigScheme(pydantic.BaseModel):
     error_sleep_time: int = 10
     cache_update_time: int = 5 * 60
+    interval_sleep_time: int = 0
     market: str
     version: str
     logger_name: str = "PSF"
@@ -30,7 +31,7 @@ class PoolStateConfigScheme(pydantic.BaseModel):
         Type[RaydiumHybridAMM]
     ]
 
-    provider_kwargs: dict
+    provider_kwargs: dict = {}
 
 
 
@@ -44,6 +45,7 @@ class PoolStateFetcher:
         self.logger_file = conf.logger_file
         self.cache_update_time = conf.cache_update_time
         self.error_sleep_time = conf.error_sleep_time
+        self.interval_sleep_time = conf.interval_sleep_time
         self.provider = conf.provider
         self.provider_kwargs = conf.provider_kwargs
         log_name = f"{self.market}_{self.version}"
@@ -109,14 +111,14 @@ class PoolStateFetcher:
         self.logger.info(f"Pool addresses for {self.market} {self.version} fetched. Length: {len(addresses)}.")
         return addresses
 
+    # --- Abstract Methods for Subclasses ---
     async def _set_up_cache(self, provider_instance, metadata: dict, addresses: list) -> bool:
-        raise Exception("set_up_cache not implemented.")
+        raise pfsException.NoImplementationException("_set_up_cache not implemented.")
 
     async def _state_fetcher(self, provider_instance, metadata: dict, addresses: list) -> dict:
-        raise Exception("state_fetcher not implemented.")
+        raise pfsException.NoImplementationException("_state_fetcher not implemented.")
 
     async def main(self):
-        metadata, addresses = self.__get_metadata_and_addresses()
         last_cache_update_time = 0
 
         async with self.provider(**self.provider_kwargs) as provider_instance:
@@ -128,14 +130,13 @@ class PoolStateFetcher:
                         else:
                             self.logger.info(f"Cache expired. Updating cache for {self.market} {self.version}.")
 
+                        metadata, addresses = self.__get_metadata_and_addresses()
                         is_cache_initialized = await self._set_up_cache(provider_instance, metadata, addresses)
 
                         if not is_cache_initialized:
                             self.logger.error("Cache initialization failed. Retrying...")
                             await asyncio.sleep(self.error_sleep_time)
                             continue
-                        else:
-                            metadata, addresses = self.__get_metadata_and_addresses()
 
                         last_cache_update_time = int(time.time())
                         self.logger.info(f"Cache updated. Next update in {self.cache_update_time} seconds.")
@@ -145,8 +146,15 @@ class PoolStateFetcher:
                     if not self.__save_state(pool_state):
                         raise Exception("Error saving state to Redis.")
 
+                    if self.interval_sleep_time:
+                        self.logger.info(f"Sleeping for {self.interval_sleep_time} seconds.")
+                        await asyncio.sleep(self.interval_sleep_time)
+
                 except pfsException.NoMetadataException as e:
                     self.logger.error(f"No metadata found for {self.market} {self.version} ({e}).")
+                    break
+                except pfsException.NoImplementationException as e:
+                    self.logger.error(f"No implementation found for {self.market} {self.version} ({e}).")
                     break
                 except Exception as e:
                     self.logger.error(f"Error in main loop: {e}")

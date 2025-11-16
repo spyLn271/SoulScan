@@ -144,6 +144,7 @@ class MeteoraDLMM(Solana):
                 raw_pda_info = raw_data.get(pda, [{}])[0].get('data')
                 if not raw_pda_info:
                     self.logger.error(f"BinArray({pda}) info for address {address} has no data")
+                    continue
 
                 binArray_info = self.translater.translate_BinArray(raw_pda_info, start_indexes[i])
                 if not isinstance(binArray_info, dict) or not binArray_info.get('bins'):

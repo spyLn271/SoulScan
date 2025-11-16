@@ -10,3 +10,6 @@ class PFSException(Exception):
 
 class NoMetadataException(PFSException):
     pass
+
+class NoImplementationException(PFSException):
+    pass
