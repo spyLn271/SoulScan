@@ -91,8 +91,6 @@ async def testRaydiumCLMM():
         cache_data = await clmm.getCacheData(addresses=addresses)
         print(json.dumps(cache_data, indent=4))
         print(RaydiumCacheClmmScheme(**cache_data.get(addresses[0])))
-        print('ok' if hasattr(clmm, 'getBigBox') else 'no')
-        print('ok' if hasattr(clmm, 'getCacheData') else 'no')
         data_first = RaydiumClmmScheme(**data.get(addresses[0]))
         print(data_first)
 
@@ -165,7 +163,11 @@ async def testRaydiumAmmState():
     raydiumAmm_state = RaydiumAmmState()
     await raydiumAmm_state.main()
 
+async def testRaydiumClmmState():
+    from src.DataFetcher.rpc_clients.Raydium.RaydiumClmmState import RaydiumClmmState
+    raydiumClmm_state = RaydiumClmmState()
+    await raydiumClmm_state.main()
 
 
 if __name__ == '__main__':
-    asyncio.run(testRaydiumAmmState())
+    asyncio.run(testRaydiumClmmState())
