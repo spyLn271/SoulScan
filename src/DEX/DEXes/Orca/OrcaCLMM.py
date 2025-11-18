@@ -14,7 +14,20 @@ class OrcaCLMMTranslater(Translater):
     def __init__(self, logger):
         super().__init__(logger)
 
-    def tick_array_func(self, x: str, _tick_spacing, _start_indexes) -> dict:
+    def tick_array_func(self, x: str | None, _tick_spacing, _start_indexes) -> dict:
+        if x is None:
+            not_init_ticks = {}
+            for pos in range(config.TICK_ARRAY_SIZE_ORCA_CLMM):
+                not_init_ticks[str(_start_indexes + pos * _tick_spacing)] = {
+                    'initialized': False,
+                    'liquidityNet': 0,
+                    'liquidityGross': 0,
+                    'feeGrowthOutsideA': 0,
+                    'feeGrowthOutsideB': 0,
+                }
+            return not_init_ticks
+
+
         try:
             parsed_data = self.translate(x, market="orca")
             if not parsed_data: raise Exception('No parsed_data tick_array info found')
@@ -80,8 +93,8 @@ class OrcaCLMM(Solana):
         super().__init__(SOLANA_RPC_ENDPOINT)
 
         setup_logger(logger_name=logger_name, log_file=f'{config.LOG_MAIN_FOLDER}{logger_file}')
-        self.translater = OrcaCLMMTranslater(logger=logger_name)
         self.logger = get_logger(logger_name)
+        self.translater = OrcaCLMMTranslater(logger=self.logger)
         self.program_id = SolanaPubkey.from_string(config.ORCA_CLMM_PROGRAM_ID)
 
     @staticmethod
@@ -160,13 +173,8 @@ class OrcaCLMM(Solana):
             tick_arrays = {}
             for i, pda in enumerate(pdas):
                 raw_tick_array = raw_data.get(pda, [{}])[0].get('data')
-                if not raw_tick_array:
-                    self.logger.error(f"No TickArray data found for address {address}.")
-                    continue
                 tick_array_data = self.translater.tick_array_func(raw_tick_array, tick_spacing, start_indexes[i])
-                if not tick_array_data:
-                    self.logger.error(f"Error parsing TickArray data for address {address}.")
-                    continue
+                if not tick_array_data: continue
 
                 tick_arrays.update(tick_array_data)
 

@@ -34,6 +34,8 @@ class RaydiumClmmMetadata(PoolMetadataFetcher):
                 tokenB = pool['mintB']
                 day = pool['day']
                 feeRate = pool['feeRate']
+                tvl = float(pool['tvl'])
+                if tvl < config.MIN_TVL: continue
 
                 token0 = 'SOL' if tokenA['symbol'] == 'WSOL' else tokenA['symbol']
                 decimals0 = tokenA['decimals']

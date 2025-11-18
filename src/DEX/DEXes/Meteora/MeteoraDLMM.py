@@ -1,6 +1,5 @@
 from solders.pubkey import Pubkey as SolanaPubkey
 from typing import List
-import pydantic
 
 ####################################
 from src.Config import config
@@ -38,19 +37,31 @@ class MeteoraDLMMTranslater(Translater):
             self.logger.error(f"Error parsing LbPair data: {e}")
             return {}
 
-    def translate_BinArray(self, x: str, start_index: int) -> dict:
+    def translate_BinArray(self, x: str | None, start_index: int) -> dict:
+        if x is None:
+            not_init_binArray = {}
+            for i in range(config.MAX_BIN_PER_ARRAY_DLMM):
+                not_init_binArray[str(start_index + i)] = {
+                    "amount_x": 0,
+                    "amount_y": 0,
+                }
+            return not_init_binArray
+
+
+
         try:
             parsed_data = self.translate(x, market="dlmm", name='BinArray')
             if not parsed_data: raise Exception('No parsed_data BinArray info found')
             bins_list = parsed_data.get('bins')
-            lb_pair = parsed_data.get('lb_pair')
 
             binArray = {}
             for i, _bin in enumerate(bins_list):
-                del _bin['reward_per_token_stored']
-                binArray[str(start_index + i)] = _bin
+                binArray[str(start_index + i)] = {
+                    "amount_x": _bin['amount_x'],
+                    "amount_y": _bin['amount_y'],
+                }
 
-            return {'bins': binArray, 'lb_pair': lb_pair}
+            return binArray
         except Exception as e:
             self.logger.error(f"Error parsing BinArray data: {e}")
             return {}
@@ -142,15 +153,11 @@ class MeteoraDLMM(Solana):
             binArrays = {}
             for i, pda in enumerate(PDA):
                 raw_pda_info = raw_data.get(pda, [{}])[0].get('data')
-                if not raw_pda_info:
-                    self.logger.error(f"BinArray({pda}) info for address {address} has no data")
-                    continue
-
                 binArray_info = self.translater.translate_BinArray(raw_pda_info, start_indexes[i])
-                if not isinstance(binArray_info, dict) or not binArray_info.get('bins'):
+                if not binArray_info:
                     self.logger.error(f"BinArray({pda}) info for address {address} couldn't be translated")
                     continue
-                binArrays.update(binArray_info.get('bins'))
+                binArrays.update(binArray_info)
 
             if not binArrays:
                 self.logger.error(f"BinArray({PDA}) info for address {address} could not be found")
@@ -194,4 +201,3 @@ class MeteoraDLMM(Solana):
 
         raw_data = await self.getMultipleAccounts(calldata_list, ['data'], {'data': lambda x: x[0]})
         return self._assemble_LbPair_data(raw_data, dependencies_list)
-

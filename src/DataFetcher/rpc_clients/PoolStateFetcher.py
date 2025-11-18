@@ -139,7 +139,8 @@ class PoolStateFetcher:
                             continue
 
                         last_cache_update_time = int(time.time())
-                        self.logger.info(f"Cache updated. Next update in {self.cache_update_time} seconds.")
+                        self.logger.info(f"Cache updated, len of cache data: {len(self.cache)}."
+                                         f" Next update in {self.cache_update_time} seconds.")
 
                     pool_state = await self._state_fetcher(provider_instance, metadata, addresses)
 

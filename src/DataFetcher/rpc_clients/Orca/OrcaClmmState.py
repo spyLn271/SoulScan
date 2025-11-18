@@ -12,7 +12,8 @@ class OrcaClmmState(PoolStateFetcher):
         conf = PoolStateConfigScheme(market=self.MARKET,
                                      version=self.VERSION,
                                      provider=OrcaCLMM,
-                                     cache_update_time=4 * 60)
+                                     cache_update_time=4 * 60,
+                                     interval_sleep_time=1)
         super().__init__(conf)
 
 

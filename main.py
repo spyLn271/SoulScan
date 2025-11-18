@@ -1,5 +1,7 @@
 import json
 import asyncio
+from solders.pubkey import Pubkey as SolanaPubkey
+from src.Config import config
 from src import OrcaCLMM, Solana, MeteoraDLMM, MeteoraDAMMv2, RaydiumCLMM, RaydiumHybridAMM
 from src.DEX.tools.helpers.struct_builder import StructBuilder
 from src.DEX.DEXes.Raydium.RaydiumScheme import RaydiumBigBoxVaultAddressScheme
@@ -12,25 +14,15 @@ from src.DataFetcher.api_clients.Raydium.RaydiumHybridAmmMetadata import Raydium
 
 async def testSolana():
     async with Solana() as solana:
-        addresses = ['8tcdTg9TVHzshwRZfh8vgUuzwykk34HRqQnNiCxtGbG']
-
-        res = await solana.getMultipleAccounts(addresses)
-        print(
-            json.dumps(res, indent=4)
-        )
-
-        # res = await solana.getMultipleMintAccounts(addresses)
-        # print(
-        #     json.dumps(res, indent=4)
-        # )
-        # SPLWallets = [
-        #     '82ex7Yderfb229MDeGD2H8jGqj8C4HDsJM1trAALirYB',
-        #     'EvWUnSJRSkbamkQ2RDx6SwGBWg1jAwpWJ4rrNsRmgcEz',
-        #     'H6Fmq7YzhBsCUnn7DheQEzrdEaCS7xW8AvcW14bHSb47',
-        #     'C1roWZ7WQP9zohAVFH4U9ecivQ7cz33PUDUWjP5z4Sar'
-        # ]
-        # res = await solana.getMultipleSPLAccountsBalance(SPLWallets)
-        # print(json.dumps(res, indent=4))
+        target_address = '8GkHvtX21hVUWSWbAXDzBeGf7P4ShgNLJi45WUiYnDrc'
+        start_index = ((41072 // (config.TICK_ARRAY_SIZE_RAYDIUM_CLMM * 1)) *
+                (config.TICK_ARRAY_SIZE_RAYDIUM_CLMM * 1))
+        print(start_index)
+        program_id = SolanaPubkey.from_string("CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK")
+        pda = solana.findProgramDerivedAddress([
+            b"tick_array", bytes(SolanaPubkey.from_string(target_address)),
+            start_index.to_bytes(4, signed=True)], program_id)
+        print(pda)
 
 
 async def testOrcaCLMM():

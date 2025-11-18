@@ -63,7 +63,17 @@ class RaydiumCLMMTranslater(Translater):
             self.logger.error(e)
             return {}
 
-    def translate_TickArray(self, x: str, start_index: int, tick_spacing: int) -> dict:
+    def translate_TickArray(self, x: str | None, start_index: int, tick_spacing: int) -> dict:
+        if x is None:
+            not_init_ticks_dict = {}
+            for i in range(config.TICK_ARRAY_SIZE_RAYDIUM_CLMM):
+                not_init_ticks_dict[str(start_index + i * tick_spacing)] = {
+                    "liquidity_net": 0,
+                    "liquidity_gross": 0
+                }
+
+            return not_init_ticks_dict
+
         try:
             parsed_data = self.translate(data=x, market='raydium', name='TickArray')
             if not parsed_data:
@@ -92,8 +102,8 @@ class RaydiumCLMM(Solana):
         super().__init__(SOLANA_RPC_ENDPOINT)
 
         setup_logger(logger_name=logger_name, log_file=f"{config.LOG_MAIN_FOLDER}{logger_file}")
-        self.translater = RaydiumCLMMTranslater(logger=logger_name)
         self.logger = get_logger(logger_name=logger_name)
+        self.translater = RaydiumCLMMTranslater(logger=self.logger)
         self.program_id = SolanaPubkey.from_string(config.RAYDIUM_CLMM_PROGRAM_ID)
 
     @staticmethod
@@ -183,13 +193,8 @@ class RaydiumCLMM(Solana):
                 start_index = start_indexes[i]
 
                 raw_tick_array = raw_data.get(PDA, [{}])[0].get('data')
-                if not raw_tick_array:
-                    self.logger.warning(f"Raw tick array for address {address} was not found in the data")
-                    continue
                 tick_array = self.translater.translate_TickArray(raw_tick_array, start_index, tick_spacing)
-                if not tick_array:
-                    self.logger.warning(f"Couldn't translate Raw tick array for address {address} was not found in the data")
-                    continue
+                if not tick_array: continue
                 tickArray.update(tick_array)
 
             final_assembled_pools[address] = {

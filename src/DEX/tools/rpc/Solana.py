@@ -90,9 +90,7 @@ class Solana(Helper):
                 for i, value in enumerate(values):
                     try:
                         address = original_chunk[i]
-                        if not value:
-                            self.logger.warning(f"Address {address} not found in Solana. Pls check it.")
-                            continue
+                        if not value: continue
 
                         if isinstance(field, list):
                             processed_fields = {}

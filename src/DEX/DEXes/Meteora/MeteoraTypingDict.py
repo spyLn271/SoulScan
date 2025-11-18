@@ -28,12 +28,6 @@ class MeteoraVParameters(TypedDict):
 class MeteoraBin(TypedDict):
     amount_x: int
     amount_y: int
-    price: int
-    liquidity_supply: int
-    fee_amount_x_per_token_stored: int
-    fee_amount_y_per_token_stored: int
-    amount_x_in: int
-    amount_y_in: int
 
 class MeteoraLbPair(TypedDict):
     parameters: MeteoraParameters

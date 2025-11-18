@@ -1,9 +1,9 @@
-from src.DEX.Swap.math_.OriginMath.UniswapV2Math import UltimateUniswapV2Math
-from src.DEX.Swap.math_.OriginMath.UniswapV3Math import UltimateUniswapV3Math
-from src.DEX.Swap.math_.OriginMath.TraderJoeMath import UltimateTraderJoeMath
+from src.DEX.Swap.math_.OriginMath import UniswapV2Math
+from src.DEX.Swap.math_.OriginMath import UniswapV3Math
+from src.DEX.Swap.math_.OriginMath import TraderJoeMath
 
 
 __all__ = [
-    'UltimateUniswapV2Math',
-    'UltimateUniswapV3Math',
-    'UltimateTraderJoeMath']
+    'UniswapV2Math',
+    'UniswapV3Math',
+    'TraderJoeMath']

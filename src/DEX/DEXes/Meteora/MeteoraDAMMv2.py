@@ -71,7 +71,7 @@ class MeteoraDAMMv2(Solana):
         super().__init__(SOLANA_RPC_ENDPOINT)
 
         setup_logger(logger_name=logger_name, log_file=f"{config.LOG_MAIN_FOLDER}{logger_file}")
-        self.translater = MeteoraDAMMv2Translater(logger=logger_name)
+        self.translater = MeteoraDAMMv2Translater(logger=self.logger)
         self.logger = get_logger(logger_name)
 
     async def getBigBox(self, addresses: list) -> dict:
