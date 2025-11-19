@@ -191,6 +191,10 @@ class RaydiumCLMM(Solana):
             tickArray = {}
             for i, PDA in enumerate(PDAs):
                 start_index = start_indexes[i]
+                if PDA not in raw_data:
+                    self.logger.error(f"PDA({PDA}) info was not found in Solana response. "
+                                      f"Maybe there was some error problem the request in RPC part.")
+                    continue
 
                 raw_tick_array = raw_data.get(PDA, [{}])[0].get('data')
                 tick_array = self.translater.translate_TickArray(raw_tick_array, start_index, tick_spacing)

@@ -172,6 +172,11 @@ class OrcaCLMM(Solana):
 
             tick_arrays = {}
             for i, pda in enumerate(pdas):
+                if pda not in raw_data:
+                    self.logger.error(f"PDA({pda}) info was not found in Solana response. "
+                                      f"Maybe there was some error problem the request in RPC part.")
+                    continue
+
                 raw_tick_array = raw_data.get(pda, [{}])[0].get('data')
                 tick_array_data = self.translater.tick_array_func(raw_tick_array, tick_spacing, start_indexes[i])
                 if not tick_array_data: continue

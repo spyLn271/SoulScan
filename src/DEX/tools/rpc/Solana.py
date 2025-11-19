@@ -90,13 +90,12 @@ class Solana(Helper):
                 for i, value in enumerate(values):
                     try:
                         address = original_chunk[i]
-                        if not value: continue
 
                         if isinstance(field, list):
                             processed_fields = {}
                             for field_name in field:
                                 func = funcs.get(field_name, funcs['default'])
-                                raw_field_data = func(value.get(field_name) if isinstance(value, dict) else None)
+                                raw_field_data = func(value.get(field_name)) if isinstance(value, dict) else None
                                 processed_fields[field_name] = raw_field_data
                             return_data.setdefault(address, []).append(processed_fields)
                         else:

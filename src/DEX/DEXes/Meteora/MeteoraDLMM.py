@@ -152,6 +152,11 @@ class MeteoraDLMM(Solana):
 
             binArrays = {}
             for i, pda in enumerate(PDA):
+                if pda not in raw_data:
+                    self.logger.error(f"PDA({pda}) info was not found in Solana response. "
+                                      f"Maybe there was some error problem the request in RPC part.")
+                    continue
+
                 raw_pda_info = raw_data.get(pda, [{}])[0].get('data')
                 binArray_info = self.translater.translate_BinArray(raw_pda_info, start_indexes[i])
                 if not binArray_info:
