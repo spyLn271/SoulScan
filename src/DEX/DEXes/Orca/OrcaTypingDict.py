@@ -1,4 +1,5 @@
 from typing import TypedDict, Dict
+from src.Config.BasicSchemeAndTypeDict import Tick
 
 # Dependencies
 class WhirlpoolDependencies(TypedDict):
@@ -15,17 +16,6 @@ class WhirlpoolCacheDependencies(TypedDict):
     Oracle: list[str] | list
 
 # Whirlpool Data
-class Tick(TypedDict):
-    initialized: bool
-    liquidityNet: int
-    liquidityGross: int
-    feeGrowthOutsideA: int
-    feeGrowthOutsideB: int
-
-
-
-
-
 class AdaptiveFeeConstants(TypedDict):
     filterPeriod: int
     decayPeriod: int

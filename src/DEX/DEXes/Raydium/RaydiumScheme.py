@@ -1,4 +1,5 @@
 import pydantic
+from src.Config.BasicSchemeAndTypeDict import TickScheme
 
 # RaydiumCLMM Scheme
 class RaydiumCLMMDependenciesScheme(pydantic.BaseModel):
@@ -22,15 +23,10 @@ class RaydiumPoolStateScheme(pydantic.BaseModel):
     amm_config: str
     tick_array_bitmap: list[int]
 
-class RaydiumTickScheme(pydantic.BaseModel):
-    model_config = pydantic.ConfigDict(extra='forbid')
-
-    liquidity_net: int
-    liquidity_gross: int
 
 class RaydiumClmmScheme(pydantic.BaseModel):
     PoolState: RaydiumPoolStateScheme
-    ticks: dict[str, RaydiumTickScheme] | None = None
+    ticks: dict[str, TickScheme]
 
 class RaydiumCacheClmmScheme(RaydiumPoolStateScheme):
     pass

@@ -68,8 +68,8 @@ class RaydiumCLMMTranslater(Translater):
             not_init_ticks_dict = {}
             for i in range(config.TICK_ARRAY_SIZE_RAYDIUM_CLMM):
                 not_init_ticks_dict[str(start_index + i * tick_spacing)] = {
-                    "liquidity_net": 0,
-                    "liquidity_gross": 0
+                    "liquidityNet": 0,
+                    "liquidityGross": 0
                 }
 
             return not_init_ticks_dict
@@ -86,8 +86,8 @@ class RaydiumCLMMTranslater(Translater):
             ticks_dict = {}
             for i, tick in enumerate(ticks_array):
                 ticks_dict[str(start_index + i * tick_spacing)] = {
-                    "liquidity_net": tick["liquidity_net"],
-                    "liquidity_gross": tick["liquidity_gross"]
+                    "liquidityNet": tick["liquidity_net"],
+                    "liquidityGross": tick["liquidity_gross"]
                 }
 
             return ticks_dict

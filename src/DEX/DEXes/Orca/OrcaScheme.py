@@ -1,5 +1,6 @@
 import pydantic
 from typing import Dict
+from src.Config.BasicSchemeAndTypeDict import TickScheme
 
 
 """
@@ -21,19 +22,6 @@ class WhirlpoolCacheDependenciesScheme(pydantic.BaseModel):
     Oracle: list[str] | list
 
 # Whirlpool Data Scheme
-class TickScheme(pydantic.BaseModel):
-    model_config = pydantic.ConfigDict(extra='forbid')
-
-    initialized: bool
-    liquidityNet: int
-    liquidityGross: int
-    feeGrowthOutsideA: int
-    feeGrowthOutsideB: int
-
-
-
-
-
 class AdaptiveFeeConstantsScheme(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(extra='forbid')
 

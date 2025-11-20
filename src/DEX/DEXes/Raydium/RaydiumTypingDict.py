@@ -1,4 +1,5 @@
 from typing import TypedDict
+from src.Config.BasicSchemeAndTypeDict import Tick
 
 # RaydiumCLMM
 class RaydiumCLMMDependencies(TypedDict):
@@ -20,13 +21,10 @@ class RaydiumPoolState(TypedDict):
     amm_config: str
     tick_array_bitmap: list[int]
 
-class RaydiumTick(TypedDict):
-    liquidity_net: int
-    liquidity_gross: int
 
 class RaydiumClmm(TypedDict):
     PoolState: RaydiumPoolState
-    ticks: dict[str, RaydiumTick] | None
+    ticks: dict[str, Tick]
 
 class RaydiumCacheClmm(TypedDict):
     pass

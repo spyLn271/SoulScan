@@ -19,11 +19,8 @@ class OrcaCLMMTranslater(Translater):
             not_init_ticks = {}
             for pos in range(config.TICK_ARRAY_SIZE_ORCA_CLMM):
                 not_init_ticks[str(_start_indexes + pos * _tick_spacing)] = {
-                    'initialized': False,
                     'liquidityNet': 0,
                     'liquidityGross': 0,
-                    'feeGrowthOutsideA': 0,
-                    'feeGrowthOutsideB': 0,
                 }
             return not_init_ticks
 
@@ -36,11 +33,8 @@ class OrcaCLMMTranslater(Translater):
             ticks_dict = {}
             for pos, tick in enumerate(ticks):
                 ticks_dict[str(_start_indexes + pos * _tick_spacing)] = {
-                    'initialized': tick.get('initialized'),
                     'liquidityNet': tick.get('liquidityNet'),
                     'liquidityGross': tick.get('liquidityGross'),
-                    'feeGrowthOutsideA': tick.get('feeGrowthOutsideA'),
-                    'feeGrowthOutsideB': tick.get('feeGrowthOutsideB'),
                 }
             return ticks_dict
 
