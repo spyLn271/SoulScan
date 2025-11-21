@@ -150,13 +150,15 @@ class UltimateUniswapV3Swap:
         ticks = params['ticks']
         fee_kwarg = params['fee_kwarg'] | {"crossed_tick": 0, "current_time": Decimal(int(time.time()))}
 
+        current_tick_sterilized = (current_tick // tick_spacing) * tick_spacing
+        lower_tick = current_tick_sterilized
+        upper_tick = current_tick_sterilized + tick_spacing
+
 
         break_counter = 0
         while amount_remaining > 0 and break_counter < len(ticks):
             try:
                 feeRate = self.get_fee(**fee_kwarg)
-                upper_tick = ((current_tick // tick_spacing) * tick_spacing) + tick_spacing
-                lower_tick = ((current_tick // tick_spacing) * tick_spacing) if current_tick % tick_spacing != 0 else current_tick - tick_spacing
 
                 swap_computation = self.swap_within_tick({
                     "sqrt_P_start": sqrt_P_start,
@@ -187,10 +189,20 @@ class UltimateUniswapV3Swap:
                 if not is_max or amount_remaining < Decimal("1"):
                     break
                 else:
-                    sqrt_P_start = boundary_sqrt_P
-                    current_tick = lower_tick if x_to_y else upper_tick
                     fee_kwarg["crossed_tick"] += 1
-                    L += liquidity_direction * Decimal(ticks[str(current_tick)]["liquidityNet"])
+                    sqrt_P_start = boundary_sqrt_P
+
+
+                    if x_to_y:
+                        current_tick = lower_tick
+                        upper_tick = lower_tick
+                        lower_tick -= tick_spacing
+                        L += liquidity_direction * Decimal(ticks[str(current_tick - tick_spacing)]["liquidityNet"])
+                    else:
+                        current_tick = upper_tick
+                        lower_tick = upper_tick
+                        upper_tick += tick_spacing
+                        L += liquidity_direction * Decimal(ticks[str(current_tick)]["liquidityNet"])
 
 
 

@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 import typing
 
 class UniswapV2SwapingTD(typing.TypedDict):
@@ -25,17 +25,18 @@ class UltimateUniswapV2Math:
 
         if x_to_y:
             delta_y: Decimal = (reserve_y * delta_token) // (reserves_x + delta_token)
-            return delta_y
+            return delta_y.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
         else:
             delta_x: Decimal = (reserves_x * delta_token) // (reserve_y + delta_token)
-            return delta_x
+            return delta_x.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
 
 
 def test():
     v2 = UltimateUniswapV2Math
     params = v2.SwapingTD(reserve_y=Decimal("500") * 10 ** 6,
                           reserves_x=Decimal("100") * 10 ** 9,
-                          delta_token=Decimal("1") * 10 ** 9, x_to_y=True)
+                          delta_token=Decimal("1") * 10 ** 9,
+                          x_to_y=True)
     print(
         v2.swap_exact_token(params)
     )
