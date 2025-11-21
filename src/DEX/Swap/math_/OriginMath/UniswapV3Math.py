@@ -1,4 +1,4 @@
-from decimal import Decimal, getcontext
+from decimal import Decimal, getcontext, ROUND_HALF_UP
 import typing
 
 getcontext().prec = 50
@@ -38,12 +38,12 @@ class UltimateUniswapV3Math:
     @staticmethod
     def get_x_amount(sqrt_P_start: Decimal, sqrt_P_end: Decimal, L: Decimal) -> Decimal:
         delta_x: Decimal = abs((1/sqrt_P_end - 1/sqrt_P_start) * L)
-        return delta_x.to_integral_exact(rounding="ROUND_FLOOR")
+        return abs(delta_x.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
     @staticmethod
     def get_y_amount(sqrt_P_start: Decimal, sqrt_P_end: Decimal, L: Decimal) -> Decimal:
         delta_y: Decimal = abs((sqrt_P_end - sqrt_P_start) * L)
-        return delta_y.to_integral_exact(rounding="ROUND_FLOOR")
+        return abs(delta_y.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
     @staticmethod
     def get_sqrt_P_end_with_x(sqrt_P_start: Decimal, L: Decimal, delta_x: Decimal) -> Decimal:
@@ -104,3 +104,6 @@ def test():
     print(amount_x, amount_y)
     print(type(amount_x), type(amount_y))
     print(next_sqrt_P, sqrt_P_start)
+
+if __name__ == '__main__':
+    test()
