@@ -58,8 +58,8 @@ class UltimateUniswapV3Swap:
         :param kwargs: There always will be 'crossed_tick: int' and 'current_time: Decimal'
         :return: 0.03 % -> 0.0003
         """
-        return Decimal(str(kwargs["feeRate"])) / 1_000_000  # for test
-        # raise Exception("Fee was not implemented yet.")
+        # return Decimal(str(kwargs["feeRate"])) / 1_000_000  # for test
+        raise Exception("Fee was not implemented yet.")
 
     def swap_within_tick(self, params: UniswapV3SwapTickTD) -> SwapStepComputation:
         sqrt_P_start = params['sqrt_P_start']
