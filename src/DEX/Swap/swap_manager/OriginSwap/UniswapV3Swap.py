@@ -55,7 +55,7 @@ class UltimateUniswapV3Swap:
     def get_fee(**kwargs) -> Decimal:
         """
         Should be without percentage.
-        :param kwargs: There always will be 'crossed_tick: int' and 'current_time: Decimal'
+        :param kwargs: There always will be 'crossed_tick: int', 'current_time: Decimal' and 'current_tick'
         :return: 0.03 % -> 0.0003
         """
         # return Decimal(str(kwargs["feeRate"])) / 1_000_000  # for test
@@ -148,7 +148,9 @@ class UltimateUniswapV3Swap:
         liquidity_direction = -1 if x_to_y else 1
         amount_specified_is_input = params['amount_specified_is_input']
         ticks = params['ticks']
-        fee_kwarg = params['fee_kwarg'] | {"crossed_tick": 0, "current_time": Decimal(int(time.time()))}
+        fee_kwarg = params['fee_kwarg'] | {"crossed_tick": 0,
+                                           "current_time": Decimal(int(time.time())),
+                                           "current_tick": current_tick}
 
         current_tick_sterilized = (current_tick // tick_spacing) * tick_spacing
         lower_tick = current_tick_sterilized
@@ -189,10 +191,6 @@ class UltimateUniswapV3Swap:
                 if not is_max or amount_remaining < Decimal("1"):
                     break
                 else:
-                    fee_kwarg["crossed_tick"] += 1
-                    sqrt_P_start = boundary_sqrt_P
-
-
                     if x_to_y:
                         current_tick = lower_tick
                         upper_tick = lower_tick
@@ -203,6 +201,10 @@ class UltimateUniswapV3Swap:
                         lower_tick = upper_tick
                         upper_tick += tick_spacing
                         L += liquidity_direction * Decimal(ticks[str(current_tick)]["liquidityNet"])
+
+                    fee_kwarg["crossed_tick"] += 1
+                    fee_kwarg["current_tick"] = current_tick
+                    sqrt_P_start = boundary_sqrt_P
 
 
 

@@ -49,7 +49,7 @@ class TraderJoeSwap:
     def get_fee(**kwargs) -> Decimal:
         """
         Should be without percentage.
-        :param kwargs: There always will be 'crossed_bins: int' and 'current_time: Decimal'
+        :param kwargs: There always will be 'crossed_bins: int', 'current_time: Decimal' and 'current_id'
         :return: 0.03 % -> 0.0003
         """
         raise Exception("Fee was not implemented yet.")
@@ -130,7 +130,9 @@ class TraderJoeSwap:
         bins = params['bins']
         x_to_y = params['x_to_y']
         amount_specified_is_input = params['amount_specified_is_input']
-        fee_kwarg = params['fee_kwarg'] | {"crossed_bins": 0, "current_time": Decimal(int(time.time()))}
+        fee_kwarg = params['fee_kwarg'] | {"crossed_bins": 0,
+                                           "current_time": Decimal(int(time.time())),
+                                           "current_id": active_id}
 
         message: str = 'failure, loop was too long'
         bin_direction = -1 if x_to_y else 1
@@ -176,8 +178,9 @@ class TraderJoeSwap:
                     message = 'success'
                     break
                 else:
-                    fee_kwarg["crossed_bins"] += 1
                     active_id += bin_direction
+                    fee_kwarg["crossed_bins"] += 1
+                    fee_kwarg["current_id"] = active_id
             except KeyError:
                 message = f"Bin with id: {str(active_id)} was not found."
                 break
