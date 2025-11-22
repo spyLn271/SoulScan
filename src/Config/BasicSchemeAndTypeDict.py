@@ -8,3 +8,11 @@ class Tick(TypedDict):
 class TickScheme(BaseModel):
     liquidityNet: int
     liquidityGross: int
+
+class Bins(TypedDict):
+    amount_x: int
+    amount_y: int
+
+class BinScheme(BaseModel):
+    amount_x: int
+    amount_y: int

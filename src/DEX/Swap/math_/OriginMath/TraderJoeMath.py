@@ -1,7 +1,16 @@
 from decimal import *
+from typing import TypedDict
+
+class TraderJoeSwapingTD(TypedDict):
+    P: Decimal
+    delta_token: Decimal
+    x_to_y: bool
+    amount_specified_is_input: bool
 
 
 class UltimateTraderJoeMath:
+    SwapingTD = TraderJoeSwapingTD
+
     @staticmethod
     def get_price_from_id(activeId: Decimal, binStep: Decimal) -> Decimal:
         return (1 + binStep / 10_000) ** activeId
@@ -16,23 +25,16 @@ class UltimateTraderJoeMath:
 
 
     @staticmethod
-    def swap_in_x_to_y_within_bin(P: Decimal, amountX: Decimal) -> Decimal:
-        return P * amountX
+    def swap_exact_token(params: TraderJoeSwapingTD) -> Decimal:
+        P = params['P']
+        delta_token = params['delta_token']
+        x_to_y = params['x_to_y']
+        amount_specified_is_input = params['amount_specified_is_input']
 
-    @staticmethod
-    def swap_in_y_to_x_within_bin(P: Decimal, amountY: Decimal) -> Decimal:
-        return amountY / P
+        if not amount_specified_is_input:
+            x_to_y = not x_to_y
 
-    @staticmethod
-    def swap_out_x_to_y_within_bin(P: Decimal, amountOutY: Decimal) -> Decimal:
-        """
-        Return the amount of token X is needed to get 'amountOutY' of token Y.
-        """
-        return amountOutY / P
-
-    @staticmethod
-    def swap_out_y_to_x_within_bin(P: Decimal, amountOutX: Decimal) -> Decimal:
-        """
-        Return the amount of token Y is needed to get 'amountOutX' of token X.
-        """
-        return P * amountOutX
+        if x_to_y:
+            return P * delta_token
+        else:
+            return delta_token / P

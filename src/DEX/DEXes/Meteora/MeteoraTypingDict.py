@@ -1,4 +1,5 @@
 from typing import TypedDict
+from src.Config.BasicSchemeAndTypeDict import Bins
 
 # DLMM V2
 class LbPairDependencies(TypedDict):
@@ -25,9 +26,6 @@ class MeteoraVParameters(TypedDict):
     index_reference: int
     last_update_timestamp: int
 
-class MeteoraBin(TypedDict):
-    amount_x: int
-    amount_y: int
 
 class MeteoraLbPair(TypedDict):
     parameters: MeteoraParameters
@@ -38,7 +36,7 @@ class MeteoraLbPair(TypedDict):
 
 class MeteoraDlmm(TypedDict):
     LbPair: MeteoraLbPair
-    bins: dict[str, MeteoraBin]
+    bins: dict[str, Bins]
 
 class MeteoraDlmmCache(MeteoraLbPair):
     pass

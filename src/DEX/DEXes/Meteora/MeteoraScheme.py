@@ -1,4 +1,5 @@
 import pydantic
+from src.Config.BasicSchemeAndTypeDict import BinScheme
 
 # DLMM V2 Schemes
 class LbPairDependenciesScheme(pydantic.BaseModel):
@@ -29,11 +30,6 @@ class MeteoraVParametersScheme(pydantic.BaseModel):
     index_reference: int
     last_update_timestamp: int
 
-class MeteoraBinScheme(pydantic.BaseModel):
-    model_config = pydantic.ConfigDict(extra='forbid')
-
-    amount_x: int
-    amount_y: int
 
 class MeteoraLbPairScheme(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(extra='forbid')
@@ -46,7 +42,7 @@ class MeteoraLbPairScheme(pydantic.BaseModel):
 
 class MeteoraDlmmScheme(pydantic.BaseModel):
     LbPair: MeteoraLbPairScheme
-    bins: dict[str, MeteoraBinScheme]
+    bins: dict[str, BinScheme]
 
 class MeteoraDlmmCacheScheme(MeteoraLbPairScheme):
     pass
