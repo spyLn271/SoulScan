@@ -12,8 +12,7 @@ class RaydiumAmmState(PoolStateFetcher):
         conf = PoolStateConfigScheme(market=self.MARKET,
                                      version=self.VERSION,
                                      provider=RaydiumHybridAMM,
-                                     cache_update_time=10 * 60,
-                                     interval_sleep_time=1)
+                                     cache_update_time=10 * 60)
         super().__init__(conf)
 
 

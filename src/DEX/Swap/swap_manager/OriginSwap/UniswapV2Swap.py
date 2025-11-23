@@ -27,8 +27,7 @@ class UniswapV2Swap:
     ultimate_math = UltimateUniswapV2Math()
     SwapTD = UniswapV2SwapTD
 
-    @staticmethod
-    def get_fee(**kwargs) -> Decimal:
+    def get_fee(self, **kwargs) -> Decimal:
         """
         Should be without percentage.
         :param kwargs: There always will be 'crossed_tick: int' and 'current_time: Decimal'

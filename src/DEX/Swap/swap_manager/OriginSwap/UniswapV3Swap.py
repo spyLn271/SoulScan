@@ -51,8 +51,7 @@ class UltimateUniswapV3Swap:
 
     SwapTD = UniswapV3SwapTD
 
-    @staticmethod
-    def get_fee(**kwargs) -> Decimal:
+    def get_fee(self, **kwargs) -> Decimal:
         """
         Should be without percentage.
         :param kwargs: There always will be 'crossed_tick: int', 'current_time: Decimal', 'current_tick'
@@ -174,6 +173,7 @@ class UltimateUniswapV3Swap:
                     "L": L,
                     "fee": feeRate,
                 })
+                print(swap_computation)
 
                 amount_in = swap_computation['amount_in']
                 amount_out = swap_computation['amount_out']
