@@ -28,3 +28,4 @@ MARKETS = {
     "raydium_clmm": {"market": "raydium", "version": "clmm"},
     "raydium_amm": {"market": "raydium", "version": "amm"},
 }
+ACTIVE_MARKETS = ['meteora_dlmm', 'orca_clmm', 'raydium_clmm', 'raydium_amm']

@@ -7,15 +7,16 @@ from src.DEX.Swap.math_.MeteoraMath.MeteoraDlmmMath import MeteoraDlmmMath
 from src.DEX.DEXes.Meteora.MeteoraTypingDict import MeteoraDlmm, MeteoraLbPair
 ####################################
 
-class MeteoraDlmmSwapParams(TypedDict):
-    PoolState: MeteoraDlmm
+class MeteoraDlmmSwapTD(TypedDict):
+    pool_state: MeteoraDlmm
+    metadata: dict
     delta_amount: Decimal
     x_to_y: bool
     amount_specified_is_input: bool
 
 class MeteoraDlmmSwap(TraderJoeSwap):
     meteora_dlmm_math = MeteoraDlmmMath()
-    meteora_dlmm_swap_params = MeteoraDlmmSwapParams
+    meteora_dlmm_swap_params = MeteoraDlmmSwapTD
 
     def get_fee(self, **kwargs) -> Decimal:
         """
@@ -39,8 +40,8 @@ class MeteoraDlmmSwap(TraderJoeSwap):
 
         return self.meteora_dlmm_math.get_fee(dlmm_swap_params)
 
-    def meteora_dlmm_swap(self, params: MeteoraDlmmSwapParams) -> PoolSwap:
-        PoolState = params['PoolState']
+    def meteora_dlmm_swap(self, params: MeteoraDlmmSwapTD) -> PoolSwap:
+        PoolState = params['pool_state']
         delta_amount = params['delta_amount']
         x_to_y = params['x_to_y']
         amount_specified_is_input = params['amount_specified_is_input']
@@ -94,7 +95,8 @@ def test():
     target_pool_metadata = MeteoraDlmmMetadataScheme(**metadata.get(pool_address))
 
     prams_test_1 = meteoraSwap.meteora_dlmm_swap_params(
-        PoolState=target_pool_state.model_dump(),
+        pool_state=target_pool_state.model_dump(),
+        metadata={},
         delta_amount=Decimal(str(29375 * 10 ** x_decimal)),
         x_to_y=True,
         amount_specified_is_input=True
@@ -106,7 +108,8 @@ def test():
     print("_"*90)
 
     params_test_2 = meteoraSwap.meteora_dlmm_swap_params(
-        PoolState=target_pool_state.model_dump(),
+        pool_state=target_pool_state.model_dump(),
+        metadata={},
         delta_amount=res_test_1["result"],
         x_to_y=True,
         amount_specified_is_input=False
@@ -119,7 +122,8 @@ def test():
 
 
     params_test_3 = meteoraSwap.meteora_dlmm_swap_params(
-        PoolState=target_pool_state.model_dump(),
+        pool_state=target_pool_state.model_dump(),
+        metadata={},
         delta_amount=Decimal(str(129080 * 10 ** y_decimal)),
         x_to_y=False,
         amount_specified_is_input=True
@@ -132,7 +136,8 @@ def test():
 
 
     params_test_4 = meteoraSwap.meteora_dlmm_swap_params(
-        PoolState=target_pool_state.model_dump(),
+        pool_state=target_pool_state.model_dump(),
+        metadata={},
         delta_amount=res_test_3["result"],
         x_to_y=False,
         amount_specified_is_input=False
