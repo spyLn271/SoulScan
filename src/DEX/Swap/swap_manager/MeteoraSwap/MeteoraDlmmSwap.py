@@ -81,7 +81,7 @@ def test():
 
     market = 'meteora'
     version = 'dlmm'
-    pool_address = '7gj8L6q7kePSTUuJpx6Es4Z9FkWaKnW1YfKzYwnQFtVB'
+    pool_address = '9d9mb8kooFfaD3SctgZtkxQypkshx6ezhbKio89ixyy2'
 
     x_decimal = 6
     y_decimal = 6
@@ -95,7 +95,7 @@ def test():
 
     prams_test_1 = meteoraSwap.meteora_dlmm_swap_params(
         PoolState=target_pool_state.model_dump(),
-        delta_amount=Decimal(str(1000 * 10 ** x_decimal)),
+        delta_amount=Decimal(str(29375 * 10 ** x_decimal)),
         x_to_y=True,
         amount_specified_is_input=True
     )
@@ -103,6 +103,44 @@ def test():
     print(f"TEST 1: {prams_test_1} \n"
           f"RESULT 1: {res_test_1} \n")
     print(f"Output: {res_test_1['result'] / 10 ** y_decimal}")
+    print("_"*90)
+
+    params_test_2 = meteoraSwap.meteora_dlmm_swap_params(
+        PoolState=target_pool_state.model_dump(),
+        delta_amount=res_test_1["result"],
+        x_to_y=True,
+        amount_specified_is_input=False
+    )
+    res_test_2 = meteoraSwap.meteora_swap(params_test_2)
+    print(f"TEST 2: {params_test_2} \n"
+          f"RESULT 2: {res_test_2} \n")
+    print(f"Output: {res_test_2['result'] / 10 ** x_decimal}")
+    print("_"*90)
+
+
+    params_test_3 = meteoraSwap.meteora_dlmm_swap_params(
+        PoolState=target_pool_state.model_dump(),
+        delta_amount=Decimal(str(129080 * 10 ** y_decimal)),
+        x_to_y=False,
+        amount_specified_is_input=True
+    )
+    res_test_3 = meteoraSwap.meteora_swap(params_test_3)
+    print(f"TEST 3: {params_test_3} \n"
+          f"RESULT 3: {res_test_3} \n")
+    print(f"Output: {res_test_3['result'] / 10 ** x_decimal}")
+    print("_"*90)
+
+
+    params_test_4 = meteoraSwap.meteora_dlmm_swap_params(
+        PoolState=target_pool_state.model_dump(),
+        delta_amount=res_test_3["result"],
+        x_to_y=False,
+        amount_specified_is_input=False
+    )
+    res_test_4 = meteoraSwap.meteora_swap(params_test_4)
+    print(f"TEST 4: {params_test_4} \n"
+          f"RESULT 4: {res_test_4} \n")
+    print(f"Output: {res_test_4['result'] / 10 ** y_decimal}")
     print("_"*90)
 
 
