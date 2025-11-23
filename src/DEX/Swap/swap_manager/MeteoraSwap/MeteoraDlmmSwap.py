@@ -1,0 +1,68 @@
+from decimal import Decimal
+from typing import TypedDict
+
+####################################
+from src.DEX.Swap.swap_manager.OriginSwap.TraderJoeSwap import TraderJoeSwap, PoolSwap
+from src.DEX.Swap.math_.MeteoraMath.MeteoraDlmmMath import MeteoraDlmmMath
+from src.DEX.DEXes.Meteora.MeteoraTypingDict import MeteoraDlmm, MeteoraLbPair
+####################################
+
+class MeteoraDlmmSwapParams(TypedDict):
+    PoolState: MeteoraDlmm
+    delta_amount: Decimal
+    x_to_y: bool
+    amount_specified_is_input: bool
+
+class MeteoraDlmmSwap(TraderJoeSwap):
+    meteora_dlmm_math = MeteoraDlmmMath()
+
+    def get_fee(self, **kwargs) -> Decimal:
+        """
+        Should be without percentage.
+        :param kwargs: There always will be 'crossed_bins: int', 'current_time: Decimal', 'current_id',
+         and 'start_active_id'
+        :return: 0.03 % -> 0.0003
+        """
+
+        LbPair: MeteoraLbPair = kwargs['LbPair']
+        crossed_bins = kwargs['crossed_bins']
+        current_time = kwargs['current_time']
+        start_active_id = kwargs['start_active_id']
+
+        dlmm_swap_params = self.meteora_dlmm_math.dlmm_swap_params(
+            LbPair=LbPair,
+            crossed_bins=crossed_bins,
+            current_time=current_time,
+            start_active_id=start_active_id
+        )
+
+        return self.meteora_dlmm_math.get_fee(dlmm_swap_params)
+
+    def meteora_swap(self, params: MeteoraDlmmSwapParams) -> PoolSwap:
+        PoolState = params['PoolState']
+        delta_amount = params['delta_amount']
+        x_to_y = params['delta_amount']
+        amount_specified_is_input = params['amount_specified_is_input']
+
+        LbPair = PoolState['LbPair']
+        bins = PoolState['bins']
+        bin_step = Decimal(str(LbPair['bin_step']))
+        active_id = Decimal(str(LbPair['active_id']))
+        P = self.ultimate_math.get_price_from_id(active_id, bin_step)
+
+
+        fee_kwargs = {
+            'LbPair': LbPair
+        }
+
+        swap_params = self.SwapTD(
+            amount_remaining=delta_amount,
+            bin_step=bin_step,
+            P=P,
+            active_id=active_id,
+            bins=bins,
+            x_to_y=x_to_y,
+            amount_specified_is_input=amount_specified_is_input,
+            fee_kwarg=fee_kwargs
+        )
+        return self.swap(swap_params)

@@ -45,8 +45,8 @@ class TraderJoeSwap:
     SwapTD = TraderJoeSwapTD
 
 
-    @staticmethod
-    def get_fee(**kwargs) -> Decimal:
+
+    def get_fee(self, **kwargs) -> Decimal:
         """
         Should be without percentage.
         :param kwargs: There always will be 'crossed_bins: int', 'current_time: Decimal', 'current_id',
