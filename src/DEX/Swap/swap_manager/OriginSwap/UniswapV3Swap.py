@@ -173,7 +173,6 @@ class UltimateUniswapV3Swap:
                     "L": L,
                     "fee": feeRate,
                 })
-                print(swap_computation)
 
                 amount_in = swap_computation['amount_in']
                 amount_out = swap_computation['amount_out']
