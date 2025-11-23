@@ -49,7 +49,8 @@ class TraderJoeSwap:
     def get_fee(**kwargs) -> Decimal:
         """
         Should be without percentage.
-        :param kwargs: There always will be 'crossed_bins: int', 'current_time: Decimal' and 'current_id'
+        :param kwargs: There always will be 'crossed_bins: int', 'current_time: Decimal', 'current_id',
+         and 'start_active_id'
         :return: 0.03 % -> 0.0003
         """
         raise Exception("Fee was not implemented yet.")
@@ -132,7 +133,8 @@ class TraderJoeSwap:
         amount_specified_is_input = params['amount_specified_is_input']
         fee_kwarg = params['fee_kwarg'] | {"crossed_bins": 0,
                                            "current_time": Decimal(int(time.time())),
-                                           "current_id": active_id}
+                                           "current_id": active_id,
+                                           "start_active_id": active_id,}
 
         message: str = 'failure, loop was too long'
         bin_direction = -1 if x_to_y else 1
@@ -144,9 +146,13 @@ class TraderJoeSwap:
                 active_reserves_y = Decimal(str(bins[str(active_id)]["amount_y"]))
                 if x_to_y and active_reserves_y == 0:
                     active_id += bin_direction
+                    fee_kwarg["crossed_bins"] += bin_direction
+                    fee_kwarg["current_id"] = active_id
                     continue
                 elif not x_to_y and active_reserves_x == 0:
                     active_id += bin_direction
+                    fee_kwarg["crossed_bins"] += bin_direction
+                    fee_kwarg["current_id"] = active_id
                     continue
                 P = self.ultimate_math.get_price_from_id(active_id, bin_step)
                 feeRate = self.get_fee(**fee_kwarg)
@@ -179,7 +185,7 @@ class TraderJoeSwap:
                     break
                 else:
                     active_id += bin_direction
-                    fee_kwarg["crossed_bins"] += 1
+                    fee_kwarg["crossed_bins"] += bin_direction
                     fee_kwarg["current_id"] = active_id
             except KeyError:
                 message = f"Bin with id: {str(active_id)} was not found."
