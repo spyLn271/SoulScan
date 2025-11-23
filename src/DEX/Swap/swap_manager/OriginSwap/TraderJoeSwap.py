@@ -195,8 +195,8 @@ class TraderJoeSwap:
                 break
 
         return PoolSwap(
-            remain=amount_remaining,
-            result=amount_calculated,
-            fee=fee_total,
+            remain=amount_remaining.quantize(Decimal("1")),
+            result=amount_calculated.quantize(Decimal("1")),
+            fee=fee_total.quantize(Decimal("1")),
             message=message,
         )

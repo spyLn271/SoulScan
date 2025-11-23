@@ -162,4 +162,4 @@ async def testRaydiumClmmState():
 
 
 if __name__ == '__main__':
-    asyncio.run(testRaydiumClmmState())
+    asyncio.run(testMeteoraDlmmState())
