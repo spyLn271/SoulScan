@@ -1,3 +1,6 @@
+import os
+from pathlib import Path
+
 SOLANA_RPC_ENDPOINT = "https://solana-mainnet.core.chainstack.com/d70aa036553f9b407feda39c2d88a5f0"
 
 REDIS_HOST = "localhost"
@@ -6,7 +9,14 @@ REDIS_PORT = 6379
 REDIS_METADATA_KEY = 'snapshot:metadata:%s:%s'  # market and version
 POOLS_CURRENT_STATE_DICT_REDIS_KEY = 'snapshot:state:%s:%s'  # market and version
 
-LOG_MAIN_FOLDER = 'LogFolder/'
+BASE_DIR = Path(__file__).resolve().parent
+LOG_MAIN_FOLDER = ''
+
+for file in BASE_DIR.parts:
+    LOG_MAIN_FOLDER = os.path.join(LOG_MAIN_FOLDER, file)
+    if file == "SoulScan":
+        LOG_MAIN_FOLDER = os.path.join(LOG_MAIN_FOLDER, "LogFolder/")
+        break
 
 ORCA_CLMM_PROGRAM_ID = 'whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc'
 METEORA_DLMM_PROGRAM_ID = 'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo'
