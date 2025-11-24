@@ -12,7 +12,7 @@ def test_clmm():
 
     market = 'raydium'
     version = 'clmm'
-    pool = '2AXXcN6oN9bBT5owwmTH53C7QHUXvhLeu718Kqt8rvY2'
+    pool = 'AQAGYQsdU853WAKhXM79CgNdoyhrRwXvYHX6qrDyC1FS'
     x_decimal = 9
     y_decimal = 6
 
@@ -26,14 +26,14 @@ def test_clmm():
     swap_params_test_1 = swapV3.raydium_swap_params(
         pool_state=target_pool_state.model_dump(),
         metadata=target_pool_metadata.model_dump(),
-        delta_amount=Decimal(str(1 * 10 ** x_decimal)),
-        x_to_y=True,
+        delta_amount=Decimal(str(909080 * 10 ** y_decimal)),
+        x_to_y=False,
         amount_specified_is_input=True
     )
     res_test_1 = swapV3.raydium_clmm_swap(swap_params_test_1)
     print(f"TEST 1: {swap_params_test_1} \n"
           f"RESULT 1: {res_test_1} \n")
-    print(f"Output: {res_test_1['result'] / 10 ** y_decimal}")
+    print(f"Output: {res_test_1['result'] / 10 ** x_decimal}")
     print("_"*90)
 
 
@@ -77,3 +77,11 @@ def test_amm():
 
 if __name__ == '__main__':
     test_clmm()
+
+"""
+Before: 0.36206730632628861867852373968013068861182546243072, 79472422872020, -20320, -20280, -20220
+After: 0.36387333474683045885890895661548806806251790850291, 79474613484042, -20220, -20220, -20160
+Before: 0.36387333474683045885890895661548806806251790850291, 79474613484042, -20220, -20220, -20160
+After: 0.36496653907840055165145447387241019199378417398298, 79359190604612, -20160, -20160, -20100
+Before: 0.36496653907840055165145447387241019199378417398298, 79359190604612, -20160, -20160, -20100
+"""

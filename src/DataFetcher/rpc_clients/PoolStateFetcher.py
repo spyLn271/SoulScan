@@ -55,6 +55,7 @@ class PoolStateFetcher:
         self.r = redis.Redis(host=config.REDIS_HOST, port=config.REDIS_PORT, decode_responses=True)
         self.logger = get_logger(log_name)
         self.logger.info(f"PoolMetadataFetcher initialized for {self.market} {self.version}.")
+        self.logger.info(f"Current configuration: {conf.model_dump()}")
 
         self.cache = {}
         self.buffer = {}

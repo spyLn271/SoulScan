@@ -148,12 +148,17 @@ class UltimateUniswapV3Swap:
         liquidity_direction = -1 if x_to_y else 1
         amount_specified_is_input = params['amount_specified_is_input']
         ticks = params['ticks']
+        start_tick_group = current_tick // tick_spacing
+        if current_tick < tick_spacing:
+            start_tick_group -= 1
+
         fee_kwarg = params['fee_kwarg'] | {"crossed_tick": 0,
                                            "current_time": Decimal(int(time.time())),
                                            "current_tick": current_tick,
-                                           "start_current_tick_group": current_tick // tick_spacing}
+                                           "start_current_tick_group": start_tick_group}
 
-        current_tick_sterilized = (current_tick // tick_spacing) * tick_spacing
+
+        current_tick_sterilized = start_tick_group * tick_spacing
         lower_tick = current_tick_sterilized
         upper_tick = current_tick_sterilized + tick_spacing
 
@@ -225,110 +230,3 @@ class UltimateUniswapV3Swap:
             fee=fee_total,
             message='success' if break_counter < len(ticks) else 'failure, loop was too long',
         )
-
-
-
-
-def test():
-    import redis
-    import json
-    from src.Config import config
-    from src import WhirlpoolClmmScheme
-    from src.DataFetcher.api_clients.Orca.OrcaMetadataScheme import OrcaMetadataScheme
-
-    r = redis.Redis()
-
-    market = 'orca'
-    version = 'clmm'
-    pool = 'Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE'
-    x_decimal = 9
-    y_decimal = 6
-
-    current_state = json.loads(r.get(config.POOLS_CURRENT_STATE_DICT_REDIS_KEY % (market, version)))
-    metadata = json.loads(r.get(config.REDIS_METADATA_KEY % (market, version)))
-    swapV3 = UltimateUniswapV3Swap()
-
-    target_pool_metadata = OrcaMetadataScheme(**metadata.get(pool))
-    target_pool_state = WhirlpoolClmmScheme(**current_state.get(pool))
-
-
-    # test 1
-
-    amount_remaining_test_1 = Decimal(str(1139 * 10 ** x_decimal))
-    swap_params_test_1 = swapV3.SwapTD(
-        amount_remaining=amount_remaining_test_1,
-        current_tick=Decimal(str(target_pool_state.base_info.tickCurrentIndex)),
-        tick_spacing=Decimal(target_pool_state.base_info.tickSpacing),
-        unnormalized_sqrt_P_start=Decimal(str(target_pool_state.base_info.sqrtPrice)),
-        factor=Decimal("64"),
-        L=Decimal(str(target_pool_state.base_info.liquidity)),
-        x_to_y=True,
-        amount_specified_is_input=True,
-        ticks=target_pool_state.model_dump().get("ticks"),
-        fee_kwarg=target_pool_metadata.model_dump()
-    )
-    result_test_1 = swapV3.swap(swap_params_test_1)
-    print(f"TEST 1: {swap_params_test_1} \n"
-          f"RESULT 1: {result_test_1} \n")
-    print("_"*90)
-
-    # test 2
-    amount_remaining_test_2 = result_test_1["result"]
-    swap_params_test_2 = swapV3.SwapTD(
-        amount_remaining=amount_remaining_test_2,
-        current_tick=Decimal(str(target_pool_state.base_info.tickCurrentIndex)),
-        tick_spacing=Decimal(target_pool_state.base_info.tickSpacing),
-        unnormalized_sqrt_P_start=Decimal(str(target_pool_state.base_info.sqrtPrice)),
-        factor=Decimal("64"),
-        L=Decimal(str(target_pool_state.base_info.liquidity)),
-        x_to_y=True,
-        amount_specified_is_input=False,
-        ticks=target_pool_state.model_dump().get("ticks"),
-        fee_kwarg=target_pool_metadata.model_dump()
-    )
-    result_test_2 = swapV3.swap(swap_params_test_2)
-    print(f"TEST 2: {swap_params_test_2} \n"
-          f"RESULT 2: {result_test_2} \n")
-    print("_" * 90)
-
-    # test 3
-    amount_remaining_test_3 = Decimal(str(1200 * 10 ** x_decimal))
-    swap_params_test_3 = swapV3.SwapTD(
-        amount_remaining=amount_remaining_test_3,
-        current_tick=Decimal(str(target_pool_state.base_info.tickCurrentIndex)),
-        tick_spacing=Decimal(target_pool_state.base_info.tickSpacing),
-        unnormalized_sqrt_P_start=Decimal(str(target_pool_state.base_info.sqrtPrice)),
-        factor=Decimal("64"),
-        L=Decimal(str(target_pool_state.base_info.liquidity)),
-        x_to_y=False,
-        amount_specified_is_input=False,
-        ticks=target_pool_state.model_dump().get("ticks"),
-        fee_kwarg=target_pool_metadata.model_dump()
-    )
-    result_test_3 = swapV3.swap(swap_params_test_3)
-    print(f"TEST 3: {swap_params_test_3} \n"
-          f"RESULT 3: {result_test_3} \n")
-    print("_" * 90)
-
-    # test 4
-    amount_remaining_test_4 = result_test_3["result"]
-    swap_params_test_4 = swapV3.SwapTD(
-        amount_remaining=amount_remaining_test_4,
-        current_tick=Decimal(str(target_pool_state.base_info.tickCurrentIndex)),
-        tick_spacing=Decimal(target_pool_state.base_info.tickSpacing),
-        unnormalized_sqrt_P_start=Decimal(str(target_pool_state.base_info.sqrtPrice)),
-        factor=Decimal("64"),
-        L=Decimal(str(target_pool_state.base_info.liquidity)),
-        x_to_y=False,
-        amount_specified_is_input=True,
-        ticks=target_pool_state.model_dump().get("ticks"),
-        fee_kwarg=target_pool_metadata.model_dump()
-    )
-    result_test_4 = swapV3.swap(swap_params_test_4)
-    print(f"TEST 4: {swap_params_test_4} \n"
-          f"RESULT 4: {result_test_4} \n")
-    print("_" * 90)
-
-
-if __name__ == '__main__':
-    test()

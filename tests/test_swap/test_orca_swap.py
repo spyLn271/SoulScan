@@ -13,8 +13,8 @@ def test():
 
     market = 'orca'
     version = 'clmm'
-    pool = 'HsQGWEh3ib6w59rBh5n1jXmi8VXFBqKEjxozL6PGfcgb'
-    x_decimal = 9
+    pool = '6fteKNvMdv7tYmBoJHhj1jx6rHcEwC6RdSEmVpyS613J'
+    x_decimal = 6
     y_decimal = 6
 
     current_state = json.loads(r.get(config.POOLS_CURRENT_STATE_DICT_REDIS_KEY % (market, version)))
@@ -28,7 +28,7 @@ def test():
     params_test_1 = swapV3.orca_swap_params(
         pool_state=target_pool_state.model_dump(),
         metadata=target_pool_metadata.model_dump(),
-        delta_amount=Decimal(str(272 * 10 ** x_decimal)),
+        delta_amount=Decimal(str(9942189 * 10 ** x_decimal)),
         x_to_y=True,
         amount_specified_is_input=True
     )
