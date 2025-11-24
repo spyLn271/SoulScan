@@ -31,14 +31,14 @@ class MeteoraDlmmSwap(TraderJoeSwap):
         current_time = kwargs['current_time']
         start_active_id = kwargs['start_active_id']
 
-        dlmm_swap_params = self.meteora_dlmm_math.dlmm_swap_params(
+        dlmm_fee_params = self.meteora_dlmm_math.dlmm_fee_params(
             LbPair=LbPair,
             crossed_bins=crossed_bins,
             current_time=current_time,
             start_active_id=start_active_id
         )
 
-        return self.meteora_dlmm_math.get_fee(dlmm_swap_params)
+        return self.meteora_dlmm_math.get_fee(dlmm_fee_params)
 
     def meteora_dlmm_swap(self, params: MeteoraDlmmSwapTD) -> PoolSwap:
         PoolState = params['pool_state']
@@ -57,7 +57,7 @@ class MeteoraDlmmSwap(TraderJoeSwap):
             'LbPair': LbPair
         }
 
-        swap_params = self.SwapTD(
+        swap_params = self.SwapScheme(
             amount_remaining=delta_amount,
             bin_step=bin_step,
             P=P,

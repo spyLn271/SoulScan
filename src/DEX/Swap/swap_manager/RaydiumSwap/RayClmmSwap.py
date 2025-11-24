@@ -34,7 +34,7 @@ class RayClmmSwap(UltimateUniswapV3Swap):
         x_to_y: bool = params['x_to_y']
         amount_specified_is_input: bool = params['amount_specified_is_input']
 
-        swap_params = self.SwapTD(
+        swap_params = self.SwapScheme(
             amount_remaining=delta_amount,
             current_tick=Decimal(str(state['PoolState']['tick_current'])),
             tick_spacing=Decimal(str(state['PoolState']['tick_spacing'])),

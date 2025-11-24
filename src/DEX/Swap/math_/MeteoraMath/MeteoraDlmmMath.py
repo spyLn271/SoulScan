@@ -16,7 +16,9 @@ class MeteoraDlmmFeeParameters(TypedDict):
 
 
 class MeteoraDlmmMath(UltimateTraderJoeMath):
-    dlmm_swap_params = MeteoraDlmmFeeParameters
+    dlmm_fee_params = MeteoraDlmmFeeParameters
+
+    MAX_FEE = Decimal("0.1")
 
     def get_fee(self, params: MeteoraDlmmFeeParameters) -> Decimal:
         LbPair = params["LbPair"]
@@ -31,8 +33,9 @@ class MeteoraDlmmMath(UltimateTraderJoeMath):
 
         f_b = self._get_f_base(parameters["base_factor"], parameters["base_fee_power_factor"], bin_step)
         f_v = self._get_f_variable(parameters, v_parameters, bin_step, current_time, start_active_id, crossed_bins)
+        f_s = f_b + f_v
 
-        return f_b + f_v
+        return min(f_s, self.MAX_FEE)
 
 
     @staticmethod
@@ -56,10 +59,11 @@ class MeteoraDlmmMath(UltimateTraderJoeMath):
     @staticmethod
     def _get_volatility_accumulator(parameters: MeteoraParameters, v_parameters: MeteoraVParameters,
                                     current_time: Decimal, start_active_id: Decimal, crossed_bins: int):
-        if current_time < parameters["filter_period"]:
+        t_d = current_time - v_parameters["last_update_timestamp"]
+        if t_d < parameters["filter_period"]:
             v_r = Decimal(str(v_parameters["volatility_reference"])) / 10_000
             i_r = v_parameters["index_reference"]
-        elif parameters["filter_period"] <= current_time < parameters["decay_period"]:
+        elif parameters["filter_period"] <= t_d < parameters["decay_period"]:
             R = Decimal(str(parameters["reduction_factor"])) / 10_000
             v_a = Decimal(str(v_parameters["volatility_accumulator"])) / 10_000
 
@@ -69,5 +73,6 @@ class MeteoraDlmmMath(UltimateTraderJoeMath):
             v_r = Decimal("0")
             i_r = start_active_id
 
-        return v_r + abs(i_r - (start_active_id + crossed_bins))
-
+        v_a_calc = v_r + abs(i_r - (start_active_id + crossed_bins))
+        max_v_a = Decimal(str(parameters["max_volatility_accumulator"])) / 10_000
+        return min(v_a_calc, max_v_a)

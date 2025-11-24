@@ -1,6 +1,7 @@
 from decimal import Decimal
 from typing import TypedDict
 import time
+import pydantic
 
 
 ####################################
@@ -20,7 +21,7 @@ class PoolSwap(TypedDict):
     fee: Decimal
     message: str
 
-class TraderJoeSwapTD(TypedDict):
+class TraderJoeSwapScheme(pydantic.BaseModel):
     amount_remaining: Decimal
     P: Decimal
     active_id: Decimal
@@ -42,7 +43,7 @@ class TraderJoeSwapBinTD(TypedDict):
 
 class TraderJoeSwap:
     ultimate_math = UltimateTraderJoeMath()
-    SwapTD = TraderJoeSwapTD
+    SwapScheme = TraderJoeSwapScheme
 
 
 
@@ -122,19 +123,19 @@ class TraderJoeSwap:
             )
 
 
-    def swap(self, params: TraderJoeSwapTD) -> PoolSwap:
-        amount_remaining = params['amount_remaining']
+    def swap(self, params: TraderJoeSwapScheme) -> PoolSwap:
+        amount_remaining = params.amount_remaining
         amount_calculated: Decimal = Decimal("0")
         fee_total: Decimal = Decimal("0")
-        active_id = params['active_id']
-        bin_step = params['bin_step']
-        bins = params['bins']
-        x_to_y = params['x_to_y']
-        amount_specified_is_input = params['amount_specified_is_input']
-        fee_kwarg = params['fee_kwarg'] | {"crossed_bins": 0,
-                                           "current_time": Decimal(int(time.time())),
-                                           "current_id": active_id,
-                                           "start_active_id": active_id,}
+        active_id = params.active_id
+        bin_step = params.bin_step
+        bins = params.bins
+        x_to_y = params.x_to_y
+        amount_specified_is_input = params.amount_specified_is_input
+        fee_kwarg = params.fee_kwarg | {"crossed_bins": 0,
+                                        "current_time": Decimal(int(time.time())),
+                                        "current_id": active_id,
+                                        "start_active_id": active_id,}
 
         message: str = 'failure, loop was too long'
         bin_direction = -1 if x_to_y else 1

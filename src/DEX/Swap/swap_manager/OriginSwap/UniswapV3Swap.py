@@ -1,5 +1,6 @@
 from decimal import Decimal, ROUND_HALF_UP
 from typing import TypedDict
+import pydantic
 import time
 
 ####################################
@@ -21,7 +22,7 @@ class PoolSwap(TypedDict):
     message: str
 
 
-class UniswapV3SwapTD(TypedDict):
+class UniswapV3SwapScheme(pydantic.BaseModel):
     amount_remaining: Decimal
     current_tick: Decimal
     tick_spacing: Decimal
@@ -49,7 +50,7 @@ class UniswapV3SwapTickTD(TypedDict):
 class UltimateUniswapV3Swap:
     ultimate_math = UltimateUniswapV3Math()
 
-    SwapTD = UniswapV3SwapTD
+    SwapScheme = UniswapV3SwapScheme
 
     def get_fee(self, **kwargs) -> Decimal:
         """
@@ -136,26 +137,28 @@ class UltimateUniswapV3Swap:
                 is_max=is_max,
             )
 
-    def swap(self, params: UniswapV3SwapTD) -> PoolSwap:
-        amount_remaining = params['amount_remaining']
+    def swap(self, params: UniswapV3SwapScheme) -> PoolSwap:
+        amount_remaining = params.amount_remaining
         amount_calculated: Decimal = Decimal("0")
         fee_total: Decimal = Decimal("0")
-        current_tick = params['current_tick']
-        tick_spacing = params['tick_spacing']
-        sqrt_P_start = self.ultimate_math.normalize_sqrt_P(params['unnormalized_sqrt_P_start'], params['factor'])
-        x_to_y = params['x_to_y']
-        L = params['L']
+        current_tick = params.current_tick
+        tick_spacing = params.tick_spacing
+        sqrt_P_start = self.ultimate_math.normalize_sqrt_P(params.unnormalized_sqrt_P_start, params.factor)
+        x_to_y = params.x_to_y
+        L = params.L
         liquidity_direction = -1 if x_to_y else 1
-        amount_specified_is_input = params['amount_specified_is_input']
-        ticks = params['ticks']
-        start_tick_group = current_tick // tick_spacing
-        if current_tick < tick_spacing:
-            start_tick_group -= 1
+        amount_specified_is_input = params.amount_specified_is_input
+        ticks = params.ticks
 
-        fee_kwarg = params['fee_kwarg'] | {"crossed_tick": 0,
-                                           "current_time": Decimal(int(time.time())),
-                                           "current_tick": current_tick,
-                                           "start_current_tick_group": start_tick_group}
+        # I will turn current_tick and tick_spacing in int from Decimal.
+        # Decimal performs Truncation (rounds towards zero),
+        # while int performs Floor Division (rounds towards minus infinity) if `current_tick` is lower than 0.
+        start_tick_group = Decimal(str(int(current_tick) // int(tick_spacing)))
+
+        fee_kwarg = params.fee_kwarg | {"crossed_tick": 0,
+                                        "current_time": Decimal(int(time.time())),
+                                        "current_tick": current_tick,
+                                        "start_current_tick_group": start_tick_group}
 
 
         current_tick_sterilized = start_tick_group * tick_spacing

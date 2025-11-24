@@ -33,7 +33,7 @@ class RayAmmSwap(UniswapV2Swap):
         x_to_y: bool = params['x_to_y']
         amount_specified_is_input: bool = params['amount_specified_is_input']
 
-        swap_params = self.SwapTD(
+        swap_params = self.SwapScheme(
             reserves_x=Decimal(str(state['baseVault']['amount'])),
             reserves_y=Decimal(str(state['quoteVault']['amount'])),
             delta_token=delta_amount,

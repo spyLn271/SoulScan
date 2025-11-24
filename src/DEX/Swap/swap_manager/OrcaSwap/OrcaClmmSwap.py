@@ -59,7 +59,7 @@ class OrcaClmmSwap(UltimateUniswapV3Swap):
         ticks = state['ticks']
         fee_kwarg = {'oracle': state['oracle'], 'feeRate': metadata['feeRate']}
 
-        swap_params = self.SwapTD(
+        swap_params = self.SwapScheme(
             amount_remaining=delta_amount,
             current_tick=current_tick,
             tick_spacing=tick_spacing,

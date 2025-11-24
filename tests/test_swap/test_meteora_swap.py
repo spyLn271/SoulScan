@@ -12,7 +12,7 @@ def test():
 
     market = 'meteora'
     version = 'dlmm'
-    pool_address = '9d9mb8kooFfaD3SctgZtkxQypkshx6ezhbKio89ixyy2'
+    pool_address = '5SHjDACvwtox5nY8kpWNYyaceWjtTG8C6L821D9Gtpjf'
 
     x_decimal = 6
     y_decimal = 6
@@ -23,11 +23,12 @@ def test():
 
     target_pool_state = MeteoraDlmmScheme(**state.get(pool_address))
     target_pool_metadata = MeteoraDlmmMetadataScheme(**metadata.get(pool_address))
+    print(target_pool_metadata.model_dump())
 
     prams_test_1 = meteoraSwap.meteora_dlmm_swap_params(
         pool_state=target_pool_state.model_dump(),
         metadata={},
-        delta_amount=Decimal(str(29375 * 10 ** x_decimal)),
+        delta_amount=Decimal(str(4900 * 10 ** x_decimal)),
         x_to_y=True,
         amount_specified_is_input=True
     )
@@ -54,7 +55,7 @@ def test():
     params_test_3 = meteoraSwap.meteora_dlmm_swap_params(
         pool_state=target_pool_state.model_dump(),
         metadata={},
-        delta_amount=Decimal(str(129080 * 10 ** y_decimal)),
+        delta_amount=Decimal(str(149 * 10 ** y_decimal)),
         x_to_y=False,
         amount_specified_is_input=True
     )
