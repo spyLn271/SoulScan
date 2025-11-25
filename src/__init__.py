@@ -20,6 +20,9 @@ from src.DEX.DEXes.Meteora.MeteoraScheme import MeteoraDlmmScheme, MeteoraDammV2
 from src import DataFetcher
 
 
+from src.DEX.Swap import Swap, SwapParamsTD
+
+
 __all__ = ['OrcaCLMM',
            'MeteoraDLMM',
            'Solana',
@@ -38,4 +41,7 @@ __all__ = ['OrcaCLMM',
            'WhirlpoolCacheClmmScheme',
 
            'DataFetcher',
+
+           'Swap',
+           'SwapParamsTD',
            ]
