@@ -25,36 +25,61 @@ def test():
     target_pool_state = WhirlpoolClmmScheme(**current_state.get(pool))
 
 
-    params_test_1 = swapV3.orca_swap_params(
+    # params_test_1 = swapV3.orca_swap_params(
+    #     pool_state=target_pool_state.model_dump(),
+    #     metadata=target_pool_metadata.model_dump(),
+    #     delta_amount=Decimal(str(192385 * 10 ** y_decimal)),
+    #     x_to_y=False,
+    #     amount_specified_is_input=True
+    # )
+    #
+    # print(target_pool_state.model_dump())
+    # print(target_pool_metadata.model_dump())
+    # start_time = time.time()
+    # res_test_1 = swapV3.orca_clmm_swap(params_test_1)
+    # print(f"Time: {time.time() - start_time}")
+    # print(f"TEST 1: {params_test_1} \n"
+    #       f"RESULT 1: {res_test_1} \n")
+    # print(f"Output: {res_test_1['result'] / 10 ** x_decimal}")
+    # print("_"*90)
+    #
+    # params_test_2 = swapV3.orca_swap_params(
+    #     pool_state=target_pool_state.model_dump(),
+    #     metadata=target_pool_metadata.model_dump(),
+    #     delta_amount=res_test_1['result'],
+    #     x_to_y=False,
+    #     amount_specified_is_input=False
+    # )
+    # res_test_2 = swapV3.orca_clmm_swap(params_test_2)
+    # print(f"TEST 2: {params_test_2} \n"
+    #       f"RESULT 2: {res_test_2} \n")
+    # print(f"Output: {res_test_2['result'] / 10 ** x_decimal}")
+    # print("_"*90)
+
+    params_test_3 = swapV3.orca_swap_params(
         pool_state=target_pool_state.model_dump(),
         metadata=target_pool_metadata.model_dump(),
-        delta_amount=Decimal(str(60600 * 10 ** y_decimal)),
-        x_to_y=False,
+        delta_amount=Decimal(str(213523 * 10 ** x_decimal)),
+        x_to_y=True,
         amount_specified_is_input=True
     )
-
-    print(target_pool_state.model_dump())
-    print(target_pool_metadata.model_dump())
-    start_time = time.time()
-    res_test_1 = swapV3.orca_clmm_swap(params_test_1)
-    print(f"Time: {time.time() - start_time}")
-    print(f"TEST 1: {params_test_1} \n"
-          f"RESULT 1: {res_test_1} \n")
-    print(f"Output: {res_test_1['result'] / 10 ** x_decimal}")
+    res_test_3 = swapV3.orca_clmm_swap(params_test_3)
+    print(f"TEST 3: {params_test_3} \n"
+          f"RESULT 3: {res_test_3} \n")
+    print(f"Output: {res_test_3['result'] / 10 ** y_decimal}")
     print("_"*90)
 
-    params_test_2 = swapV3.orca_swap_params(
-        pool_state=target_pool_state.model_dump(),
-        metadata=target_pool_metadata.model_dump(),
-        delta_amount=res_test_1['result'],
-        x_to_y=False,
-        amount_specified_is_input=False
-    )
-    res_test_2 = swapV3.orca_clmm_swap(params_test_2)
-    print(f"TEST 2: {params_test_2} \n"
-          f"RESULT 2: {res_test_2} \n")
-    print(f"Output: {res_test_2['result'] / 10 ** x_decimal}")
-    print("_"*90)
+    # params_test_4 = swapV3.orca_swap_params(
+    #     pool_state=target_pool_state.model_dump(),
+    #     metadata=target_pool_metadata.model_dump(),
+    #     delta_amount=res_test_3['result'],
+    #     x_to_y=True,
+    #     amount_specified_is_input=False
+    # )
+    # res_test_4 = swapV3.orca_clmm_swap(params_test_4)
+    # print(f"TEST 4: {params_test_4} \n"
+    #       f"RESULT 4: {res_test_4} \n")
+    # print(f"Output: {res_test_4['result'] / 10 ** x_decimal}")
 
 
 

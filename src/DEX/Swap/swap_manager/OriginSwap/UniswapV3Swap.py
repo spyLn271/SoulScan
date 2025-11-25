@@ -1,4 +1,4 @@
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, ROUND_HALF_UP, ROUND_DOWN
 from typing import TypedDict
 import pydantic
 import time
@@ -75,7 +75,7 @@ class UltimateUniswapV3Swap:
         # 1) Normalizing amount_remaining
         amount_calc = amount_remaining
         if amount_specified_is_input:
-            amount_calc = (amount_remaining * (1 - fee)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+            amount_calc = (amount_remaining * (1 - fee)).quantize(Decimal("1"), rounding=ROUND_DOWN)
 
         # 2) setting sqrt_P_target
         if x_to_y:

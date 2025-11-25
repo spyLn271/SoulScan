@@ -12,10 +12,10 @@ def test():
 
     market = 'meteora'
     version = 'dlmm'
-    pool_address = '5SHjDACvwtox5nY8kpWNYyaceWjtTG8C6L821D9Gtpjf'
+    pool_address = 'EwUU8oiKTomjekU5eszctx3kneKJnKm5BJpn5sTT4CUf'
 
     x_decimal = 6
-    y_decimal = 6
+    y_decimal = 9
 
 
     metadata = json.loads(r.get(config.REDIS_METADATA_KEY % (market, version)))
@@ -28,7 +28,7 @@ def test():
     prams_test_1 = meteoraSwap.meteora_dlmm_swap_params(
         pool_state=target_pool_state.model_dump(),
         metadata={},
-        delta_amount=Decimal(str(4900 * 10 ** x_decimal)),
+        delta_amount=Decimal(str(194900 * 10 ** x_decimal)),
         x_to_y=True,
         amount_specified_is_input=True
     )
