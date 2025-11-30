@@ -44,7 +44,6 @@ class UniswapV2Swap:
         x_to_y = params.x_to_y
         amount_specified_is_input = params.amount_specified_is_input
         fee_kwarg = params.fee_kwarg | {"crossed_tick": 0, "current_time": Decimal(int(time.time()))}
-        print(fee_kwarg)
 
         feeRate = self.get_fee(**fee_kwarg)
 
@@ -70,7 +69,7 @@ class UniswapV2Swap:
         else:
             return PoolSwap(
                 remain=Decimal("0"),
-                result=round(swap_computation / (1-feeRate)),
-                fee=round(swap_computation * feeRate),
+                result=swap_computation / Decimal(str(1-feeRate)).quantize(Decimal("1")),
+                fee=swap_computation * Decimal(str(feeRate)).quantize(Decimal("1")),
                 message='success'
             )

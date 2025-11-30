@@ -57,7 +57,7 @@ class OrcaClmmSwap(UltimateUniswapV3Swap):
         x_to_y = x_to_y
         amount_specified_is_input = amount_specified_is_input
         ticks = state['ticks']
-        fee_kwarg = {'oracle': state['oracle'], 'feeRate': metadata['feeRate']}
+        fee_kwarg = {'oracle': state.get('oracle'), 'feeRate': metadata['feeRate']}
 
         swap_params = self.SwapScheme(
             amount_remaining=delta_amount,
