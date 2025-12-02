@@ -22,7 +22,7 @@ class SmartOutputTD(TypedDict):
 
 
 
-ERROR_CODES = {
+SMART_ROUTER_ERROR_CODES = {
     1: "Cold path not found.",
     2: "Error parsing cold path.",
     3: "Couldn't validate cold path schema.",
@@ -36,10 +36,13 @@ ERROR_CODES = {
   }
 
 def _error(code: int, detail: str = "") -> SmartOutputTD:
-    msg = ERROR_CODES.get(code, "Unknown error")
+    msg = SMART_ROUTER_ERROR_CODES.get(code, "Unknown error")
     if detail:
         msg = f"{msg} {detail}"
     return {"result": 0, "success": False, "error_code": code, "message": msg}
+
+def _success(result: int) -> SmartOutputTD:
+    return {"result": result, "success": True, "error_code": 0, "message": "success"}
 
 
 
@@ -120,10 +123,9 @@ class SmartRouter:
 
         if amount_specified_is_input:
             if _max != -math.inf:
-                return {"result": int(_max), "success": True, "error_code": 0, "message": "success"}
+                return _success(int(_max))
             return _error(7)
         else:
             if _min != math.inf:
-                return {"result": int(_min), "success": True, "error_code": 0, "message": "success"}
+                return _success(int(_min))
             return _error(7)
-
