@@ -221,9 +221,7 @@ class OnlineSmartRouterConfigScheme(pydantic.BaseModel):
     worker_number: int = 20
     Graph_update_time: int = 60 * 3
     version: Literal['v1'] = 'v1'
-    quote: list[str] = pydantic.Field(default_factory=lambda: [
-        'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',  # USDC
-    ])
+    quote: list[str] = pydantic.Field(default_factory=lambda: Bases.SUPPORTED_QUOTES)
 class OnlineSmartRouter:
     Engine = {
         'v1': OnlineSmartRouterEngineV1

@@ -1,5 +1,4 @@
 import math
-
 import redis
 import os
 from typing import TypedDict
@@ -7,7 +6,7 @@ import json
 import time
 
 ####################################
-from src.Config import config
+from src.Config import config, Bases
 from src.Config.BasicSchemeAndTypeDict import ColdPathScheme
 from src.LoggerHandler.logger import get_logger, setup_logger
 from src.SoulEngine.SmartRouter.MathSmartRouter import MathSmartRouter
@@ -32,7 +31,8 @@ ERROR_CODES = {
     6: "Error in MathSmartRouter.",
     7: "Insufficient liquidity.",
     8: "max/min variable is Infinite",
-    9: "Unknown error."
+    9: "Unknown error.",
+    10: "Not supported quotes mint"
   }
 
 def _error(code: int, detail: str = "") -> SmartOutputTD:
@@ -88,6 +88,9 @@ class SmartRouter:
 
     def ExactSwap(self, base_mint: str, quote_mint: str, delta_amount: float | int,
                   metadata: dict, state: dict, amount_specified_is_input: bool = True) -> SmartOutputTD:
+        if quote_mint not in Bases.SUPPORTED_QUOTES:
+            return _error(10)
+
         cold_path = self._get_cold_path(base_mint, quote_mint)
         if not isinstance(cold_path, ColdPathScheme):
             return _error(cold_path[0], cold_path[1])
@@ -117,10 +120,10 @@ class SmartRouter:
 
         if amount_specified_is_input:
             if _max != -math.inf:
-                return {"result": _max, "success": True, "error_code": 0, "message": "success"}
+                return {"result": int(_max), "success": True, "error_code": 0, "message": "success"}
             return _error(7)
         else:
             if _min != math.inf:
-                return {"result": _min, "success": True, "error_code": 0, "message": "success"}
+                return {"result": int(_min), "success": True, "error_code": 0, "message": "success"}
             return _error(7)
 

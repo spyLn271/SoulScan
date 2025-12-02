@@ -37,3 +37,6 @@ AMOUNT_PROBE = [
     Decimal("1"),
     Decimal("0.1")
 ]
+SUPPORTED_QUOTES = [
+    'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',  # USDC
+]
