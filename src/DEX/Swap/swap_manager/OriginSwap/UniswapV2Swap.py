@@ -69,7 +69,7 @@ class UniswapV2Swap:
         else:
             return PoolSwap(
                 remain=Decimal("0"),
-                result=swap_computation / Decimal(str(1-feeRate)).quantize(Decimal("1")),
-                fee=swap_computation * Decimal(str(feeRate)).quantize(Decimal("1")),
+                result=swap_computation / Decimal(str(1-feeRate)),
+                fee=swap_computation * Decimal(str(feeRate)),
                 message='success'
             )
