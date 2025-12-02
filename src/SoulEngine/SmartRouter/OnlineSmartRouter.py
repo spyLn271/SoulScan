@@ -76,6 +76,8 @@ class OnlineSmartRouterEngineV1:
                 decimals = pool_meta['decimals1']
             else:
                 raise Exception(f"Mint {mint_in} not found in pool {sample_pool}")
+        else:
+            raise Exception(f"Pool {sample_pool} not found in metadata")
 
         for human_amount in Bases.AMOUNT_PROBE:
             atomic_amount = human_amount * (Decimal(10) ** decimals)
