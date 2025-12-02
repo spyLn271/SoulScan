@@ -134,6 +134,15 @@ async def testRaydiumClmmState():
     raydiumClmm_state = RaydiumClmmState()
     await raydiumClmm_state.main()
 
+def bootstrap(func: callable):
+    asyncio.run(func())
+
+def run_all_state_fetchers():
+    import multiprocessing
+    pool = multiprocessing.Pool(processes=4)
+    pool.map(bootstrap, [testMeteoraDlmmState, testOrcaCLMMState, testRaydiumAmmState, testRaydiumClmmState])
+
+
 
 if __name__ == '__main__':
-    asyncio.run(testRaydiumClmmState())
+    run_all_state_fetchers()

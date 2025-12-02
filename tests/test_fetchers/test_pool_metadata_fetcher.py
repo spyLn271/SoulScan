@@ -2,7 +2,7 @@ import json
 import asyncio
 from src.DataFetcher.api_clients.Meteora.MeteoraDlmmMetadata import MeteoraDlmmMetadata
 from src.DataFetcher.api_clients.Meteora.MeteoraDammV2Metadata import MeteoraDammV2Metadata
-from src.DataFetcher.api_clients.Orca.OrcaClmmMetada import OrcaClmmMetadata
+from src.DataFetcher.api_clients.Orca.OrcaClmmMetadata import OrcaClmmMetadata
 from src.DataFetcher.api_clients.Raydium.RaydiumClmmMetadata import RaydiumClmmMetadata
 from src.DataFetcher.api_clients.Raydium.RaydiumHybridAmmMetadata import RaydiumHybridAmmMetadata
 
@@ -27,7 +27,15 @@ async def testRaydiumHybridAmmMetadata():
     async with RaydiumHybridAmmMetadata() as raydiumHybridAmm:
         await raydiumHybridAmm.main()
 
+def bootstrap(funk: callable):
+    asyncio.run(funk())
+
+def test_all():
+    from multiprocessing import Pool
+    pool = Pool(processes=4)
+    pool.map(bootstrap, [testMeteoraDlmmMetadata, testOrcaCLMMMetadata, testRaydiumClmmMetadata, testRaydiumHybridAmmMetadata])
+
 
 
 if __name__ == '__main__':
-    asyncio.run(testRaydiumHybridAmmMetadata())
+    test_all()

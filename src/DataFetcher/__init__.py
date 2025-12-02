@@ -10,7 +10,7 @@ from src.DataFetcher.api_clients.Raydium.RaydiumClmmMetadata import RaydiumClmmM
 from src.DataFetcher.api_clients.Raydium.RaydiumHybridAmmMetadata import RaydiumHybridAmmMetadata
 from src.DataFetcher.api_clients.Raydium.RaydiumMetadataScheme import RaydiumMetadataScheme
 
-from src.DataFetcher.api_clients.Orca.OrcaClmmMetada import OrcaClmmMetadata
+from src.DataFetcher.api_clients.Orca.OrcaClmmMetadata import OrcaClmmMetadata
 from src.DataFetcher.api_clients.Orca.OrcaMetadataScheme import OrcaMetadataScheme
 
 

@@ -16,3 +16,11 @@ class Bins(TypedDict):
 class BinScheme(BaseModel):
     amount_x: int
     amount_y: int
+
+class ColdPath(TypedDict):
+    ts: str
+    routes: list
+
+class ColdPathScheme(BaseModel):
+    ts: str
+    routes: list
