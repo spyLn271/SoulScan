@@ -31,7 +31,7 @@ class PoolStateConfigScheme(pydantic.BaseModel):
         Type[RaydiumHybridAMM]
     ]
 
-    provider_kwargs: dict = {}
+    provider_kwargs: dict = pydantic.Field(default_factory=lambda: {})
 
 
 

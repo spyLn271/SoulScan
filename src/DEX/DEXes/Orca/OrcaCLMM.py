@@ -273,6 +273,7 @@ class OrcaCLMM(Solana):
                 raw_oracle = raw_data.get(oracle[0], [{}])[0].get('data')
                 if not raw_oracle:
                     self.logger.error(f"No Oracle data found for address {address}.")
+                    continue
                 oracle_data = self.translater.oracle_func(raw_oracle)
                 if not oracle_data:
                     self.logger.error(f"Error parsing Oracle data for address {address}.")

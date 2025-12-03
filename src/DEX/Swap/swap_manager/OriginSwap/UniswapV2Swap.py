@@ -70,6 +70,6 @@ class UniswapV2Swap:
             return PoolSwap(
                 remain=Decimal("0"),
                 result=swap_computation / Decimal(str(1-feeRate)),
-                fee=swap_computation * Decimal(str(feeRate)),
+                fee=swap_computation * Decimal(str(feeRate / (1 - feeRate))),
                 message='success'
             )
