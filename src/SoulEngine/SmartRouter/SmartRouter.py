@@ -94,8 +94,9 @@ class SmartRouter:
                   metadata: dict, state: dict, amount_specified_is_input: bool = True) -> SmartOutputTD:
         if quote_mint not in Bases.SUPPORTED_QUOTES:
             return _error(10)
-
+        start_time_cold_path_fetching = time.time()
         cold_path = self._get_cold_path(base_mint, quote_mint)
+        self.logger.info(f"Cold path retrieval took {time.time() - start_time_cold_path_fetching} seconds")
         if not isinstance(cold_path, ColdPathScheme):
             return _error(cold_path[0], cold_path[1])
 
@@ -104,6 +105,7 @@ class SmartRouter:
         route_of_max = []
         route_of_min = []
 
+        start_time_swap_calculation = time.time()
         for route in cold_path.routes:
             try:
                 smart_swap_result = self.math_router.smart_swap(route=route,
@@ -127,6 +129,7 @@ class SmartRouter:
 
             except Exception as e:
                 self.logger.warning(f"Error in MathSmartRouter: {e}. route: {route}")
+        self.logger.info(f"ExactSwap took {time.time() - start_time_swap_calculation} seconds")
 
         if amount_specified_is_input:
             if _max != -math.inf:
