@@ -25,8 +25,8 @@ class RayClmmSwap(UltimateUniswapV3Swap):
         and 'start_current_tick_group'
         :return: 0.03 % -> 0.0003
         """
-        metadat: RaydiumMetadata = kwargs['metadata']
-        return Decimal(str(metadat['feeRate']))
+        metadata: RaydiumMetadata = kwargs['metadata']
+        return Decimal(str(metadata['feeRate']))
 
     def raydium_clmm_swap(self, params: RayClmmSwapTD) -> PoolSwap:
         state: RaydiumClmm = params['pool_state']

@@ -64,7 +64,7 @@ class OrcaCLMMTranslater(Translater):
     def oracle_func(self, x: str) -> dict:
         try:
             parsed_data = self.translate(x, name="Oracle", market="orca")
-            if not parsed_data: raise Exception("No dparsed_data oracle info found")
+            if not parsed_data: raise Exception("No parsed_data oracle info found")
 
             adaptiveFeeConstants = parsed_data.get('adaptiveFeeConstants', {})
             adaptiveFeeVariables = parsed_data.get('adaptiveFeeVariables', {})

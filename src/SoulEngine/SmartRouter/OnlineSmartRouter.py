@@ -53,6 +53,9 @@ class OnlineSmartRouterEngineV1:
     """
     This version provides the top 40 (and less) best routes for any token pair by brute forcing through unfiltered routes.
     """
+    MIN_CANDIDATES_LENGTH_REQUIREMENTS = 10
+    LEVEL_DEPTH = 3
+
     def __init__(self, logger: logging.Logger, math_smart_router: MathSmartRouter):
         self.logger = logger
         self.math_smart_router = math_smart_router
@@ -60,12 +63,11 @@ class OnlineSmartRouterEngineV1:
     def filter_candidates_v1(self, unfiltered_candidates: list[list[str]], state: dict, metadata: dict, mint_in: str,
                              mint_out: str) -> list[list[str]]:
 
-        if len(unfiltered_candidates) <= 10:
+        if len(unfiltered_candidates) <= self.MIN_CANDIDATES_LENGTH_REQUIREMENTS:
             return unfiltered_candidates
 
         best_candidates = []
 
-        decimals = 6
         sample_pool = unfiltered_candidates[0][0]
         pool_meta = metadata.get(sample_pool)
 
@@ -106,7 +108,7 @@ class OnlineSmartRouterEngineV1:
 
             level_count = 0
             for index, amount_out in sorted_results:
-                if level_count >= 3: break
+                if level_count >= self.LEVEL_DEPTH: break
 
                 candidate_route = unfiltered_candidates[index]
                 if candidate_route not in best_candidates:
