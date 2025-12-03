@@ -16,6 +16,7 @@ from src.SoulEngine.SmartRouter.MathSmartRouter import MathSmartRouter
 
 class SmartOutputTD(TypedDict):
     result: int | float
+    route: list[str]
     success: bool
     error_code: int
     message: str
@@ -39,10 +40,10 @@ def _error(code: int, detail: str = "") -> SmartOutputTD:
     msg = SMART_ROUTER_ERROR_CODES.get(code, "Unknown error")
     if detail:
         msg = f"{msg} {detail}"
-    return {"result": 0, "success": False, "error_code": code, "message": msg}
+    return {"result": 0, "route": [], "success": False, "error_code": code, "message": msg}
 
-def _success(result: int) -> SmartOutputTD:
-    return {"result": result, "success": True, "error_code": 0, "message": "success"}
+def _success(result: int, route: list[str]) -> SmartOutputTD:
+    return {"result": result, "route": route, "success": True, "error_code": 0, "message": "success"}
 
 
 
@@ -100,6 +101,8 @@ class SmartRouter:
 
         _max = -math.inf
         _min = math.inf
+        route_of_max = []
+        route_of_min = []
 
         for route in cold_path.routes:
             try:
@@ -113,8 +116,12 @@ class SmartRouter:
 
                 if smart_swap_result["is_success"]:
                     val = int(smart_swap_result["result"])
-                    _max = max(_max, val)
-                    _min = min(_min, val)
+                    if val > _max:
+                        _max = val
+                        route_of_max = route
+                    elif val < _min:
+                        _min = val
+                        route_of_min = route
                 else:
                     self.logger.warning(f"Error in MathSmartRouter: {smart_swap_result['message']}. route: {route}")
 
@@ -123,9 +130,9 @@ class SmartRouter:
 
         if amount_specified_is_input:
             if _max != -math.inf:
-                return _success(int(_max))
-            return _error(7)
+                return _success(int(_max), route=route_of_max)
+            return _error(8)
         else:
             if _min != math.inf:
-                return _success(int(_min))
-            return _error(7)
+                return _success(int(_min), route=route_of_min)
+            return _error(8)

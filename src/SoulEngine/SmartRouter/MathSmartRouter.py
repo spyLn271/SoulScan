@@ -20,6 +20,13 @@ class MathSmartRouter:
     def smart_swap(self, route: list[str], metadata: dict, state: dict, delta_amount: int | float | Decimal,
                    mint_in: str, mint_out: str, amount_specified_is_input: bool) -> SmartSwapResult:
 
+        if not route:
+            return {
+                "result": Decimal("0"),
+                "is_success": False,
+                "message": "Empty route"
+            }
+
         # 1) Normalizing route and setting current_mint
         current_mint = mint_in if amount_specified_is_input else mint_out
 
