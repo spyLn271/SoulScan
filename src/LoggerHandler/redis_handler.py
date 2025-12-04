@@ -2,7 +2,7 @@ import logging, redis, json
 from src.Config import config
 
 LOG_STREAM_KEY = "log_stream"
-MAX_STREAM_LENGTH = 10000
+MAX_STREAM_LENGTH = 100_000_000
 
 class RedisHandler(logging.Handler):
     def __init__(self, host=config.REDIS_HOST, port=config.REDIS_PORT):

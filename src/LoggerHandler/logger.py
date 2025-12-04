@@ -14,7 +14,7 @@ def setup_logger(level=logging.INFO, log_file="app.log", logger_name=__name__):
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)'
     )
 
-    file_handler = RotatingFileHandler(log_file, maxBytes=2 * 1024 * 1024, backupCount=3, encoding="utf-8")
+    file_handler = RotatingFileHandler(log_file, maxBytes=2 * 1024 * 1024, backupCount=10, encoding="utf-8")
     file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
