@@ -116,10 +116,24 @@ def RUN_DATA_FETCHERS(targets: dict[str, ProviderClass], logger_name: str, logge
                                                  worker_name=name)
                     processes[name] = new_p
 
+
     except KeyboardInterrupt:
-        logger.info("Supervisor stopping... killing workers.")
+        logger.info("Supervisor stopping... terminating workers.")
         for p in processes.values():
             p.terminate()
+
+        for name, p in processes.items():
+            p.join(timeout=10)
+
+            if p.is_alive():
+                logger.warning(f"{name} didn't stop gracefully. Killing...")
+                p.kill()
+                p.join()
+
+        logger.info("All workers stopped.")
+
+    except Exception as e:
+        logger.critical(f"Critical Worker Failure: {e}", exc_info=True)
 
 
 def RUN_STATE_FETCHERS():
