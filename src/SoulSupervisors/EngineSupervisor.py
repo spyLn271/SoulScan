@@ -36,6 +36,11 @@ class OSRSupervisor:
         setup_logger(logger_name=logger_name, log_file=log_file)
         logger = get_logger(logger_name=logger_name)
 
+        start_method = multiprocessing.get_start_method()
+        if start_method != 'spawn':
+            logger.critical(f"Wrong start method: {start_method}. Must be 'spawn'. Exiting.")
+            return
+
         osr_worker: multiprocessing.Process = None
 
         while True:
