@@ -52,6 +52,18 @@ class OSRSupervisor:
                     osr_worker.join()
                     osr_worker = self._start_osr(logger)
 
+            except KeyboardInterrupt:
+                logger.info("Shutdown signal received. Stopping OnlineSmartRouter...")
+                if osr_worker is not None and osr_worker.is_alive():
+                    osr_worker.terminate()
+                    osr_worker.join(timeout=10)
+                    if osr_worker.is_alive():
+                        logger.warning("OnlineSmartRouter didn't stop gracefully. Killing...")
+                        osr_worker.kill()
+                        osr_worker.join()
+                logger.info("OSRSupervisor stopped.")
+                break
+
             except Exception as e:
                 logger.error(f"Supervisor error: {e}")
 
