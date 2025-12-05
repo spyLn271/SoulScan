@@ -9,11 +9,13 @@ import logging
 from decimal import Decimal
 from typing import Literal
 import math
+import signal
 
 ####################################
 from src.Config import config, Bases
 from src.LoggerHandler.logger import get_logger, setup_logger
 from src.SoulEngine.SmartRouter.MathSmartRouter import MathSmartRouter
+from src.Config.GracefullShutDown import TerminateSignal, sigterm_handler
 ####################################
 
 
@@ -265,7 +267,7 @@ class OnlineSmartRouter:
         self.engine = OnlineSmartRouter.Engine[state['conf'].version](logger=self.logger, math_smart_router=math_smart_router)
 
 
-    def worker(self):
+    def _worker(self):
         while True:
             try:
                 target_bases = self.queue.get()
@@ -286,7 +288,7 @@ class OnlineSmartRouter:
 
             self.queue.task_done()
 
-    def init_workers(self) -> bool:
+    def _init_workers(self) -> bool:
         number_of_started_workers = 0
         worker_index = 0
 
@@ -297,7 +299,7 @@ class OnlineSmartRouter:
             try:
                 w_name = f'OSR_Worker_{worker_index}'
 
-                worker = multiprocessing.Process(target=self.worker, name=w_name, daemon=True)
+                worker = multiprocessing.Process(target=self._worker, name=w_name, daemon=True)
                 worker.start()
                 self.logger.info(f"Started {w_name} (PID: {worker.pid})")
 
@@ -317,9 +319,22 @@ class OnlineSmartRouter:
 
         return True
 
-    def restart_dead_worker(self, w_name) -> bool:
+    def _shutdown_workers(self):
+        for name, worker in self.workers.items():
+            if worker.is_alive():
+                worker.terminate()
+
+        for name, worker in self.workers.items():
+            worker.join(timeout=10)
+            if worker.is_alive():
+                worker.kill()
+                worker.join()
+
+        self.logger.info("All workers stopped.")
+
+    def _restart_dead_worker(self, w_name) -> bool:
         try:
-            worker = multiprocessing.Process(target=self.worker, name=w_name, daemon=True)
+            worker = multiprocessing.Process(target=self._worker, name=w_name, daemon=True)
             worker.start()
             self.logger.info(f"Restarted {w_name} (PID: {worker.pid})")
 
@@ -330,14 +345,14 @@ class OnlineSmartRouter:
 
         return True
 
-    def check_workers_health(self):
+    def _check_workers_health(self):
         for w_name, worker in list(self.workers.items()):
             if not worker.is_alive():
                 self.logger.warning(f"{w_name} is dead. Restarting...")
                 worker.join()
-                self.restart_dead_worker(w_name)
+                self._restart_dead_worker(w_name)
 
-    def break_tasks_in_chunks(self, bases: list):
+    def _break_tasks_in_chunks(self, bases: list):
         num_symbols = len(bases)
         chunk_size = math.ceil(num_symbols / self.conf.worker_number)
         if chunk_size == 0:
@@ -348,7 +363,9 @@ class OnlineSmartRouter:
 
 
     def start(self):
-        are_workers_initialized = self.init_workers()
+        signal.signal(signal.SIGTERM, sigterm_handler)
+
+        are_workers_initialized = self._init_workers()
         if not are_workers_initialized:
             self.logger.critical("Critical Fail: Could not start any workers.")
             raise Exception("Critical Fail: Could not start any workers.")
@@ -373,9 +390,9 @@ class OnlineSmartRouter:
                     time.sleep(5)
                     continue
 
-                self.check_workers_health()
+                self._check_workers_health()
 
-                chunks = list(self.break_tasks_in_chunks(bases))
+                chunks = list(self._break_tasks_in_chunks(bases))
 
                 start_time = time.time()
                 for chunk in chunks:
@@ -383,6 +400,11 @@ class OnlineSmartRouter:
 
                 self.queue.join()
                 self.logger.info(f"All tasks is done. Time elapsed: {time.time() - start_time} seconds.")
+
+            except (KeyboardInterrupt, TerminateSignal):
+                self.logger.info("Shutdown signal received. Stopping workers...")
+                self._shutdown_workers()
+                break
 
             except Exception as e:
                 self.logger.error(f"Supervisor Loop Error: {e}")

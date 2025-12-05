@@ -3,11 +3,13 @@ import os
 import time
 import logging
 from typing import Union, Type
+import signal
 
 ####################################
 from src.LoggerHandler.logger import setup_logger, get_logger
 from src.Config import config
 from src.SoulEngine.SmartRouter.OnlineSmartRouter import OnlineSmartRouter, OnlineSmartRouterConfigScheme
+from src.Config.GracefullShutDown import TerminateSignal, sigterm_handler
 ####################################
 
 # OnlineSmartRouter Supervisor
@@ -31,6 +33,8 @@ class OSRSupervisor:
         return p
 
     def RUN_ONLINE_SMART_ROUTER(self):
+        signal.signal(signal.SIGTERM, sigterm_handler)
+
         logger_name = "OSRSupervisor"
         log_file = os.path.join(config.LOG_MAIN_FOLDER, f"{logger_name}.log")
         setup_logger(logger_name=logger_name, log_file=log_file)
@@ -52,7 +56,7 @@ class OSRSupervisor:
                     osr_worker.join()
                     osr_worker = self._start_osr(logger)
 
-            except KeyboardInterrupt:
+            except (KeyboardInterrupt, TerminateSignal):
                 logger.info("Shutdown signal received. Stopping OnlineSmartRouter...")
                 if osr_worker is not None and osr_worker.is_alive():
                     osr_worker.terminate()

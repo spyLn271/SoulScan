@@ -4,13 +4,14 @@ import os
 import time
 import logging
 from typing import Union, Type
+import signal
 
 ####################################
 from src.DataFetcher import MeteoraDlmmState, RaydiumClmmState, RaydiumAmmState, OrcaClmmState
 from src.DataFetcher import MeteoraDlmmMetadata, RaydiumClmmMetadata, RaydiumHybridAmmMetadata, OrcaClmmMetadata
 from src.LoggerHandler.logger import setup_logger, get_logger
 from src.Config import config
-
+from src.Config.GracefullShutDown import TerminateSignal, sigterm_handler
 ####################################
 
 STATE_CLASSES = (
@@ -88,6 +89,8 @@ def start_worker_process(provider_cls: ProviderClass, logger: logging.Logger, se
 
 
 def RUN_DATA_FETCHERS(targets: dict[str, ProviderClass], logger_name: str, logger_file: str, sector_name):
+    signal.signal(signal.SIGTERM, sigterm_handler)
+
     setup_logger(logger_name=logger_name,
                  log_file=os.path.join(config.LOG_MAIN_FOLDER, logger_file))
     logger = get_logger(logger_name=logger_name)
@@ -117,7 +120,7 @@ def RUN_DATA_FETCHERS(targets: dict[str, ProviderClass], logger_name: str, logge
                     processes[name] = new_p
 
 
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, TerminateSignal):
         logger.info("Supervisor stopping... terminating workers.")
         for p in processes.values():
             p.terminate()
