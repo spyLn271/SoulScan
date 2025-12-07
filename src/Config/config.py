@@ -1,5 +1,7 @@
 import os
 from pathlib import Path
+import pydantic
+import time
 
 SOLANA_RPC_ENDPOINT = "https://solana-mainnet.core.chainstack.com/d70aa036553f9b407feda39c2d88a5f0"
 
@@ -28,7 +30,6 @@ TICK_ARRAY_SIZE_RAYDIUM_CLMM = 60
 RAYDIUM_CLMM_PROGRAM_ID = 'CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK'
 
 
-JUPITER_PLATFORM_FEE = 0.001
 MIN_VOL24 = 30_000
 MIN_TVL = 10_000
 
@@ -40,3 +41,23 @@ MARKETS = {
     "raydium_amm": {"market": "raydium", "version": "amm"},
 }
 ACTIVE_MARKETS = ['meteora_dlmm', 'orca_clmm', 'raydium_clmm', 'raydium_amm']
+
+class SignalFormat(pydantic.BaseModel):
+    dex: str
+    network: str
+    cex: str
+    mode: str
+    token_pair: str
+    profit: float | int
+    target_token: str
+    target_address: str
+    base_address: str
+    base_token: str
+    CEX_amountIn: float | int
+    CEX_amountOut: float | int
+    DEX_amountIn: float | int
+    DEX_amountOut: float | int
+    order_number: int
+    CEX_start_price: float | int
+    CEX_end_price: float | int
+    timestamp: float = pydantic.Field(default_factory=time.time)
