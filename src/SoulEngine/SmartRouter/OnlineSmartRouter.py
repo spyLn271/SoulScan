@@ -22,7 +22,7 @@ from src.Config.GracefullShutDown import TerminateSignal, sigterm_handler
 def create_graph(metadata: dict, state: dict) -> nx.Graph:
     G = nx.Graph()
     for pool, data in state.items():
-        if not pool in metadata: continue
+        if pool not in metadata: continue
 
         mint0 = metadata.get(pool).get('mint0')
         mint1 = metadata.get(pool).get('mint1')
