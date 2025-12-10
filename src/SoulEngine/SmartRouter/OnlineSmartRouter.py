@@ -43,7 +43,7 @@ def get_active_metadata(redis_connection: redis.Redis) -> dict:
     return all_metadata
 
 def get_active_state(redis_connection: redis.Redis) -> dict:
-    logger = logging.Logger(__name__)
+    logger = logging.getLogger(__name__)
     all_state = {}
     current_time = int(time.time())
 
