@@ -32,6 +32,7 @@ RAYDIUM_CLMM_PROGRAM_ID = 'CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK'
 
 MIN_VOL24 = 30_000
 MIN_TVL = 10_000
+POOL_STATE_DECAY_TIME = 5  # 5 seconds
 
 MARKETS = {
     "meteora_dlmm": {"market": "meteora", "version": "dlmm"},

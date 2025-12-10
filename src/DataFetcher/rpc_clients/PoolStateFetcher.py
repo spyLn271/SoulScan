@@ -65,8 +65,12 @@ class PoolStateFetcher:
         try:
             self.logger.info(f"Saving state for {self.market} {self.version} to redis. "
                              f"Saving data length: {len(pool_state)}.")
-            self.r.set(config.POOLS_CURRENT_STATE_DICT_REDIS_KEY %
-                       (self.market, self.version), json.dumps(pool_state))
+            payload = {
+                "pool_state": pool_state,
+                "ts": int(time.time()),
+            }
+            self.r.set(config.POOLS_CURRENT_STATE_DICT_REDIS_KEY % (self.market, self.version),
+                       json.dumps(payload))
             self.logger.info(f"State for {self.market} {self.version} saved.")
             return True
         except Exception as e:
