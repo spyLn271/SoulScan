@@ -43,6 +43,7 @@ def get_active_metadata(redis_connection: redis.Redis) -> dict:
     return all_metadata
 
 def get_active_state(redis_connection: redis.Redis) -> dict:
+    logger = logging.Logger(__name__)
     all_state = {}
     current_time = int(time.time())
 
@@ -52,19 +53,18 @@ def get_active_state(redis_connection: redis.Redis) -> dict:
             raw = redis_connection.get(config.POOLS_CURRENT_STATE_DICT_REDIS_KEY % (market, version))
 
             if not isinstance(raw, str):
-                print(f"Pool state for {active_market} market {version} is not a string.")
+                logger.warning(f"Pool state for {active_market} market {version} is not a string.")
                 continue
 
             state = BasicSchemeAndTypeDict.PoolStateScheme(**json.loads(raw))
 
             if abs(current_time - state.ts) > config.POOL_STATE_DECAY_TIME:
-                print(f"WARNING pool state for {active_market} market {version} is not fresh.")
+                logger.warning(f"WARNING pool state for {active_market} market {version} is not fresh.")
                 continue
 
             all_state |= state.pool_state
-            all_state |= state
         except Exception as e:
-            print(f"Error occurred while processing pool state for {active_market}: {e}")
+            logger.error(f"Error occurred while processing pool state for {active_market}: {e}")
 
     return all_state
 
