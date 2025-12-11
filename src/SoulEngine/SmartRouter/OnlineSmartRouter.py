@@ -42,8 +42,9 @@ def get_active_metadata(redis_connection: redis.Redis) -> dict:
 
     return all_metadata
 
-def get_active_state(redis_connection: redis.Redis) -> dict:
-    logger = logging.getLogger(__name__)
+def get_active_state(redis_connection: redis.Redis, logger: logging.Logger = None) -> dict:
+    if logger is None: logger = logging.getLogger(__name__)
+
     all_state = {}
     current_time = int(time.time())
 
@@ -290,7 +291,7 @@ class OnlineSmartRouter:
                 target_bases = self.queue.get()
                 self.logger.info(f"Worker {multiprocessing.current_process().name} started for {target_bases}")
                 metadata = get_active_metadata(self.r)
-                state = get_active_state(self.r)
+                state = get_active_state(self.r, logger=self.logger)
                 G = create_graph(metadata, state)
                 candidates = self.engine.get_the_best_candidates(G=G,
                                                                  target_bases=target_bases,
@@ -388,7 +389,7 @@ class OnlineSmartRouter:
             raise Exception("Critical Fail: Could not start any workers.")
 
         metadata = get_active_metadata(self.r)
-        state = get_active_state(self.r)
+        state = get_active_state(self.r, logger=self.logger)
         G = create_graph(metadata, state)
         last_graph_update = time.time()
         bases = list(G.nodes)
@@ -397,7 +398,7 @@ class OnlineSmartRouter:
             try:
                 if time.time() - last_graph_update >= self.conf.Graph_update_time:
                     metadata = get_active_metadata(self.r)
-                    state = get_active_state(self.r)
+                    state = get_active_state(self.r, logger=self.logger)
                     G = create_graph(metadata, state)
                     last_graph_update = time.time()
                     bases = list(G.nodes)

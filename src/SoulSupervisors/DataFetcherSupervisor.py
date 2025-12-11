@@ -107,36 +107,38 @@ def RUN_DATA_FETCHERS(targets: dict[str, ProviderClass], logger_name: str, logge
         p = start_worker_process(cls, logger=logger, sector_name=sector_name, worker_name=name)
         processes[name] = p
 
-    try:
-        while True:
-            time.sleep(10)
+    while True:
+        try:
+            time.sleep(5)
 
             for name, p in list(processes.items()):
                 if not p.is_alive():
                     logger.warning(f"ALERT: {name} (PID {p.pid}) died unexpectedly! Restarting...")
                     p.join()
-                    new_p = start_worker_process(targets[name], logger=logger, sector_name=sector_name,
+                    new_p = start_worker_process(targets[name],
+                                                 logger=logger,
+                                                 sector_name=sector_name,
                                                  worker_name=name)
                     processes[name] = new_p
 
+        except (KeyboardInterrupt, TerminateSignal):
+            logger.info("Supervisor stopping... terminating workers.")
+            for p in processes.values():
+                p.terminate()
 
-    except (KeyboardInterrupt, TerminateSignal):
-        logger.info("Supervisor stopping... terminating workers.")
-        for p in processes.values():
-            p.terminate()
+            for name, p in processes.items():
+                p.join(timeout=10)
 
-        for name, p in processes.items():
-            p.join(timeout=10)
+                if p.is_alive():
+                    logger.warning(f"{name} didn't stop gracefully. Killing...")
+                    p.kill()
+                    p.join()
 
-            if p.is_alive():
-                logger.warning(f"{name} didn't stop gracefully. Killing...")
-                p.kill()
-                p.join()
+            logger.info("All workers stopped.")
+            break
 
-        logger.info("All workers stopped.")
-
-    except Exception as e:
-        logger.critical(f"Critical Worker Failure: {e}", exc_info=True)
+        except Exception as e:
+            logger.critical(f"Critical Worker Failure: {e}", exc_info=True)
 
 
 def RUN_STATE_FETCHERS():

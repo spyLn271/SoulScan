@@ -1,5 +1,6 @@
 import redis
 import json
+import logging
 
 ####################################
 from src.Config import config
@@ -7,9 +8,11 @@ from src.Config.GracefullShutDown import TerminateSignal, sigterm_handler
 from src.SoulEngine.SmartRouter.OnlineSmartRouter import get_active_metadata, get_active_state
 ####################################
 
-def get_all_active_tokens(redis_connection: redis.Redis):
+def get_all_active_tokens(redis_connection: redis.Redis, logger: logging.Logger = None) -> list:
+    if not logger: logger = logging.getLogger(__name__)
+
     metadata = get_active_metadata(redis_connection)
-    state = get_active_state(redis_connection)
+    state = get_active_state(redis_connection, logger=logger)
 
     mapped_tokens = {}
     for pool, data in metadata.items():
