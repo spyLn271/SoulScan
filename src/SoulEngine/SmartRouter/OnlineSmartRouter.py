@@ -18,6 +18,7 @@ from src.SoulEngine.SmartRouter.MathSmartRouter import MathSmartRouter
 from src.Config.GracefullShutDown import TerminateSignal, sigterm_handler
 ####################################
 
+# Basic helper functions
 
 def create_graph(metadata: dict, state: dict) -> nx.Graph:
     G = nx.Graph()
@@ -33,17 +34,32 @@ def create_graph(metadata: dict, state: dict) -> nx.Graph:
 
     return G
 
-def get_active_metadata(redis_connection: redis.Redis) -> dict:
+def get_active_metadata(redis_connection: redis.Redis, logger: logging.Logger = None) -> dict:
+    if logger is None:
+        logger = logging.getLogger(__name__)
+
     all_metadata = {}
     for active_market in config.ACTIVE_MARKETS:
-        market, version = config.MARKETS.get(active_market).values()
-        metadata = json.loads(redis_connection.get(config.REDIS_METADATA_KEY % (market, version)))
-        all_metadata |= metadata
+        try:
+
+            market, version = config.MARKETS.get(active_market).values()
+            raw = redis_connection.get(config.REDIS_METADATA_KEY % (market, version))
+
+            if not isinstance(raw, str):
+                logger.warning(f'Pool metadata fo market {market} version {version} not a string')
+                continue
+
+            metadata = json.loads(raw)
+            all_metadata |= metadata
+
+        except Exception as e:
+            logger.error(f"Failed to get metadata for {active_market}: {e}")
 
     return all_metadata
 
 def get_active_state(redis_connection: redis.Redis, logger: logging.Logger = None) -> dict:
-    if logger is None: logger = logging.getLogger(__name__)
+    if logger is None:
+        logger = logging.getLogger(__name__)
 
     all_state = {}
     current_time = int(time.time())
@@ -68,6 +84,41 @@ def get_active_state(redis_connection: redis.Redis, logger: logging.Logger = Non
             logger.error(f"Error occurred while processing pool state for {active_market}: {e}")
 
     return all_state
+
+def get_all_active_tokens(redis_connection: redis.Redis, logger: logging.Logger = None) -> dict:
+    if not logger:
+        logger = logging.getLogger(__name__)
+
+    metadata = get_active_metadata(redis_connection)
+    state = get_active_state(redis_connection, logger=logger)
+
+    mapped_tokens = {}
+    for pool, data in metadata.items():
+        if not state.get(pool): continue
+
+        mint0 = data.get('mint0')
+        mint1 = data.get('mint1')
+        decimals0 = data.get('decimals0')
+        decimals1 = data.get('decimals1')
+        token0 = data.get('token0')
+        token1 = data.get('token1')
+
+        if not mint0 or not mint1 or not decimals0 or not decimals1 or not token0 or not token1:
+            continue
+
+        if mint0 not in mapped_tokens:
+            mapped_tokens[mint0] = {
+                'decimals': decimals0,
+                'symbol': token0
+            }
+        if mint1 not in mapped_tokens:
+            mapped_tokens[mint1] = {
+                'decimals': decimals1,
+                'symbol': token1
+            }
+
+    return mapped_tokens
+
 
 class OnlineSmartRouterEngineV1:
     """
