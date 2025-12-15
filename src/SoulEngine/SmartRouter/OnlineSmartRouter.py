@@ -16,6 +16,7 @@ from src.Config import config, Bases, BasicSchemeAndTypeDict
 from src.LoggerHandler.logger import get_logger, setup_logger
 from src.SoulEngine.SmartRouter.MathSmartRouter import MathSmartRouter
 from src.Config.GracefullShutDown import TerminateSignal, sigterm_handler
+from src.CEX.contract_address_cex_checker.service.lookup import lookup_mint
 ####################################
 
 # Basic helper functions
@@ -85,7 +86,7 @@ def get_active_state(redis_connection: redis.Redis, logger: logging.Logger = Non
 
     return all_state
 
-def get_all_active_tokens(redis_connection: redis.Redis, logger: logging.Logger = None) -> dict:
+def get_all_DEX_active_tokens(redis_connection: redis.Redis, logger: logging.Logger = None) -> dict:
     if not logger:
         logger = logging.getLogger(__name__)
 
@@ -118,6 +119,23 @@ def get_all_active_tokens(redis_connection: redis.Redis, logger: logging.Logger 
             }
 
     return mapped_tokens
+
+def get_all_common_tokens(redis_connection: redis.Redis, logger: logging.Logger = None) -> list:
+    common_tokens = []
+
+    dex_tokens = get_all_DEX_active_tokens(redis_connection, logger=logger)
+
+    for mint, data in dex_tokens.items():
+        try:
+            is_token_in_cex = lookup_mint(mint)
+            if is_token_in_cex:
+                common_tokens.append(mint)
+        except Exception as e:
+            logger.error(f"Failed to get common tokens for {mint}: {e}")
+
+
+    return common_tokens
+
 
 
 class OnlineSmartRouterEngineV1:
