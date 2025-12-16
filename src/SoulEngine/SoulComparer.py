@@ -37,7 +37,7 @@ class Comparer:
         self.network = network
         self.dex = dex
 
-    def start_comparing(self, base_mint, smart_router: SmartRouter):
+    async def start_comparing(self, base_mint, base_decimals: int, smart_router: SmartRouter):
         self.logger.info(
             f'Comparer started. (network: {self.network}, dex: {self.dex}, base_mint: {base_mint})')
 
@@ -50,6 +50,39 @@ class Comparer:
             self.logger.warning(f'Mint {base_mint} is not supported by any CEX.')
             return
 
+        for cex, base_symbol in mint_supported_cex.items():
+            self.logger.info(f'Processing CEX: {cex}, base_symbol: {base_symbol}')
+
+            for quote_symbol in CEX_QUOTES:
+                try:
+                    # Probe ASK side (CEX->DEX: Buy on CEX, sell on DEX)
+                    await self._probe_cex_ask(
+                        cex=cex,
+                        base_mint=base_mint,
+                        base_symbol=base_symbol,
+                        quote_symbol=quote_symbol,
+                        smart_router=smart_router,
+                        base_decimals=base_decimals,
+                        quote_decimals=DEX_QUOTE_DECIMALS
+                    )
+
+                    # Probe BID side (DEX->CEX: Buy on DEX, sell on CEX)
+                    await self._probe_cex_bid(
+                        cex=cex,
+                        base_mint=base_mint,
+                        base_symbol=base_symbol,
+                        quote_symbol=quote_symbol,
+                        smart_router=smart_router,
+                        base_decimals=base_decimals,
+                        quote_decimals=DEX_QUOTE_DECIMALS
+                    )
+
+                except Exception as e:
+                    self.logger.error(f'Error probing {cex} for {base_symbol}/{quote_symbol}: {e}')
+                    continue
+
+        self.logger.info(f'Comparer finished for {base_mint}')
+
 
 
 
@@ -58,7 +91,7 @@ class Comparer:
     # =================================================================
 
     async def _probe_cex_ask(self, cex: str, base_mint: str, base_symbol: str, quote_symbol: str,
-                       smart_router: SmartRouter, base_decimals: int, quote_decimals: int):
+                             smart_router: SmartRouter, base_decimals: int, quote_decimals: int):
         self.logger.info('_'*50)
         self.logger.info(f'Probe CEX-ASK for CEX: {cex} network:{self.network}, dex:{self.dex}, base_mint:{base_mint}, base_token:{quote_symbol}')
         start_time = time.time()
@@ -202,7 +235,7 @@ class Comparer:
                         best_swap=best_swap)
 
     async def _probe_cex_bid(self, cex: str, base_mint: str, base_symbol: str, quote_symbol: str,
-                       smart_router: SmartRouter, base_decimals: int, quote_decimals: int):
+                             smart_router: SmartRouter, base_decimals: int, quote_decimals: int):
         self.logger.info('_' * 50)
         self.logger.info(
             f'Probe CEX-BID for CEX: {cex} network:{self.network}, dex:{self.dex}, target_token:{base_mint}, base_token:{quote_symbol}')
