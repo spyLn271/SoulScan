@@ -6,7 +6,7 @@ import json
 ####################################
 from src.Config import config
 from src.CEX.contract_address_cex_checker.service.lookup import lookup_mint
-from src.CEX.CEXAPI import get_all_exchange_bids, get_all_exchange_asks, cleanup_aggregator
+from src.CEX.CEXAPI import get_exchange_asks, get_exchange_bids, cleanup_aggregator
 from src.LoggerHandler.logger import setup_logger, get_logger
 from src.SoulEngine.SmartRouter.SmartRouter import SmartRouter
 ####################################
@@ -45,17 +45,25 @@ class Comparer:
             self.logger.warning(f'Base mint {base_mint} is in restricted bases list.')
             return
 
+        mint_supported_cex = lookup_mint(base_mint)
+        if not mint_supported_cex:
+            self.logger.warning(f'Mint {base_mint} is not supported by any CEX.')
+            return
+
+
+
 
     # =================================================================
     #  PRIVATE HELPER: The Core Logic Ported from V1 (https://github.com/spyLn271/JupiterArbitrageBot)
     # =================================================================
 
-    def _probe_cex_ask(self, cex: str, orderbook: list, base_mint: str, base_symbol: str, quote_symbol: str,
+    async def _probe_cex_ask(self, cex: str, base_mint: str, base_symbol: str, quote_symbol: str,
                        smart_router: SmartRouter, base_decimals: int, quote_decimals: int):
         self.logger.info('_'*50)
         self.logger.info(f'Probe CEX-ASK for CEX: {cex} network:{self.network}, dex:{self.dex}, base_mint:{base_mint}, base_token:{quote_symbol}')
         start_time = time.time()
 
+        orderbook = await get_exchange_asks(exchange=cex, symbol=f'{base_symbol}{quote_symbol}')
         cex_total_sum_out = 0  # some base token out
         cex_total_sum_in = 0  # USDC ot USDT in
         profit = 0
@@ -78,16 +86,18 @@ class Comparer:
 
 
             # ------ Greedy TEST Start ------
-            greedy_delta_amount = (cex_total_sum_out + level_amount) * (1 - config.SWAPPER_FEE) * 10 ** base_decimals  # Adjusting amount in
+            # Adjusting amount in, taking in equation the swap fee, Human -> Atomic.
+            greedy_delta_amount = (cex_total_sum_out + level_amount) * (1 - config.SWAPPER_FEE) * 10 ** base_decimals
             greedy_result_SmartRouter = smart_router.ExactSwap(base_mint=base_mint,
                                                                quote_mint=DEX_QUOTE,
                                                                delta_amount=greedy_delta_amount)
 
             self.logger.info(f'Greedy SmartRouter result: {greedy_result_SmartRouter}')
-            greedy_dex_sum_out = greedy_result_SmartRouter['result'] / 10 ** quote_decimals  # Normalizing amount
+            # Normalizing amount, Atomic -> Human
+            greedy_dex_sum_out = greedy_result_SmartRouter['result'] / 10 ** quote_decimals
+            greedy_profit = greedy_dex_sum_out - (cex_total_sum_in + level_amount * level_price)
 
-            if greedy_result_SmartRouter['success'] and greedy_dex_sum_out - (cex_total_sum_in + level_amount * level_price) > profit:
-                greedy_profit = greedy_dex_sum_out - (cex_total_sum_in + level_amount * level_price)
+            if greedy_result_SmartRouter['success'] and greedy_profit > profit:
                 cex_total_sum_out += level_amount
                 cex_total_sum_in += level_amount * level_price
 
@@ -191,13 +201,14 @@ class Comparer:
                         order_number=order_number,
                         best_swap=best_swap)
 
-    def _probe_cex_bid(self, cex: str, orderbook: list, base_mint: str, base_symbol: str, quote_symbol: str,
+    async def _probe_cex_bid(self, cex: str, base_mint: str, base_symbol: str, quote_symbol: str,
                        smart_router: SmartRouter, base_decimals: int, quote_decimals: int):
         self.logger.info('_' * 50)
         self.logger.info(
             f'Probe CEX-BID for CEX: {cex} network:{self.network}, dex:{self.dex}, target_token:{base_mint}, base_token:{quote_symbol}')
         start_time = time.time()
 
+        orderbook = await get_exchange_bids(exchange=cex, symbol=f'{base_symbol}{quote_symbol}')
         cex_total_sum_in = 0  # some token base in
         cex_total_sum_out = 0  # USDC or USDT out
         profit = 0
@@ -219,7 +230,8 @@ class Comparer:
             self.logger.info(f'Order number: {order_number}, level_price: {level_price}, level_amount: {level_amount}')
 
             # ------ Greedy TEST Start ------
-            greedy_delta_amount = (cex_total_sum_in + level_amount) * 10 ** base_decimals  # Adjusted delta amount
+            # Adjusted delta amount, Human -> Atomic
+            greedy_delta_amount = (cex_total_sum_in + level_amount) * 10 ** base_decimals
             greedy_result_SmartRouter = smart_router.ExactSwap(base_mint=base_mint,
                                                                quote_mint=DEX_QUOTE,
                                                                delta_amount=greedy_delta_amount,
@@ -228,11 +240,11 @@ class Comparer:
             self.logger.info(f'Greedy SmartRouter result: {greedy_result_SmartRouter}')
 
             # Normalizing the amount that we need to give to DEX aggregator (in our case it is Jupiter)
-            # to get greedy_delta_amount
+            # to get greedy_delta_amount, Atomic -> Human
             greedy_dex_sum_in = greedy_result_SmartRouter['result'] / (1-config.SWAPPER_FEE) / 10 ** quote_decimals
+            greedy_profit = cex_total_sum_out + level_amount * level_price - greedy_dex_sum_in
 
-            if greedy_result_SmartRouter['success'] and (cex_total_sum_out + level_amount * level_price) - greedy_dex_sum_in > profit:
-                greedy_profit = cex_total_sum_out + level_amount * level_price - greedy_dex_sum_in
+            if greedy_result_SmartRouter['success'] and greedy_profit > profit:
                 cex_total_sum_in += level_amount
                 cex_total_sum_out += level_amount * level_price
 

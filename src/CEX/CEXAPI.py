@@ -4,7 +4,7 @@ import redis.asyncio as redis
 from typing import Dict, List, Optional
 import logging
 
-from CEX.stream_watcher_function import SUPPORTED_EXCHANGES
+from src.CEX.stream_watcher_function import SUPPORTED_EXCHANGES
 
 class OrderbookAggregator:
     """
@@ -194,6 +194,98 @@ async def get_all_exchange_orderbooks(symbol: str) -> Dict[str, Dict[str, List[L
                 formatted_data[exchange] = exchange_data
 
     return formatted_data
+
+
+# ============================================================
+# Single Exchange Functions
+# ============================================================
+
+async def get_exchange_asks(exchange: str, symbol: str) -> Optional[List[List[float]]]:
+    """
+    Get asks from a specific exchange.
+
+    Args:
+        exchange: Exchange name (e.g., 'binance', 'bybit')
+        symbol: Trading symbol (e.g., 'BTCUSDT')
+
+    Returns:
+        List of [price, amount] sorted by price ascending, or None if not available
+    """
+    aggregator = await _get_aggregator()
+    await aggregator._ensure_connection()
+
+    orderbook = await aggregator._get_exchange_orderbook(exchange, symbol)
+
+    if orderbook and orderbook.get('asks'):
+        asks = orderbook['asks']
+        if asks and isinstance(asks[0], (list, tuple)) and len(asks[0]) >= 2:
+            result = [[float(ask[0]), float(ask[1])] for ask in asks]
+            result.sort(key=lambda x: x[0])  # Sort by price ascending
+            return result
+
+    return None
+
+
+async def get_exchange_bids(exchange: str, symbol: str) -> Optional[List[List[float]]]:
+    """
+    Get bids from a specific exchange.
+
+    Args:
+        exchange: Exchange name (e.g., 'binance', 'bybit')
+        symbol: Trading symbol (e.g., 'BTCUSDT')
+
+    Returns:
+        List of [price, amount] sorted by price descending, or None if not available
+    """
+    aggregator = await _get_aggregator()
+    await aggregator._ensure_connection()
+
+    orderbook = await aggregator._get_exchange_orderbook(exchange, symbol)
+
+    if orderbook and orderbook.get('bids'):
+        bids = orderbook['bids']
+        if bids and isinstance(bids[0], (list, tuple)) and len(bids[0]) >= 2:
+            result = [[float(bid[0]), float(bid[1])] for bid in bids]
+            result.sort(key=lambda x: x[0], reverse=True)  # Sort by price descending
+            return result
+
+    return None
+
+
+async def get_exchange_orderbook(exchange: str, symbol: str) -> Optional[Dict[str, List[List[float]]]]:
+    """
+    Get full orderbook (bids and asks) from a specific exchange.
+
+    Args:
+        exchange: Exchange name (e.g., 'binance', 'bybit')
+        symbol: Trading symbol (e.g., 'BTCUSDT')
+
+    Returns:
+        Dict with 'bids' and 'asks' keys, or None if not available
+    """
+    aggregator = await _get_aggregator()
+    await aggregator._ensure_connection()
+
+    orderbook = await aggregator._get_exchange_orderbook(exchange, symbol)
+
+    if not orderbook:
+        return None
+
+    result = {}
+
+    if orderbook.get('bids'):
+        bids = orderbook['bids']
+        if bids and isinstance(bids[0], (list, tuple)) and len(bids[0]) >= 2:
+            result['bids'] = [[float(bid[0]), float(bid[1])] for bid in bids]
+            result['bids'].sort(key=lambda x: x[0], reverse=True)
+
+    if orderbook.get('asks'):
+        asks = orderbook['asks']
+        if asks and isinstance(asks[0], (list, tuple)) and len(asks[0]) >= 2:
+            result['asks'] = [[float(ask[0]), float(ask[1])] for ask in asks]
+            result['asks'].sort(key=lambda x: x[0])
+
+    return result if result else None
 
 
 # Cleanup function
