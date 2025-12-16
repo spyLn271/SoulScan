@@ -45,6 +45,7 @@ ACTIVE_MARKETS = ['meteora_dlmm', 'orca_clmm', 'raydium_clmm', 'raydium_amm']
 
 SIGNAL_STREAM_REDIS_KEY = 'saniya'
 MINIMAL_PROFIT = 100
+SWAPPER_FEE = 0.005  # 0.5 %
 
 class SignalFormat(pydantic.BaseModel):
     dex: str

@@ -69,6 +69,7 @@ class Comparer:
 
 
             # ------ Greedy TEST Start ------
+            greedy_delta_amount = (cex_total_sum_out + level_amount) * (1 - config.SWAPPER_FEE)  # Adjusting amount in
             greedy_result_SmartRouter = smart_router.ExactSwap(base_mint=base_mint,
                                                                quote_mint=DEX_QUOTE,
                                                                delta_amount=cex_total_sum_out + level_amount)
@@ -114,9 +115,10 @@ class Comparer:
                 what_if_cex_sum_out = cex_total_sum_out + level_amount * (i / 10)
                 what_if_cex_sum_in = cex_total_sum_in + level_amount * (i / 10) * level_price
 
+                probe_delta_amount = what_if_cex_sum_out * (1 - config.SWAPPER_FEE)  # Adjusting amount in
                 result_SmartRouter = smart_router.ExactSwap(base_mint=base_mint,
                                                             quote_mint=DEX_QUOTE,
-                                                            delta_amount=what_if_cex_sum_out)
+                                                            delta_amount=probe_delta_amount)
 
                 dex_sum_out = result_SmartRouter['result']
 
@@ -207,6 +209,7 @@ class Comparer:
             self.logger.info(f'Order number: {order_number}, level_price: {level_price}, level_amount: {level_amount}')
 
             # ------ Greedy TEST Start ------
+            greedy_delta_amount = (cex_total_sum_in + level_amount) / (1 - config.SWAPPER_FEE)  # Adjusted delta amount
             greedy_result_SmartRouter = smart_router.ExactSwap(base_mint=base_mint,
                                                                quote_mint=DEX_QUOTE,
                                                                delta_amount=cex_total_sum_in + level_amount,
@@ -254,9 +257,10 @@ class Comparer:
                 what_if_cex_sum_in = cex_total_sum_in + level_amount * (i / 10)
                 what_if_cex_sum_out = cex_total_sum_out + (level_amount * (i / 10) * level_price)
 
+                probe_delta_amount = what_if_cex_sum_in / (1 - config.SWAPPER_FEE)  # Adjusted delta amount
                 result_SmartRouter = smart_router.ExactSwap(base_mint=base_mint,
                                                             quote_mint=DEX_QUOTE,
-                                                            delta_amount=what_if_cex_sum_in,
+                                                            delta_amount=probe_delta_amount,
                                                             amount_specified_is_input=False)
 
                 dex_sum_in = result_SmartRouter['result']
