@@ -49,7 +49,7 @@ def _success(result: int, route: list[str]) -> SmartOutputTD:
 
 
 class SmartRouter:
-    def __init__(self, logger_name: str = "SmartRouter", log_file: str = "SmartRouter.log"):
+    def __init__(self, metadata: dict, state: dict, logger_name: str = "SmartRouter", log_file: str = "SmartRouter.log"):
         setup_logger(logger_name=logger_name, log_file=os.path.join(config.LOG_MAIN_FOLDER, log_file))
         self.logger = get_logger(logger_name)
         self.r = redis.Redis(host=config.REDIS_HOST, port=config.REDIS_PORT, decode_responses=True)
@@ -57,6 +57,8 @@ class SmartRouter:
         self.route_expired = 60 * 3
         self.COLD_PATH_CACHE_TTL = 5
         self.COLD_PATH_CACHE: dict[str, tuple[ColdPathScheme, float]] = {}
+        self.metadata = metadata
+        self.state = state
 
     def _get_cold_path(self, base_mint: str, quote_mint: str) -> ColdPathScheme | tuple[int, str]:
         current_time = int(time.time())
@@ -90,8 +92,7 @@ class SmartRouter:
         return cold_path
 
 
-    def ExactSwap(self, base_mint: str, quote_mint: str, delta_amount: float | int,
-                  metadata: dict, state: dict, amount_specified_is_input: bool = True) -> SmartOutputTD:
+    def ExactSwap(self, base_mint: str, quote_mint: str, delta_amount: float | int, amount_specified_is_input: bool = True) -> SmartOutputTD:
         if quote_mint not in Bases.SUPPORTED_QUOTES:
             return _error(10)
         start_time_cold_path_fetching = time.time()
@@ -112,8 +113,8 @@ class SmartRouter:
                                                                 delta_amount=delta_amount,
                                                                 mint_in=base_mint,
                                                                 mint_out=quote_mint,
-                                                                metadata=metadata,
-                                                                state=state,
+                                                                metadata=self.metadata,
+                                                                state=self.state,
                                                                 amount_specified_is_input=amount_specified_is_input)
 
                 if smart_swap_result["is_success"]:
