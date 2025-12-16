@@ -13,10 +13,18 @@ from src.SoulEngine.SmartRouter.SmartRouter import SmartRouter
 
 CEX_QUOTES = ['USDC', 'USDT']
 DEX_QUOTE = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'  # USDC
+DEX_QUOTE_DECIMALS = 6
 RESTRICTED_BASES = [
     'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',  # USDC
     'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',  # USDT
 ]
+
+"""
+Comparer takes only mint address then call mint look up for finding all CEX who offer that mint and what is the 
+symbol of the mint. Then it will call the SmartRouter to find the best swap path for each CEX. Finally, it will 
+calculate the profit of the swap and report the best swap path for each CEX.
+"""
+
 
 class Comparer:
     def __init__(self, r: redis.Redis, network: str, dex: str):
@@ -42,7 +50,8 @@ class Comparer:
     #  PRIVATE HELPER: The Core Logic Ported from V1 (https://github.com/spyLn271/JupiterArbitrageBot)
     # =================================================================
 
-    def _probe_cex_ask(self, cex: str, orderbook: list, base_mint: str, base_symbol: str, quote_symbol: str, smart_router: SmartRouter):
+    def _probe_cex_ask(self, cex: str, orderbook: list, base_mint: str, base_symbol: str, quote_symbol: str,
+                       smart_router: SmartRouter, base_decimals: int, quote_decimals: int):
         self.logger.info('_'*50)
         self.logger.info(f'Probe CEX-ASK for CEX: {cex} network:{self.network}, dex:{self.dex}, base_mint:{base_mint}, base_token:{quote_symbol}')
         start_time = time.time()
@@ -69,13 +78,13 @@ class Comparer:
 
 
             # ------ Greedy TEST Start ------
-            greedy_delta_amount = (cex_total_sum_out + level_amount) * (1 - config.SWAPPER_FEE)  # Adjusting amount in
+            greedy_delta_amount = (cex_total_sum_out + level_amount) * (1 - config.SWAPPER_FEE) * 10 ** base_decimals  # Adjusting amount in
             greedy_result_SmartRouter = smart_router.ExactSwap(base_mint=base_mint,
                                                                quote_mint=DEX_QUOTE,
-                                                               delta_amount=cex_total_sum_out + level_amount)
+                                                               delta_amount=greedy_delta_amount)
 
             self.logger.info(f'Greedy SmartRouter result: {greedy_result_SmartRouter}')
-            greedy_dex_sum_out = greedy_result_SmartRouter['result']
+            greedy_dex_sum_out = greedy_result_SmartRouter['result'] / 10 ** quote_decimals  # Normalizing amount
 
             if greedy_result_SmartRouter['success'] and greedy_dex_sum_out - (cex_total_sum_in + level_amount * level_price) > profit:
                 greedy_profit = greedy_dex_sum_out - (cex_total_sum_in + level_amount * level_price)
@@ -115,12 +124,12 @@ class Comparer:
                 what_if_cex_sum_out = cex_total_sum_out + level_amount * (i / 10)
                 what_if_cex_sum_in = cex_total_sum_in + level_amount * (i / 10) * level_price
 
-                probe_delta_amount = what_if_cex_sum_out * (1 - config.SWAPPER_FEE)  # Adjusting amount in
+                probe_delta_amount = what_if_cex_sum_out * (1 - config.SWAPPER_FEE) * 10 ** base_decimals  # Adjusting amount in
                 result_SmartRouter = smart_router.ExactSwap(base_mint=base_mint,
                                                             quote_mint=DEX_QUOTE,
                                                             delta_amount=probe_delta_amount)
 
-                dex_sum_out = result_SmartRouter['result']
+                dex_sum_out = result_SmartRouter['result'] / 10 ** quote_decimals  # Normalizing amount
 
                 if not result_SmartRouter['success']:
                     is_broken_loop = True
@@ -182,7 +191,8 @@ class Comparer:
                         order_number=order_number,
                         best_swap=best_swap)
 
-    def _probe_cex_bid(self, cex: str, orderbook: list, base_mint: str, base_symbol: str, quote_symbol: str, smart_router: SmartRouter):
+    def _probe_cex_bid(self, cex: str, orderbook: list, base_mint: str, base_symbol: str, quote_symbol: str,
+                       smart_router: SmartRouter, base_decimals: int, quote_decimals: int):
         self.logger.info('_' * 50)
         self.logger.info(
             f'Probe CEX-BID for CEX: {cex} network:{self.network}, dex:{self.dex}, target_token:{base_mint}, base_token:{quote_symbol}')
@@ -209,15 +219,15 @@ class Comparer:
             self.logger.info(f'Order number: {order_number}, level_price: {level_price}, level_amount: {level_amount}')
 
             # ------ Greedy TEST Start ------
-            greedy_delta_amount = (cex_total_sum_in + level_amount) / (1 - config.SWAPPER_FEE)  # Adjusted delta amount
+            greedy_delta_amount = (cex_total_sum_in + level_amount) / (1 - config.SWAPPER_FEE) * 10 ** quote_decimals  # Adjusted delta amount
             greedy_result_SmartRouter = smart_router.ExactSwap(base_mint=base_mint,
                                                                quote_mint=DEX_QUOTE,
-                                                               delta_amount=cex_total_sum_in + level_amount,
+                                                               delta_amount=greedy_delta_amount,
                                                                amount_specified_is_input=False)
 
             self.logger.info(f'Greedy SmartRouter result: {greedy_result_SmartRouter}')
 
-            greedy_dex_sum_in = greedy_result_SmartRouter['result']
+            greedy_dex_sum_in = greedy_result_SmartRouter['result'] / 10 ** base_decimals  # Normalizing amount
 
             if greedy_result_SmartRouter['success'] and (cex_total_sum_out + level_amount * level_price) - greedy_dex_sum_in > profit:
                 greedy_profit = cex_total_sum_out + level_amount * level_price - greedy_dex_sum_in
@@ -257,13 +267,13 @@ class Comparer:
                 what_if_cex_sum_in = cex_total_sum_in + level_amount * (i / 10)
                 what_if_cex_sum_out = cex_total_sum_out + (level_amount * (i / 10) * level_price)
 
-                probe_delta_amount = what_if_cex_sum_in / (1 - config.SWAPPER_FEE)  # Adjusted delta amount
+                probe_delta_amount = what_if_cex_sum_in / (1 - config.SWAPPER_FEE) * 10 ** quote_decimals  # Adjusted delta amount
                 result_SmartRouter = smart_router.ExactSwap(base_mint=base_mint,
                                                             quote_mint=DEX_QUOTE,
                                                             delta_amount=probe_delta_amount,
                                                             amount_specified_is_input=False)
 
-                dex_sum_in = result_SmartRouter['result']
+                dex_sum_in = result_SmartRouter['result'] / 10 ** base_decimals  # Normalizing amount
 
                 if not result_SmartRouter['success']:
                     is_broken_loop = True
