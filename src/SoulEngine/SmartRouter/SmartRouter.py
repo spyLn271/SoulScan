@@ -122,7 +122,7 @@ class SmartRouter:
                     if val > _max:
                         _max = val
                         route_of_max = route
-                    elif val < _min:
+                    if val < _min:
                         _min = val
                         route_of_min = route
                 else:
