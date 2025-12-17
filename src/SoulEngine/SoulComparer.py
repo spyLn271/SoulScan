@@ -37,7 +37,7 @@ class Comparer:
         self.network = network
         self.dex = dex
 
-    async def start_comparing(self, base_mint, base_decimals: int, smart_router: SmartRouter):
+    async def start_comparing(self, base_mint: str, base_decimals: int, smart_router: SmartRouter):
         self.logger.info(
             f'Comparer started. (network: {self.network}, dex: {self.dex}, base_mint: {base_mint})')
 

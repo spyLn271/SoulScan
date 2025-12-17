@@ -125,6 +125,20 @@ def get_all_common_list_of_tokens(redis_connection: redis.Redis, logger: logging
 
     return common_tokens
 
+def get_all_common_dict_of_tokens(redis_connection: redis.Redis, logger: logging.Logger = None) -> dict:
+    common_tokens = {}
+
+    dex_tokens = get_all_DEX_active_tokens(redis_connection, logger=logger)
+    for mint, data in dex_tokens.items():
+        try:
+            is_token_in_cex = lookup_mint(mint)
+            if is_token_in_cex:
+                common_tokens[mint] = data
+        except Exception as e:
+            logger.error(f"Failed to get common tokens for {mint}: {e}")
+
+    return common_tokens
+
 def break_tasks_in_chunks(worker_number, task_list: list):
     num_symbols = len(task_list)
     chunk_size = math.ceil(num_symbols / worker_number)
