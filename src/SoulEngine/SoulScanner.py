@@ -11,6 +11,7 @@ from src.Config.GracefullShutDown import TerminateSignal, sigterm_handler
 from src.SoulEngine.SoulHelper import (get_active_metadata,
                                        get_active_state,
                                        get_all_common_list_of_tokens,
+                                       get_all_common_dict_of_tokens,
                                        break_tasks_in_chunks)
 from src.LoggerHandler.logger import setup_logger, get_logger
 ####################################
@@ -36,17 +37,17 @@ class Scanner:
 
         self.cache = {}
 
-    def _get_target_tokens(self) -> list:
+    def _get_target_tokens(self) -> dict:
         cached_data: dict = self.cache.get('target_tokens', {})
         if cached_data:
             cached_time: int = cached_data.get('time', 0)
-            cached_tokens: list = cached_data.get('tokens')
+            cached_tokens: dict = cached_data.get('tokens')
 
             if (cached_time + self.conf.token_list_update_interval > time.time() and
-                    isinstance(cached_tokens, list)):
+                    isinstance(cached_tokens, dict)):
                 return cached_tokens
 
-        target_tokens = get_all_common_list_of_tokens(self.r)
+        target_tokens = get_all_common_dict_of_tokens(self.r)
         self.cache['target_tokens'] = {
             'time': time.time(),
             'tokens': target_tokens
@@ -57,3 +58,8 @@ class Scanner:
 
 
 
+if __name__ == "__main__":
+    import json
+    scanner = Scanner(ScannerConfig())
+
+    print(json.loads(scanner._get_target_tokens() or "{}"))

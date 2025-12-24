@@ -145,4 +145,4 @@ def run_all_state_fetchers():
 
 
 if __name__ == '__main__':
-    run_all_state_fetchers()
+    bootstrap(testOrcaCLMMState)

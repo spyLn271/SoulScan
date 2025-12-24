@@ -6,7 +6,7 @@ import json
 ####################################
 from src.Config import config
 from src.CEX.contract_address_cex_checker.service.lookup import lookup_mint
-from src.CEX.CEXAPI import get_exchange_asks, get_exchange_bids, cleanup_aggregator
+from src.CEX.CEXAPI import get_exchange_asks, get_exchange_bids
 from src.LoggerHandler.logger import setup_logger, get_logger
 from src.SoulEngine.SmartRouter.SmartRouter import SmartRouter
 ####################################
@@ -82,9 +82,6 @@ class Comparer:
                     continue
 
         self.logger.info(f'Comparer finished for {base_mint}')
-
-
-
 
     # =================================================================
     #  PRIVATE HELPER: The Core Logic Ported from V1 (https://github.com/spyLn271/JupiterArbitrageBot)

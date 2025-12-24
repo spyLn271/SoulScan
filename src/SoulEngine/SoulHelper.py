@@ -8,6 +8,7 @@ import math
 ####################################
 from src.Config import config, BasicSchemeAndTypeDict
 from src.CEX.contract_address_cex_checker.service.lookup import lookup_mint
+from src.CEX.CEXAPI import get_exchange_asks, get_exchange_bids
 ####################################
 
 def create_graph(metadata: dict, state: dict) -> nx.Graph:
@@ -147,3 +148,16 @@ def break_tasks_in_chunks(worker_number, task_list: list):
 
     for i in range(0, num_symbols, chunk_size):
         yield task_list[i:i + chunk_size]
+
+async def get_orderbook(exchange: str, symbol: str, mode: str) -> list[list[float]]:
+    if mode == 'CEX->DEX':
+        orderbook = await get_exchange_asks(exchange=exchange, symbol=symbol)
+    elif mode == 'DEX->CEX':
+        orderbook = await get_exchange_bids(exchange=exchange, symbol=symbol)
+    else:
+        raise ValueError(f'Invalid mode: {mode}')
+
+    if orderbook is None:
+        raise Exception(f'Failed to get orderbook for {exchange} {symbol} {mode}')
+
+    return orderbook
