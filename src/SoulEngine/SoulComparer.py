@@ -316,7 +316,8 @@ class Comparer:
                 result_SmartRouter = smart_router.ExactSwap(base_mint=base_mint,
                                                             quote_mint=DEX_QUOTE,
                                                             delta_amount=probe_delta_amount,
-                                                            amount_specified_is_input=False)
+                                                            amount_specified_is_input=False,
+                                                            a_to_b=False)
 
                 # Normalizing the amount that we need to give to DEX aggregator (in our case it is Jupiter)
                 # to get probe_delta_amount
