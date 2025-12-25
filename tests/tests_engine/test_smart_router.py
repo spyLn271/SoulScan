@@ -26,8 +26,8 @@ def test_raydium_route():
     start_time = time.time()
     smart_swap_result_1 = math_router.smart_swap(
         route=raydium_SOL_USD1_route_1,
-        mint_in=SOL_mint,
-        mint_out=USD1_mint,
+        base_mint=SOL_mint,
+        quote_mint=USD1_mint,
         delta_amount=delta_amount,
         amount_specified_is_input=amount_specified_is_input,
         metadata=metadata,
@@ -39,8 +39,8 @@ def test_raydium_route():
     start_time = time.time()
     smart_swap_result_2 = math_router.smart_swap(
         route=raydium_SOL_USD1_route_2,
-        mint_in=SOL_mint,
-        mint_out=USD1_mint,
+        base_mint=SOL_mint,
+        quote_mint=USD1_mint,
         delta_amount=delta_amount,
         amount_specified_is_input=amount_specified_is_input,
         metadata=metadata,

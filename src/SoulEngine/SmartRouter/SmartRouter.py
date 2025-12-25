@@ -92,7 +92,21 @@ class SmartRouter:
         return cold_path
 
 
-    def ExactSwap(self, base_mint: str, quote_mint: str, delta_amount: float | int, amount_specified_is_input: bool = True) -> SmartOutputTD:
+    def ExactSwap(self, base_mint: str, quote_mint: str, delta_amount: float | int,
+                  amount_specified_is_input: bool = True, a_to_b: bool = True) -> SmartOutputTD:
+        """
+
+        :param base_mint:
+        :param quote_mint:
+        :param delta_amount:
+        :param amount_specified_is_input:
+        :param a_to_b: 'a_to_b' means that base_mint is the input and quote_mint is the output.
+                        Example: SOL/USDC -> SOL is the base_mint and USDC is the quote_mint.
+                                 if a_to_b then SOL is exchanged for USDC.
+                                 if not a_to_b then USDC is exchanged for SOL.
+        :return:
+        """
+
         if quote_mint not in Bases.SUPPORTED_QUOTES:
             return _error(10)
         start_time_cold_path_fetching = time.time()
@@ -111,11 +125,12 @@ class SmartRouter:
             try:
                 smart_swap_result = self.math_router.smart_swap(route=route,
                                                                 delta_amount=delta_amount,
-                                                                mint_in=base_mint,
-                                                                mint_out=quote_mint,
+                                                                base_mint=base_mint,
+                                                                quote_mint=quote_mint,
                                                                 metadata=self.metadata,
                                                                 state=self.state,
-                                                                amount_specified_is_input=amount_specified_is_input)
+                                                                amount_specified_is_input=amount_specified_is_input,
+                                                                a_to_b=a_to_b)
 
                 if smart_swap_result["is_success"]:
                     val = int(smart_swap_result["result"])

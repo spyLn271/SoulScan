@@ -62,8 +62,8 @@ class OnlineSmartRouterEngineV1:
                     metadata=metadata,
                     state=state,
                     delta_amount=atomic_amount,
-                    mint_in=mint_in,
-                    mint_out=mint_out,
+                    base_mint=mint_in,
+                    quote_mint=mint_out,
                     amount_specified_is_input=True
                 )
 

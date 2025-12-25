@@ -18,7 +18,22 @@ class MathSmartRouter:
         self.swap = Swap()
 
     def smart_swap(self, route: list[str], metadata: dict, state: dict, delta_amount: int | float | Decimal,
-                   mint_in: str, mint_out: str, amount_specified_is_input: bool) -> SmartSwapResult:
+                   base_mint: str, quote_mint: str, amount_specified_is_input: bool, a_to_b: bool = True) -> SmartSwapResult:
+        """
+
+        :param route:
+        :param metadata:
+        :param state:
+        :param delta_amount:
+        :param base_mint:
+        :param quote_mint:
+        :param amount_specified_is_input:
+        :param a_to_b: 'a_to_b' means that base_mint is the input and quote_mint is the output.
+                        Example: SOL/USDC -> SOL is the base_mint and USDC is the quote_mint.
+                                 if a_to_b then SOL is exchanged for USDC.
+                                 if not a_to_b then USDC is exchanged for SOL.
+        :return:
+        """
 
         if not route:
             return {
@@ -28,9 +43,14 @@ class MathSmartRouter:
             }
 
         # 1) Normalizing route and setting current_mint
-        current_mint = mint_in if amount_specified_is_input else mint_out
+        if a_to_b:
+            current_mint = base_mint if amount_specified_is_input else quote_mint
 
-        processing_route = route if amount_specified_is_input else route[::-1]
+            processing_route = route if amount_specified_is_input else route[::-1]
+        else:
+            current_mint = quote_mint if amount_specified_is_input else base_mint
+
+            processing_route = route[::-1] if amount_specified_is_input else route
 
         current_amount = Decimal(str(delta_amount)) if not isinstance(delta_amount, Decimal) else delta_amount
 

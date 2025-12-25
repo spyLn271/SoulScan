@@ -265,7 +265,8 @@ class Comparer:
             greedy_result_SmartRouter = smart_router.ExactSwap(base_mint=base_mint,
                                                                quote_mint=DEX_QUOTE,
                                                                delta_amount=greedy_delta_amount,
-                                                               amount_specified_is_input=False)
+                                                               amount_specified_is_input=False,
+                                                               a_to_b=False)
 
             self.logger.info(f'Greedy SmartRouter result: {greedy_result_SmartRouter}')
 
