@@ -1,6 +1,6 @@
 [Unit]
 Description=SoulScan Aggregator - For testing SoulScan aggregator
-After=network.target redis.service soulscan-metadata-fetcher.service soulscan-state-fetcher.service soulscan-smart-router.service
+After=network.target redis.service soulscan-smart-router.service
 Requires=redis.service
 
 [Service]
