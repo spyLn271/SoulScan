@@ -170,7 +170,7 @@ def toggle_swap_direction():
 _, swap_col, _ = st.columns([1, 2, 1])
 
 with swap_col:
-    st.markdown("### 🔄 Swap")
+    st.markdown("### Swap")
 
     with st.expander("⚙️ Settings", expanded=True):
         swap_mode_option = st.radio(
@@ -242,7 +242,7 @@ with swap_col:
                         if st.session_state.custom_sell_token:
                             t = st.session_state.custom_sell_token
                             st.markdown(
-                                f'<img src="{t["icon"]}" width="20" style="vertical-align:middle;"/> **{t["symbol"]}** ({t["decimals"]} decimals)',
+                                f'<img src="{t["icon"]}" width="20" style="vertical-align:middle; border-radius:50%;"/> **{t["symbol"]}**',
                                 unsafe_allow_html=True)
                             base_mint = t["mint"]
                             input_decimals = t["decimals"]
@@ -317,7 +317,7 @@ with swap_col:
                         if st.session_state.custom_buy_token:
                             t = st.session_state.custom_buy_token
                             st.markdown(
-                                f'<img src="{t["icon"]}" width="20" style="vertical-align:middle;"/> **{t["symbol"]}** ({t["decimals"]} decimals)',
+                                f'<img src="{t["icon"]}" width="20" style="vertical-align:middle; border-radius:50%;"/> **{t["symbol"]}**',
                                 unsafe_allow_html=True)
                             base_mint = t["mint"]
                             output_decimals = t["decimals"]
