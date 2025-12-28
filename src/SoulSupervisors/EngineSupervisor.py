@@ -2,13 +2,13 @@ import multiprocessing
 import os
 import time
 import logging
-from typing import Union, Type
 import signal
 
 ####################################
 from src.LoggerHandler.logger import setup_logger, get_logger
 from src.Config import config
 from src.SoulEngine.SmartRouter.OnlineSmartRouter import OnlineSmartRouter, OnlineSmartRouterConfigScheme
+from src.SoulEngine.SoulScanner import Scanner, ScannerConfig
 from src.Config.GracefullShutDown import TerminateSignal, sigterm_handler
 ####################################
 
@@ -63,6 +63,68 @@ class OSRSupervisor:
                     osr_worker.join(timeout=10)
                     if osr_worker.is_alive():
                         logger.warning("OnlineSmartRouter didn't stop gracefully. Killing...")
+                        osr_worker.kill()
+                        osr_worker.join()
+                logger.info("OSRSupervisor stopped.")
+                break
+
+            except Exception as e:
+                logger.error(f"Supervisor error: {e}")
+
+            time.sleep(self.CHECK_INTERVAL)
+
+
+# Scanner Supervisor
+class ScannerSupervisor:
+    scanner_process_name = "Scanner"
+    CHECK_INTERVAL = 5
+
+    @staticmethod
+    def _start_scanner():
+        conf = ScannerConfig()
+        scanner = Scanner(conf)
+        scanner.start()
+
+    def _start_scanner_process(self, logger: logging.Logger):
+        p = multiprocessing.Process(
+            target=self._start_scanner,
+            name=ScannerSupervisor.scanner_process_name,
+        )
+        p.start()
+        logger.info(f"Started Scanner (PID: {p.pid})")
+        return p
+
+    def RUN_ONLINE_SCANNER(self):
+        signal.signal(signal.SIGTERM, sigterm_handler)
+
+        logger_name = "ScannerSupervisor"
+        log_file = os.path.join(config.LOG_MAIN_FOLDER, f"{logger_name}.log")
+        setup_logger(logger_name=logger_name, log_file=log_file)
+        logger = get_logger(logger_name=logger_name)
+
+        start_method = multiprocessing.get_start_method()
+        if start_method != 'spawn':
+            logger.critical(f"Wrong start method: {start_method}. Must be 'spawn'. Exiting.")
+            return
+
+        osr_worker: multiprocessing.Process = None
+
+        while True:
+            try:
+                if osr_worker is None:
+                    osr_worker = self._start_scanner_process(logger)
+                elif not osr_worker.is_alive():
+                    logger.error("Scanner died. Restarting...")
+                    osr_worker.join()
+                    osr_worker = self._start_scanner_process(logger)
+
+            except (KeyboardInterrupt, TerminateSignal):
+                logger.info("Shutdown signal received. Stopping Scanner...")
+                if osr_worker is not None and osr_worker.is_alive():
+                    osr_worker.terminate()
+                    osr_worker.join(timeout=10)
+                    if osr_worker.is_alive():
+                        logger.warning("Scanner didn't stop gracefully. Killing...")
                         osr_worker.kill()
                         osr_worker.join()
                 logger.info("OSRSupervisor stopped.")
