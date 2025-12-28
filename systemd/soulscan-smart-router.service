@@ -1,0 +1,19 @@
+[Unit]
+Description=SoulScan Smart Router - Computes optimal swap routes
+After=network.target redis.service soulscan-state-fetcher.service
+Requires=redis.service
+
+[Service]
+Type=simple
+User=soulscan
+Group=soulscan
+WorkingDirectory=/opt/soulscan
+Environment="PYTHONPATH=/opt/soulscan"
+ExecStart=/opt/soulscan/venv/bin/python -m scripts.run_supervisor smart_router
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

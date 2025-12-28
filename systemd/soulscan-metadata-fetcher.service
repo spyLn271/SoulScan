@@ -1,0 +1,19 @@
+[Unit]
+Description=SoulScan Metadata Fetcher - Fetches pool metadata from DEX APIs
+After=network.target redis.service
+Requires=redis.service
+
+[Service]
+Type=simple
+User=soulscan
+Group=soulscan
+WorkingDirectory=/opt/soulscan
+Environment="PYTHONPATH=/opt/soulscan"
+ExecStart=/opt/soulscan/venv/bin/python -m scripts.run_supervisor metadata_fetcher
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

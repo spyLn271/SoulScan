@@ -1,0 +1,19 @@
+[Unit]
+Description=SoulScan State Fetcher - Fetches live pool state via RPC
+After=network.target redis.service soulscan-metadata-fetcher.service
+Requires=redis.service
+
+[Service]
+Type=simple
+User=soulscan
+Group=soulscan
+WorkingDirectory=/opt/soulscan
+Environment="PYTHONPATH=/opt/soulscan"
+ExecStart=/opt/soulscan/venv/bin/python -m scripts.run_supervisor state_fetcher
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

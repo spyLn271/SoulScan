@@ -1,0 +1,19 @@
+[Unit]
+Description=SoulScan Scanner - Scans for CEX/DEX arbitrage opportunities
+After=network.target redis.service soulscan-smart-router.service
+Requires=redis.service
+
+[Service]
+Type=simple
+User=soulscan
+Group=soulscan
+WorkingDirectory=/opt/soulscan
+Environment="PYTHONPATH=/opt/soulscan"
+ExecStart=/opt/soulscan/venv/bin/python -m scripts.run_supervisor scanner
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
