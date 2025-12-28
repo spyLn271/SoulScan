@@ -8,6 +8,9 @@ from src.SoulEngine.SmartRouter.OnlineSmartRouter import get_active_metadata, ge
 st.set_page_config(page_title="SoulScan", layout="wide")
 
 st.title("👻 SoulScan")
+st.set_page_config(page_title="SoulScan",
+                   layout="wide",
+                   page_icon="👻")
 
 COMMON_TOKENS = {
     "USDC": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
@@ -342,7 +345,7 @@ with swap_col:
 
     st.markdown("")
 
-    if st.button("🚀 Compare Routes", type="primary", use_container_width=True):
+    if st.button("Compare Routes", type="primary", use_container_width=True):
         if not base_mint:
             st.error("Please enter a base mint address")
         elif not quote_mint:
@@ -426,20 +429,20 @@ if st.session_state.show_results and st.session_state.cached_results:
     with result_col1:
         st.subheader("SoulScan")
         if result.get("success"):
-            st.success("✅ SmartRouter Success")
+            st.success("SmartRouter Success")
             st.metric(result_label, f"{smart_router_human:,.6f}")
             st.write(
                 f"**Route:** `{' → '.join(result.get('route', []))[:50]}...`" if result.get('route') else "No route")
             with st.expander("Full Response"):
                 st.json(result)
         else:
-            st.error(f"❌ SmartRouter Failed: {result.get('message', 'Unknown error')}")
+            st.error(f"SmartRouter Failed: {result.get('message', 'Unknown error')}")
             st.json(result)
 
     with result_col2:
         st.subheader("Jupiter")
         if jup_result.get("success"):
-            st.success("✅ Jupiter Success")
+            st.success("Jupiter Success")
             st.metric(result_label, f"{jupiter_human:,.6f}")
             route_plan = jup_data.get("routePlan", [])
             if route_plan:
@@ -448,7 +451,7 @@ if st.session_state.show_results and st.session_state.cached_results:
             with st.expander("Full Response"):
                 st.json(jup_data)
         else:
-            st.error(f"❌ Jupiter Failed: {jup_result.get('error', 'Unknown error')}")
+            st.error(f"Jupiter Failed: {jup_result.get('error', 'Unknown error')}")
 
     st.divider()
     st.subheader("Comparison")
@@ -480,6 +483,6 @@ if st.session_state.show_results and st.session_state.cached_results:
         elif diff_pct < -0.1:
             st.warning(f"Jupiter is **better** than SoulScan by {abs(diff_pct):.4f}%")
         else:
-            st.info("✅ Results are nearly identical (within 0.1%)")
+            st.info("Results are nearly identical (within 0.1%)")
     else:
         st.warning("Cannot compare - one or both calculations failed")
