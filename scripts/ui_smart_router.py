@@ -142,6 +142,9 @@ st.markdown("""
         font-size: 24px !important;
         font-weight: bold !important;
     }
+    #MainMenu {
+        visibility: hidden;
+    }
 </style>
 """, unsafe_allow_html=True)
 
