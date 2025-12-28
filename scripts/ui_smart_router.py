@@ -196,7 +196,6 @@ with swap_col:
                     min_value=0.0,
                     value=1.0,
                     step=0.1,
-                    format="%.6f",
                     label_visibility="collapsed",
                     key="pay_amount"
                 )
@@ -267,7 +266,6 @@ with swap_col:
                     min_value=0.0,
                     value=1.0,
                     step=0.1,
-                    format="%.6f",
                     label_visibility="collapsed",
                     key="recv_amount"
                 )
