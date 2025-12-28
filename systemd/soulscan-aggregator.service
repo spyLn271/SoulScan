@@ -1,0 +1,19 @@
+[Unit]
+Description=SoulScan Aggregator - For testing SoulScan aggregator
+After=network.target redis.service soulscan-metadata-fetcher.service soulscan-state-fetcher.service soulscan-smart-router.service
+Requires=redis.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/root/HorizonEvent/SoulScan
+Environment="PYTHONPATH=/root/HorizonEvent/SoulScan"
+ExecStart=/root/HorizonEvent/SoulScan/venv/bin/python -m streamlit run scripts/ui_smart_router.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

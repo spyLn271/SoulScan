@@ -7,7 +7,7 @@ from src.SoulEngine.SmartRouter.OnlineSmartRouter import get_active_metadata, ge
 
 st.set_page_config(page_title="SoulScan", layout="wide")
 
-st.title("🔮 SoulScan")
+st.title("👻 SoulScan")
 
 # Common token addresses
 COMMON_TOKENS = {
@@ -210,8 +210,8 @@ if st.button("🚀 Execute Swap Calculation", type="primary", use_container_widt
         try:
             if smart_router_human > 0 and jupiter_human > 0:
                 diff = smart_router_human - jupiter_human
+                diff = diff if amount_specified_is_input else -diff
                 diff_pct = (diff / jupiter_human) * 100
-                diff_pct = diff_pct if amount_specified_is_input else -diff_pct
 
                 comp_col1, comp_col2, comp_col3 = st.columns(3)
 
