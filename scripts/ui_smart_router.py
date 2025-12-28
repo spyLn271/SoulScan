@@ -58,11 +58,59 @@ def run_jupiter_quote(input_mint: str, output_mint: str, amount: int, swap_mode:
     return asyncio.run(get_jupiter_quote(input_mint, output_mint, amount, swap_mode))
 
 
+async def search_token_async(mint: str) -> dict | None:
+    url = "https://api.jup.ag/ultra/v1/search"
+    params = {"query": mint}
+    headers = {"x-api-key": JUPITER_API_KEY}
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, params=params, headers=headers, timeout=10) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    if data and len(data) > 0:
+                        token = data[0]
+                        return {
+                            "mint": token.get("id"),
+                            "name": token.get("name"),
+                            "symbol": token.get("symbol"),
+                            "decimals": token.get("decimals"),
+                            "icon": token.get("icon"),
+                        }
+    except:
+        pass
+    return None
+
+
+def search_token_info(mint: str) -> dict | None:
+    return asyncio.run(search_token_async(mint))
+
+
 TOKEN_INFO = {
-    "USDC": {"mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "icon": "💵", "decimals": 6},
-    "SOL": {"mint": "So11111111111111111111111111111111111111112", "icon": "◎", "decimals": 9},
-    "USDT": {"mint": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", "icon": "💲", "decimals": 6},
+    "USDC": {
+        "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "icon": "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png",
+        "decimals": 6
+    },
+    "SOL": {
+        "mint": "So11111111111111111111111111111111111111112",
+        "icon": "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
+        "decimals": 9
+    },
+    "USDT": {
+        "mint": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+        "icon": "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB/logo.png",
+        "decimals": 6
+    },
 }
+
+
+def token_display(token_name):
+    """Display token with icon and name inline"""
+    if token_name in TOKEN_INFO:
+        icon_url = TOKEN_INFO[token_name]["icon"]
+        return f'<img src="{icon_url}" width="24" style="vertical-align:middle; margin-right:8px;"/><span style="font-size:20px; font-weight:bold;">{token_name}</span>'
+    return token_name
+
 
 st.markdown("""
 <style>
@@ -104,6 +152,10 @@ if "show_results" not in st.session_state:
     st.session_state.show_results = False
 if "cached_results" not in st.session_state:
     st.session_state.cached_results = None
+if "custom_sell_token" not in st.session_state:
+    st.session_state.custom_sell_token = None
+if "custom_buy_token" not in st.session_state:
+    st.session_state.custom_buy_token = None
 
 
 def toggle_swap_direction():
@@ -111,6 +163,8 @@ def toggle_swap_direction():
     st.session_state.last_result = None
     st.session_state.show_results = False
     st.session_state.cached_results = None
+    st.session_state.custom_sell_token = None
+    st.session_state.custom_buy_token = None
 
 
 _, swap_col, _ = st.columns([1, 2, 1])
@@ -168,18 +222,41 @@ with swap_col:
                     "Token",
                     sell_token_options,
                     index=default_sell_idx,
-                    format_func=lambda x: f"{TOKEN_INFO[x]['icon']} {x}" if x in TOKEN_INFO else "✏️ Custom",
+                    format_func=lambda x: f"◎ {x}" if x == "SOL" else (f"$ {x}" if x == "USDT" else x),
                     label_visibility="collapsed",
                     key="sell_token"
                 )
                 if sell_choice == "Custom":
-                    base_mint = st.text_input("Mint", placeholder="Mint address", key="custom_sell_mint")
-                    input_decimals = st.number_input("Dec", min_value=0, max_value=18, value=9, key="custom_sell_dec")
+                    custom_mint = st.text_input("Mint", placeholder="Enter mint address", key="custom_sell_mint")
+                    if custom_mint and len(custom_mint) > 30:
+                        if st.session_state.custom_sell_token is None or st.session_state.custom_sell_token.get(
+                                "mint") != custom_mint:
+                            with st.spinner("Looking up token..."):
+                                token_info = search_token_info(custom_mint)
+                                if token_info:
+                                    st.session_state.custom_sell_token = token_info
+                                else:
+                                    st.error("Token not found. Using default.")
+                                    st.session_state.custom_sell_token = None
+
+                        if st.session_state.custom_sell_token:
+                            t = st.session_state.custom_sell_token
+                            st.markdown(
+                                f'<img src="{t["icon"]}" width="20" style="vertical-align:middle;"/> **{t["symbol"]}** ({t["decimals"]} decimals)',
+                                unsafe_allow_html=True)
+                            base_mint = t["mint"]
+                            input_decimals = t["decimals"]
+                        else:
+                            base_mint = TOKEN_INFO["SOL"]["mint"]
+                            input_decimals = TOKEN_INFO["SOL"]["decimals"]
+                    else:
+                        base_mint = TOKEN_INFO["SOL"]["mint"]
+                        input_decimals = TOKEN_INFO["SOL"]["decimals"]
                 else:
                     base_mint = TOKEN_INFO[sell_choice]["mint"]
                     input_decimals = TOKEN_INFO[sell_choice]["decimals"]
             else:
-                st.markdown(f"### {TOKEN_INFO['USDC']['icon']} USDC")
+                st.markdown(token_display("USDC"), unsafe_allow_html=True)
                 input_decimals = 6
 
     _, btn_col, _ = st.columns([3, 1, 3])
@@ -212,7 +289,7 @@ with swap_col:
 
         with recv_col2:
             if st.session_state.a_to_b:
-                st.markdown(f"### {TOKEN_INFO['USDC']['icon']} USDC")
+                st.markdown(token_display("USDC"), unsafe_allow_html=True)
                 quote_mint = TOKEN_INFO["USDC"]["mint"]
                 output_decimals = 6
             else:
@@ -220,13 +297,36 @@ with swap_col:
                     "Token",
                     buy_token_options,
                     index=default_buy_idx,
-                    format_func=lambda x: f"{TOKEN_INFO[x]['icon']} {x}" if x in TOKEN_INFO else "✏️ Custom",
+                    format_func=lambda x: f"◎ {x}" if x == "SOL" else (f"$ {x}" if x == "USDT" else x),
                     label_visibility="collapsed",
                     key="buy_token"
                 )
                 if buy_choice == "Custom":
-                    base_mint = st.text_input("Mint", placeholder="Mint address", key="custom_buy_mint")
-                    output_decimals = st.number_input("Dec", min_value=0, max_value=18, value=9, key="custom_buy_dec")
+                    custom_mint = st.text_input("Mint", placeholder="Enter mint address", key="custom_buy_mint")
+                    if custom_mint and len(custom_mint) > 30:
+                        if st.session_state.custom_buy_token is None or st.session_state.custom_buy_token.get(
+                                "mint") != custom_mint:
+                            with st.spinner("Looking up token..."):
+                                token_info = search_token_info(custom_mint)
+                                if token_info:
+                                    st.session_state.custom_buy_token = token_info
+                                else:
+                                    st.error("Token not found. Using default.")
+                                    st.session_state.custom_buy_token = None
+
+                        if st.session_state.custom_buy_token:
+                            t = st.session_state.custom_buy_token
+                            st.markdown(
+                                f'<img src="{t["icon"]}" width="20" style="vertical-align:middle;"/> **{t["symbol"]}** ({t["decimals"]} decimals)',
+                                unsafe_allow_html=True)
+                            base_mint = t["mint"]
+                            output_decimals = t["decimals"]
+                        else:
+                            base_mint = TOKEN_INFO["SOL"]["mint"]
+                            output_decimals = TOKEN_INFO["SOL"]["decimals"]
+                    else:
+                        base_mint = TOKEN_INFO["SOL"]["mint"]
+                        output_decimals = TOKEN_INFO["SOL"]["decimals"]
                 else:
                     base_mint = TOKEN_INFO[buy_choice]["mint"]
                     output_decimals = TOKEN_INFO[buy_choice]["decimals"]
