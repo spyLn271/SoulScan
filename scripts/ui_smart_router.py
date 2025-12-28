@@ -9,7 +9,6 @@ st.set_page_config(page_title="SoulScan", layout="wide")
 
 st.title("👻 SoulScan")
 
-# Common token addresses
 COMMON_TOKENS = {
     "USDC": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     "SOL (Wrapped)": "So11111111111111111111111111111111111111112",
@@ -63,14 +62,12 @@ def run_jupiter_quote(input_mint: str, output_mint: str, amount: int, swap_mode:
     return asyncio.run(get_jupiter_quote(input_mint, output_mint, amount, swap_mode))
 
 
-# Token info with icons
 TOKEN_INFO = {
     "USDC": {"mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "icon": "💵", "decimals": 6},
     "SOL": {"mint": "So11111111111111111111111111111111111111112", "icon": "◎", "decimals": 9},
     "USDT": {"mint": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", "icon": "💲", "decimals": 6},
 }
 
-# Custom CSS for beautiful swap card
 st.markdown("""
 <style>
     .swap-card {
@@ -101,122 +98,147 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Session state
 if "a_to_b" not in st.session_state:
     st.session_state.a_to_b = True
+if "last_result" not in st.session_state:
+    st.session_state.last_result = None
+if "last_result_token" not in st.session_state:
+    st.session_state.last_result_token = None
 
 
 def toggle_swap_direction():
     st.session_state.a_to_b = not st.session_state.a_to_b
+    st.session_state.last_result = None
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# 🔄 SWAP INTERFACE
-# ═══════════════════════════════════════════════════════════════════════════════
 _, swap_col, _ = st.columns([1, 2, 1])
 
 with swap_col:
     st.markdown("### 🔄 Swap")
 
-    # ─── SELL TOKEN BOX ───
+    with st.expander("⚙️ Settings", expanded=True):
+        swap_mode_option = st.radio(
+            "Swap Mode",
+            ["Exact Input", "Exact Output"],
+            horizontal=True,
+            help="ExactIn: you specify how much to pay. ExactOut: you specify how much to receive."
+        )
+        amount_specified_is_input = (swap_mode_option == "Exact Input")
+
+    if st.session_state.a_to_b:
+        sell_token_options = ["Custom"] + [k for k in TOKEN_INFO.keys() if k != "USDC"]
+        default_sell_idx = 1
+    else:
+        sell_token_options = None
+
+    if st.session_state.a_to_b:
+        buy_token_options = None
+    else:
+        buy_token_options = ["Custom"] + [k for k in TOKEN_INFO.keys() if k != "USDC"]
+        default_buy_idx = 1
+
     with st.container(border=True):
         st.caption("You Pay")
         pay_col1, pay_col2 = st.columns([2, 1])
 
         with pay_col1:
-            delta_amount = st.number_input(
-                "Amount",
-                min_value=0.0,
-                value=1.0,
-                step=0.1,
-                format="%.6f",
-                label_visibility="collapsed",
-                key="pay_amount"
-            )
+            if amount_specified_is_input:
+                delta_amount = st.number_input(
+                    "Amount",
+                    min_value=0.0,
+                    value=1.0,
+                    step=0.1,
+                    format="%.6f",
+                    label_visibility="collapsed",
+                    key="pay_amount"
+                )
+            else:
+                if st.session_state.last_result is not None and not amount_specified_is_input:
+                    st.markdown(f"#### {st.session_state.last_result:,.6f}")
+                    st.caption("SoulScan estimate")
+                else:
+                    st.markdown("#### —")
+                    st.caption("Calculated")
 
         with pay_col2:
             if st.session_state.a_to_b:
-                # Selling a token for USDC
-                sell_options = ["Custom"] + [k for k in TOKEN_INFO.keys() if k != "USDC"]
-                token_choice = st.selectbox(
+                sell_choice = st.selectbox(
                     "Token",
-                    sell_options,
-                    index=1,  # Default to SOL
+                    sell_token_options,
+                    index=default_sell_idx,
                     format_func=lambda x: f"{TOKEN_INFO[x]['icon']} {x}" if x in TOKEN_INFO else "✏️ Custom",
                     label_visibility="collapsed",
                     key="sell_token"
                 )
-                if token_choice == "Custom":
-                    base_mint = st.text_input("Mint Address", placeholder="Token mint address", key="custom_sell_mint")
-                    decimals = st.number_input("Decimals", min_value=0, max_value=18, value=9, key="custom_sell_dec")
+                if sell_choice == "Custom":
+                    base_mint = st.text_input("Mint", placeholder="Mint address", key="custom_sell_mint")
+                    input_decimals = st.number_input("Dec", min_value=0, max_value=18, value=9, key="custom_sell_dec")
                 else:
-                    base_mint = TOKEN_INFO[token_choice]["mint"]
-                    decimals = TOKEN_INFO[token_choice]["decimals"]
+                    base_mint = TOKEN_INFO[sell_choice]["mint"]
+                    input_decimals = TOKEN_INFO[sell_choice]["decimals"]
             else:
-                # Selling USDC
                 st.markdown(f"### {TOKEN_INFO['USDC']['icon']} USDC")
-                decimals = 6
+                input_decimals = 6
 
-    # ─── SWAP DIRECTION BUTTON ───
     _, btn_col, _ = st.columns([3, 1, 3])
     with btn_col:
         st.button("⇅", on_click=toggle_swap_direction, use_container_width=True,
                   help="Switch swap direction", type="secondary")
 
-    # ─── RECEIVE TOKEN BOX ───
     with st.container(border=True):
         st.caption("You Receive")
         recv_col1, recv_col2 = st.columns([2, 1])
 
         with recv_col1:
-            st.markdown("#### —")
-            st.caption("Calculated after swap")
+            if not amount_specified_is_input:
+                delta_amount = st.number_input(
+                    "Amount",
+                    min_value=0.0,
+                    value=1.0,
+                    step=0.1,
+                    format="%.6f",
+                    label_visibility="collapsed",
+                    key="recv_amount"
+                )
+            else:
+                if st.session_state.last_result is not None and amount_specified_is_input:
+                    st.markdown(f"#### {st.session_state.last_result:,.6f}")
+                    st.caption("SoulScan estimate")
+                else:
+                    st.markdown("#### —")
+                    st.caption("Calculated")
 
         with recv_col2:
             if st.session_state.a_to_b:
-                # Receiving USDC
                 st.markdown(f"### {TOKEN_INFO['USDC']['icon']} USDC")
                 quote_mint = TOKEN_INFO["USDC"]["mint"]
                 output_decimals = 6
             else:
-                # Receiving a token
-                buy_options = ["Custom"] + [k for k in TOKEN_INFO.keys() if k != "USDC"]
                 buy_choice = st.selectbox(
                     "Token",
-                    buy_options,
-                    index=1,
+                    buy_token_options,
+                    index=default_buy_idx,
                     format_func=lambda x: f"{TOKEN_INFO[x]['icon']} {x}" if x in TOKEN_INFO else "✏️ Custom",
                     label_visibility="collapsed",
                     key="buy_token"
                 )
                 if buy_choice == "Custom":
-                    base_mint = st.text_input("Mint Address", placeholder="Token mint address", key="custom_buy_mint")
-                    output_decimals = st.number_input("Decimals", min_value=0, max_value=18, value=9,
-                                                      key="custom_buy_dec")
+                    base_mint = st.text_input("Mint", placeholder="Mint address", key="custom_buy_mint")
+                    output_decimals = st.number_input("Dec", min_value=0, max_value=18, value=9, key="custom_buy_dec")
                 else:
                     base_mint = TOKEN_INFO[buy_choice]["mint"]
                     output_decimals = TOKEN_INFO[buy_choice]["decimals"]
                 quote_mint = TOKEN_INFO["USDC"]["mint"]
 
-    # ─── SWAP SETTINGS ───
-    with st.expander("⚙️ Settings", expanded=False):
-        settings_col1, settings_col2 = st.columns(2)
-        with settings_col1:
-            swap_mode_option = st.radio(
-                "Swap Mode",
-                ["Exact Input", "Exact Output"],
-                horizontal=True,
-                help="ExactIn: specify input amount. ExactOut: specify desired output amount."
-            )
-            amount_specified_is_input = (swap_mode_option == "Exact Input")
-        with settings_col2:
-            st.metric("Slippage", "0.5%")
+    if amount_specified_is_input:
+        decimals = input_decimals
+    else:
+        decimals = output_decimals
 
-    st.markdown("")
-
-    # ─── EXECUTE BUTTON ───
     a_to_b = st.session_state.a_to_b
     raw_amount = int(delta_amount * 10 ** decimals)
+
+    st.markdown("")
 
     if st.button("🚀 Compare Routes", type="primary", use_container_width=True):
         if not base_mint:
@@ -247,6 +269,8 @@ with swap_col:
 
                             smart_router_output = result.get("result", 0)
                             smart_router_human = smart_router_output / (10 ** output_decimals)
+
+                            st.session_state.last_result = smart_router_human
 
                             st.metric("Output Amount", f"{smart_router_human:,.6f}")
                             st.write(f"**Route:** `{' → '.join(result.get('route', []))[:50]}...`" if result.get(
