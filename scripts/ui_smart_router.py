@@ -66,7 +66,7 @@ def run_jupiter_quote(input_mint: str, output_mint: str, amount: int, swap_mode:
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("📥 Input Parameters")
+    st.subheader("Input Parameters")
 
     base_mint_option = st.selectbox(
         "Base Token (or enter custom)",
@@ -93,10 +93,11 @@ with col1:
         st.code(quote_mint, language=None)
 
 with col2:
-    st.subheader("⚙️ Swap Configuration")
+    st.subheader("Swap Configuration")
 
     delta_amount = st.number_input("Delta Amount", min_value=0.0, value=1.0, step=0.1)
     decimals = st.number_input("Token Decimals", min_value=0, max_value=18, value=6, step=1)
+    output_decimals = st.number_input("Output Token Decimals", min_value=0, max_value=18, value=6, step=1)
 
     amount_specified_is_input = st.checkbox("Amount Specified is Input", value=True)
     a_to_b = st.checkbox("A to B (Base to Quote)", value=True)
@@ -115,8 +116,8 @@ if st.button("🚀 Execute Swap Calculation", type="primary", use_container_widt
         result_col1, result_col2 = st.columns(2)
 
         with result_col1:
-            st.subheader("🧠 Your SmartRouter")
-            with st.spinner("Connecting to Redis and calculating swap..."):
+            st.subheader("SoulScan")
+            with st.spinner("Calculating swap..."):
                 try:
                     metadata = get_active_metadata(r)
                     state = get_active_state(r)
@@ -133,7 +134,6 @@ if st.button("🚀 Execute Swap Calculation", type="primary", use_container_widt
                     if result.get("success"):
                         st.success("✅ SmartRouter Success")
 
-                        output_decimals = TOKEN_DECIMALS.get(quote_mint if a_to_b else base_mint, 6)
                         smart_router_output = result.get("result", 0)
                         smart_router_human = smart_router_output / (10 ** output_decimals)
 
@@ -160,7 +160,7 @@ if st.button("🚀 Execute Swap Calculation", type="primary", use_container_widt
                     smart_router_human = 0
 
         with result_col2:
-            st.subheader("🪐 Jupiter Quote")
+            st.subheader("Jupiter")
             with st.spinner("Fetching Jupiter quote..."):
                 if a_to_b:
                     jup_input = base_mint
@@ -188,7 +188,6 @@ if st.button("🚀 Execute Swap Calculation", type="primary", use_container_widt
                     else:
                         jupiter_output = int(jup_data.get("inAmount", 0))
 
-                    output_decimals = TOKEN_DECIMALS.get(jup_output, 6)
                     jupiter_human = jupiter_output / (10 ** output_decimals)
 
                     st.metric("Output Amount", f"{jupiter_human:,.6f}")
@@ -206,12 +205,13 @@ if st.button("🚀 Execute Swap Calculation", type="primary", use_container_widt
                     jupiter_human = 0
 
         st.divider()
-        st.subheader("📊 Comparison")
+        st.subheader("Comparison")
 
         try:
             if smart_router_human > 0 and jupiter_human > 0:
                 diff = smart_router_human - jupiter_human
                 diff_pct = (diff / jupiter_human) * 100
+                diff_pct = diff_pct if amount_specified_is_input else -diff_pct
 
                 comp_col1, comp_col2, comp_col3 = st.columns(3)
 
@@ -231,9 +231,9 @@ if st.button("🚀 Execute Swap Calculation", type="primary", use_container_widt
                     )
 
                 if diff_pct > 0.1:
-                    st.success(f"🎉 Your SmartRouter is **better** than Jupiter by {diff_pct:.4f}%!")
+                    st.success(f"SoulScan is **better** than Jupiter by {diff_pct:.4f}%!")
                 elif diff_pct < -0.1:
-                    st.warning(f"⚠️ Jupiter is **better** than your SmartRouter by {abs(diff_pct):.4f}%")
+                    st.warning(f"Jupiter is **better** than your SmartRouter by {abs(diff_pct):.4f}%")
                 else:
                     st.info("✅ Results are nearly identical (within 0.1%)")
             else:
