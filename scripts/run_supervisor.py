@@ -1,17 +1,13 @@
-#!/usr/bin/env python3
 """
 SoulScan Supervisor Entry Points for systemd
 Usage: python -m scripts.run_supervisor <supervisor_name>
 """
 import sys
 import multiprocessing
-
-# MUST be called before any imports that use multiprocessing
-multiprocessing.set_start_method('spawn', force=True)
-
 from src.SoulSupervisors import RUN_METADATA_FETCHERS, RUN_STATE_FETCHERS, OSRSupervisor
 from src.SoulSupervisors.EngineSupervisor import ScannerSupervisor
 
+multiprocessing.set_start_method('spawn', force=True)
 
 def main():
     if len(sys.argv) < 2:

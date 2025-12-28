@@ -1,6 +1,5 @@
 #!/bin/bash
-# SoulScan Installation Script for Linux Server
-# Run as root: sudo bash install.sh
+
 
 set -e
 
