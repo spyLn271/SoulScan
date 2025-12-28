@@ -63,44 +63,120 @@ def run_jupiter_quote(input_mint: str, output_mint: str, amount: int, swap_mode:
     return asyncio.run(get_jupiter_quote(input_mint, output_mint, amount, swap_mode))
 
 
-col1, col2 = st.columns(2)
+# Initialize session state for swap direction
+if "swap_direction" not in st.session_state:
+    st.session_state.swap_direction = True  # True = From -> To (a_to_b)
 
-with col1:
-    st.subheader("Input Parameters")
 
-    base_mint_option = st.selectbox(
-        "Base Token (or enter custom)",
-        ["Custom"] + list(COMMON_TOKENS.keys()),
-        index=0
-    )
+def toggle_swap():
+    st.session_state.swap_direction = not st.session_state.swap_direction
 
-    if base_mint_option == "Custom":
-        base_mint = st.text_input("Base Mint Address", placeholder="Enter token mint address")
-    else:
-        base_mint = COMMON_TOKENS[base_mint_option]
-        st.code(base_mint, language=None)
 
-    quote_mint_option = st.selectbox(
-        "Quote Token",
-        ["USDC"],
-        index=0
-    )
+# Center the swap card
+_, swap_col, _ = st.columns([1, 2, 1])
 
-    if quote_mint_option == "Custom":
-        quote_mint = st.text_input("Quote Mint Address", placeholder="Enter token mint address")
-    else:
-        quote_mint = COMMON_TOKENS[quote_mint_option]
-        st.code(quote_mint, language=None)
+with swap_col:
+    # ═══════════════════════════════════════════════════════════════
+    # 💰 YOU PAY (From Token)
+    # ═══════════════════════════════════════════════════════════════
+    st.markdown("##### 💰 You Pay")
+    with st.container(border=True):
+        from_col1, from_col2 = st.columns([2, 1])
 
-with col2:
-    st.subheader("Swap Configuration")
+        with from_col1:
+            delta_amount = st.number_input(
+                "Amount",
+                min_value=0.0,
+                value=1.0,
+                step=0.1,
+                label_visibility="collapsed",
+                key="from_amount"
+            )
 
-    delta_amount = st.number_input("Delta Amount", min_value=0.0, value=1.0, step=0.1)
-    decimals = st.number_input("Token Decimals", min_value=0, max_value=18, value=6, step=1)
-    output_decimals = st.number_input("Output Token Decimals", min_value=0, max_value=18, value=6, step=1)
+        with from_col2:
+            from_token_option = st.selectbox(
+                "From Token",
+                list(COMMON_TOKENS.keys()) + ["Custom"],
+                index=1,  # Default to SOL
+                label_visibility="collapsed",
+                key="from_token"
+            )
 
-    amount_specified_is_input = st.checkbox("Amount Specified is Input", value=True)
-    a_to_b = st.checkbox("A to B (Base to Quote)", value=True)
+        if from_token_option == "Custom":
+            from_mint = st.text_input(
+                "From Mint Address",
+                placeholder="Enter token mint address",
+                label_visibility="collapsed",
+                key="from_mint_input"
+            )
+            from_decimals = st.number_input("From Token Decimals", min_value=0, max_value=18, value=9, step=1)
+        else:
+            from_mint = COMMON_TOKENS[from_token_option]
+            from_decimals = TOKEN_DECIMALS.get(from_mint, 9)
+            st.caption(f"`{from_mint[:20]}...`")
+
+    # ═══════════════════════════════════════════════════════════════
+    # 🔄 SWAP DIRECTION BUTTON
+    # ═══════════════════════════════════════════════════════════════
+    swap_btn_col1, swap_btn_col2, swap_btn_col3 = st.columns([2, 1, 2])
+    with swap_btn_col2:
+        st.button("🔄", on_click=toggle_swap, use_container_width=True, help="Swap tokens")
+
+    # ═══════════════════════════════════════════════════════════════
+    # 💎 YOU RECEIVE (To Token)
+    # ═══════════════════════════════════════════════════════════════
+    st.markdown("##### 💎 You Receive")
+    with st.container(border=True):
+        to_col1, to_col2 = st.columns([2, 1])
+
+        with to_col1:
+            st.markdown("**—**")  # Placeholder for output amount (calculated after swap)
+            st.caption("Output calculated after execution")
+
+        with to_col2:
+            to_token_option = st.selectbox(
+                "To Token",
+                list(COMMON_TOKENS.keys()) + ["Custom"],
+                index=0,  # Default to USDC
+                label_visibility="collapsed",
+                key="to_token"
+            )
+
+        if to_token_option == "Custom":
+            to_mint = st.text_input(
+                "To Mint Address",
+                placeholder="Enter token mint address",
+                label_visibility="collapsed",
+                key="to_mint_input"
+            )
+            to_decimals = st.number_input("To Token Decimals", min_value=0, max_value=18, value=6, step=1)
+        else:
+            to_mint = COMMON_TOKENS[to_token_option]
+            to_decimals = TOKEN_DECIMALS.get(to_mint, 6)
+            st.caption(f"`{to_mint[:20]}...`")
+
+    # ═══════════════════════════════════════════════════════════════
+    # ⚙️ ADVANCED SETTINGS (Expandable)
+    # ═══════════════════════════════════════════════════════════════
+    with st.expander("⚙️ Advanced Settings"):
+        amount_specified_is_input = st.checkbox("Amount Specified is Input (ExactIn)", value=True)
+        st.caption("Uncheck for ExactOut mode")
+
+# Map UI values based on swap direction
+if st.session_state.swap_direction:
+    # Normal direction: From -> To
+    base_mint = from_mint
+    quote_mint = to_mint
+    decimals = from_decimals
+    output_decimals = to_decimals
+    a_to_b = True
+else:
+    # Reversed direction: To -> From
+    base_mint = to_mint
+    quote_mint = from_mint
+    decimals = to_decimals
+    output_decimals = from_decimals
+    a_to_b = False
 
 st.divider()
 
