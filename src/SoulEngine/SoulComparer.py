@@ -93,6 +93,10 @@ class Comparer:
         start_time = time.time()
 
         orderbook = await get_exchange_asks(exchange=cex, symbol=f'{base_symbol}{quote_symbol}')
+        if not orderbook:
+            self.logger.warning(f'Orderbook is empty for {cex} {base_symbol}/{quote_symbol}. Skipping.')
+            return
+
         cex_total_sum_out = 0  # some base token out
         cex_total_sum_in = 0  # USDC ot USDT in
         profit = 0
@@ -238,6 +242,10 @@ class Comparer:
         start_time = time.time()
 
         orderbook = await get_exchange_bids(exchange=cex, symbol=f'{base_symbol}{quote_symbol}')
+        if not orderbook:
+            self.logger.warning(f'Orderbook is empty for {cex} {base_symbol}/{quote_symbol}. Skipping.')
+            return
+
         cex_total_sum_in = 0  # some token base in
         cex_total_sum_out = 0  # USDC or USDT out
         profit = 0
