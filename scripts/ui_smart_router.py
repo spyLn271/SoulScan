@@ -5,12 +5,9 @@ import asyncio
 from src.SoulEngine.SmartRouter import SmartRouter
 from src.SoulEngine.SmartRouter.OnlineSmartRouter import get_active_metadata, get_active_state
 
-st.set_page_config(page_title="SoulScan", layout="wide")
+st.set_page_config(page_title="SoulScan", layout="wide", page_icon="👻")
 
 st.title("👻 SoulScan")
-st.set_page_config(page_title="SoulScan",
-                   layout="wide",
-                   page_icon="👻")
 
 COMMON_TOKENS = {
     "USDC": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
@@ -141,9 +138,6 @@ st.markdown("""
     div[data-testid="stNumberInput"] input {
         font-size: 24px !important;
         font-weight: bold !important;
-    }
-    #MainMenu {
-        visibility: hidden;
     }
 </style>
 """, unsafe_allow_html=True)
