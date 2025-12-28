@@ -1,39 +1,32 @@
 #!/bin/bash
 
-
 set -e
 
-INSTALL_DIR="/opt/soulscan"
-VENV_DIR="$INSTALL_DIR/venv"
-SERVICE_USER="soulscan"
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VENV_DIR="$SCRIPT_DIR/venv"
 
 echo "=== SoulScan Installation Script ==="
+echo "Project directory: $SCRIPT_DIR"
+echo "Venv directory: $VENV_DIR"
 
-# Create user if not exists
-if ! id "$SERVICE_USER" &>/dev/null; then
-    echo "Creating user: $SERVICE_USER"
-    useradd --system --no-create-home --shell /bin/false $SERVICE_USER
+# Check if venv exists
+if [ ! -d "$VENV_DIR" ]; then
+    echo "Creating Python virtual environment..."
+    python3.12 -m venv "$VENV_DIR"
 fi
 
-# Create directories
-echo "Creating installation directory..."
-mkdir -p $INSTALL_DIR
-mkdir -p $INSTALL_DIR/LogFolder
+# Install/update dependencies
+echo "Installing dependencies..."
+"$VENV_DIR/bin/pip" install --upgrade pip
+"$VENV_DIR/bin/pip" install -r "$SCRIPT_DIR/requirements.txt"
 
-# Copy project files (adjust source path as needed)
-echo "Copying project files..."
-cp -r . $INSTALL_DIR/
-chown -R $SERVICE_USER:$SERVICE_USER $INSTALL_DIR
-
-# Create virtual environment
-echo "Creating Python virtual environment..."
-python3 -m venv $VENV_DIR
-$VENV_DIR/bin/pip install --upgrade pip
-$VENV_DIR/bin/pip install -r $INSTALL_DIR/requirements.txt
+# Create LogFolder if not exists
+mkdir -p "$SCRIPT_DIR/LogFolder"
 
 # Install systemd services
 echo "Installing systemd services..."
-cp $INSTALL_DIR/systemd/*.service /etc/systemd/system/
+cp "$SCRIPT_DIR/systemd/"*.service /etc/systemd/system/
 systemctl daemon-reload
 
 # Enable services

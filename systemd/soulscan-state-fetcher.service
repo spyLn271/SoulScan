@@ -5,11 +5,11 @@ Requires=redis.service
 
 [Service]
 Type=simple
-User=soulscan
-Group=soulscan
-WorkingDirectory=/opt/soulscan
-Environment="PYTHONPATH=/opt/soulscan"
-ExecStart=/opt/soulscan/venv/bin/python -m scripts.run_supervisor state_fetcher
+User=root
+Group=root
+WorkingDirectory=/root/HorizonEvent/SoulScan
+Environment="PYTHONPATH=/root/HorizonEvent/SoulScan"
+ExecStart=/root/HorizonEvent/SoulScan/venv/bin/python -m scripts.run_supervisor state_fetcher
 Restart=always
 RestartSec=5
 StandardOutput=journal
