@@ -5,17 +5,8 @@ import asyncio
 from src.SoulEngine.SmartRouter import SmartRouter
 from src.SoulEngine.SmartRouter.OnlineSmartRouter import get_active_metadata, get_active_state
 
-st.set_page_config(page_title="HorizonEvent", layout="wide", page_icon="👻")
+st.set_page_config(page_title="SoulScan", layout="wide", page_icon="👻")
 
-st.markdown(
-    """
-    <h1 style="display:flex; align-items:center; gap:10px;">
-        <img src="icon/black-hole.png" width="40" height="40" style="vertical-align:middle;"/>
-        HorizonEvent
-    </h1>
-    """,
-    unsafe_allow_html=True
-)
 
 COMMON_TOKENS = {
     "USDC": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
@@ -219,7 +210,7 @@ with swap_col:
             else:
                 if st.session_state.last_result is not None and not amount_specified_is_input:
                     st.markdown(f"#### {st.session_state.last_result:,.6f}")
-                    st.caption("HorizonEvent estimate")
+                    st.caption("SoulScan estimate")
                 else:
                     st.markdown("#### —")
                     st.caption("Calculated")
@@ -290,7 +281,7 @@ with swap_col:
             else:
                 if st.session_state.last_result is not None and amount_specified_is_input:
                     st.markdown(f"#### {st.session_state.last_result:,.6f}")
-                    st.caption("HorizonEvent estimate")
+                    st.caption("SoulScan estimate")
                 else:
                     st.markdown("#### —")
                     st.caption("Calculated")
@@ -432,7 +423,7 @@ if st.session_state.show_results and st.session_state.cached_results:
     result_col1, result_col2 = st.columns(2)
 
     with result_col1:
-        st.subheader("HorizonEvent")
+        st.subheader("SoulScan")
         if result.get("success"):
             st.success("SmartRouter Success")
             st.metric(result_label, f"{smart_router_human:,.6f}")
@@ -469,7 +460,7 @@ if st.session_state.show_results and st.session_state.cached_results:
         comp_col1, comp_col2, comp_col3 = st.columns(3)
 
         with comp_col1:
-            st.metric("HorizonEvent", f"{smart_router_human:,.6f}")
+            st.metric("SoulScan", f"{smart_router_human:,.6f}")
 
         with comp_col2:
             st.metric("Jupiter", f"{jupiter_human:,.6f}")
@@ -484,9 +475,9 @@ if st.session_state.show_results and st.session_state.cached_results:
             )
 
         if diff_pct > 0.1:
-            st.success(f"HorizonEvent is **better** than Jupiter by {diff_pct:.4f}%!")
+            st.success(f"SoulScan is **better** than Jupiter by {diff_pct:.4f}%!")
         elif diff_pct < -0.1:
-            st.warning(f"Jupiter is **better** than HorizonEvent by {abs(diff_pct):.4f}%")
+            st.warning(f"Jupiter is **better** than SoulScan by {abs(diff_pct):.4f}%")
         else:
             st.info("Results are nearly identical (within 0.1%)")
     else:
