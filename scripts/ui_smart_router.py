@@ -16,9 +16,9 @@ COMMON_TOKENS = {
 }
 
 TOKEN_DECIMALS = {
-    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": 6,  # USDC
-    "So11111111111111111111111111111111111111112": 9,  # SOL
-    "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB": 6,  # USDT
+    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": 6,
+    "So11111111111111111111111111111111111111112": 9,
+    "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB": 6,
 }
 
 r = redis.Redis(decode_responses=True)
@@ -27,10 +27,6 @@ JUPITER_API_KEY = "5c2df4a8-f56d-447e-8354-4ed9d3368b84"
 
 
 async def get_jupiter_quote(input_mint: str, output_mint: str, amount: int, swap_mode: str = "ExactIn") -> dict:
-    """
-    Fetch quote from Jupiter Quote API
-    https://dev.jup.ag/docs/swap/get-quote
-    """
     url = "https://api.jup.ag/swap/v1/quote"
     params = {
         "inputMint": input_mint,
@@ -268,11 +264,18 @@ with swap_col:
                             st.success("✅ SmartRouter Success")
 
                             smart_router_output = result.get("result", 0)
-                            smart_router_human = smart_router_output / (10 ** output_decimals)
 
+                            if amount_specified_is_input:
+                                result_decimals = output_decimals
+                                result_label = "Output Amount"
+                            else:
+                                result_decimals = input_decimals
+                                result_label = "Input Amount"
+
+                            smart_router_human = smart_router_output / (10 ** result_decimals)
                             st.session_state.last_result = smart_router_human
 
-                            st.metric("Output Amount", f"{smart_router_human:,.6f}")
+                            st.metric(result_label, f"{smart_router_human:,.6f}")
                             st.write(f"**Route:** `{' → '.join(result.get('route', []))[:50]}...`" if result.get(
                                 'route') else "No route")
 
@@ -320,12 +323,16 @@ with swap_col:
 
                         if amount_specified_is_input:
                             jupiter_output = int(jup_data.get("outAmount", 0))
+                            jup_result_decimals = output_decimals
+                            jup_result_label = "Output Amount"
                         else:
                             jupiter_output = int(jup_data.get("inAmount", 0))
+                            jup_result_decimals = input_decimals
+                            jup_result_label = "Input Amount"
 
-                        jupiter_human = jupiter_output / (10 ** output_decimals)
+                        jupiter_human = jupiter_output / (10 ** jup_result_decimals)
 
-                        st.metric("Output Amount", f"{jupiter_human:,.6f}")
+                        st.metric(jup_result_label, f"{jupiter_human:,.6f}")
 
                         route_plan = jup_data.get("routePlan", [])
                         if route_plan:
