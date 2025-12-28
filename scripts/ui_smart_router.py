@@ -11,13 +11,11 @@ st.set_page_config(page_title="SoulScan", layout="wide", page_icon="👻")
 COMMON_TOKENS = {
     "USDC": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     "SOL (Wrapped)": "So11111111111111111111111111111111111111112",
-    "USDT": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
 }
 
 TOKEN_DECIMALS = {
     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": 6,
     "So11111111111111111111111111111111111111112": 9,
-    "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB": 6,
 }
 
 r = redis.Redis(decode_responses=True)
@@ -94,11 +92,6 @@ TOKEN_INFO = {
         "mint": "So11111111111111111111111111111111111111112",
         "icon": "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
         "decimals": 9
-    },
-    "USDT": {
-        "mint": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
-        "icon": "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB/logo.png",
-        "decimals": 6
     },
 }
 
@@ -221,7 +214,7 @@ with swap_col:
                     "Token",
                     sell_token_options,
                     index=default_sell_idx,
-                    format_func=lambda x: f"◎ {x}" if x == "SOL" else (f"$ {x}" if x == "USDT" else x),
+                    format_func=lambda x: f"◎ {x}" if x == "SOL" else x,
                     label_visibility="collapsed",
                     key="sell_token"
                 )
