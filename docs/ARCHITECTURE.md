@@ -74,8 +74,8 @@ DEX (Jupiter): Buy 100 SOL ← Pay $17,400 USDC
 
 | Component | Source | Redis Key | Update Frequency |
 |-----------|--------|-----------|------------------|
-| `MetadataFetcher` | DEX APIs | `snapshot:metadata:{market}:{version}` | ~60s |
-| `StateFetcher` | Solana RPC | `snapshot:state:{market}:{version}` | ~1-5s |
+| `MetadataFetcher` | DEX APIs | `snapshot:metadata:{market}:{version}` | ~3h              |
+| `StateFetcher` | Solana RPC | `snapshot:state:{market}:{version}` | ~1-5s            |
 
 **Files**:
 - `src/DataFetcher/api_clients/` - API-based metadata fetchers
@@ -243,7 +243,7 @@ Jupiter is an aggregator that finds the best route. SoulScan replicates this log
 
 1. **Pool State**: Current reserves, liquidity, tick data
 2. **Pool Metadata**: Fee rates, token decimals, pool type
-3. **Math**: Uniswap V2/V3 formulas
+3. **Math**: Uniswap V2/V3 formulas and TraderJoe V2
 
 ### Uniswap V2 (AMM) Math
 
@@ -260,7 +260,7 @@ If giving Δx tokens:
 
 ### Uniswap V3 (CLMM) Math
 
-Used by: Orca CLMM, Raydium CLMM, Meteora DLMM
+Used by: Orca CLMM, Raydium CLMM
 
 ```
 More complex - uses concentrated liquidity in price ranges (ticks)
@@ -271,6 +271,20 @@ Liquidity is only active within tick ranges
 ```
 
 **File**: `src/DEX/Swap/swap_manager/OriginSwap/UniswapV3Swap.py`
+
+### TraderJoe V2
+
+Used by: Meteora DLMM
+
+```
+The LB protocol enables the creation of unique and dynamic 
+liquidity structures for a paired asset market.
+
+Price = (1 + binStep / 10_000) ** activeId
+```
+
+**File**: `src/DEX/Swap/swap_manager/OriginSwap/TraderJoeSwap.py`
+
 
 ### Example Calculation
 
