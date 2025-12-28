@@ -2,6 +2,8 @@ import redis
 import os
 import time
 import json
+import logging
+from multiprocessing import JoinableQueue
 
 ####################################
 from src.Config import config
@@ -27,11 +29,8 @@ calculate the profit of the swap and report the best swap path for each CEX.
 
 
 class Comparer:
-    def __init__(self, r: redis.Redis, network: str, dex: str):
-        logger_name = f'{dex}-Scanner-{network}-{os.getpid()}'
-        log_file = os.path.join(config.LOG_MAIN_FOLDER, f'{logger_name}.log')
-        setup_logger(logger_name=logger_name, log_file=log_file)
-        self.logger = get_logger(logger_name)
+    def __init__(self, r: redis.Redis, network: str, dex: str, logger: logging.Logger):
+        self.logger = logger
 
         self.r = r
         self.network = network
@@ -418,3 +417,81 @@ class Comparer:
             )
         except Exception as e:
             self.logger.warning(f"Finalizer failed. Error: {e}")
+
+
+
+
+async def comparer(dex: str, network: str, queue: JoinableQueue):
+    """
+    This function is designed to be run in SoulScanner.py. It will continuously check the queue for new mint addresses.
+    What is expected from the queue is a dictionary with mint addresses as keys and mint metadata as values.
+    {
+        "ZBCNpuD7YMXzTHB2fhGkGi78MNsHGLRXUhRewNRm9RU": {
+            "decimals": 6,
+            "symbol": "ZBCN"
+        },
+        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": {
+            "decimals": 6,
+            "symbol": "USDC"
+        },
+        ...
+    }
+
+    :param dex:
+    :param network:
+    :param queue:
+    :return:
+    """
+
+    from src.SoulEngine.SoulHelper import (get_active_metadata,
+                                           get_active_state,)
+
+    redis_conn = redis.Redis(host=config.REDIS_HOST, port=config.REDIS_PORT, decode_responses=True)
+    logger_name = f'{dex}-Scanner-{network}-{os.getpid()}'
+    log_file = os.path.join(config.LOG_MAIN_FOLDER, f'{logger_name}.log')
+    setup_logger(logger_name=logger_name, log_file=log_file)
+    logger = get_logger(logger_name=logger_name)
+
+    comp = Comparer(r=redis_conn, dex=dex, network=network, logger=logger)
+
+    while True:
+        try:
+            mints = queue.get()
+            if not isinstance(mints, dict):
+                raise TypeError(f"Invalid type of mints: {type(mints)}")
+
+            logger.info(f"Got {len(mints)} mints to compare.")
+            start_time = time.time()
+
+            metadata = get_active_metadata(redis_connection=redis_conn, logger=logger)
+            state = get_active_state(redis_connection=redis_conn, logger=logger)
+
+            smart_router = SmartRouter(metadata=metadata,
+                                       state=state,
+                                       logger=logger)
+
+            for mint, mint_data in mints.items():
+                try:
+                    decimal = mint_data.get('decimals')
+                    if not decimal:
+                        logger.warning(f"Decimals not found for {mint}. Skipping...")
+                        continue
+
+                    await comp.start_comparing(
+                        base_mint=mint,
+                        base_decimals=decimal,
+                        smart_router=smart_router,
+                    )
+                except Exception as e:
+                    logger.error(f"Error in comparer: {e}")
+
+            logger.info(f"Comparing finished in {time.time() - start_time} seconds.")
+
+        except Exception as e:
+            logger.error(f"Scanner comparer error: {e}")
+        finally:
+            queue.task_done()
+
+def start_comparer(dex: str, network: str, queue: JoinableQueue):
+    import asyncio
+    asyncio.run(comparer(dex=dex, network=network, queue=queue))

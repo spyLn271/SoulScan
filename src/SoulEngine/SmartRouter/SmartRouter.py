@@ -4,6 +4,7 @@ import os
 from typing import TypedDict
 import json
 import time
+import logging
 
 ####################################
 from src.Config import config, Bases
@@ -49,9 +50,14 @@ def _success(result: int, route: list[str]) -> SmartOutputTD:
 
 
 class SmartRouter:
-    def __init__(self, metadata: dict, state: dict, logger_name: str = "SmartRouter", log_file: str = "SmartRouter.log"):
-        setup_logger(logger_name=logger_name, log_file=os.path.join(config.LOG_MAIN_FOLDER, log_file))
-        self.logger = get_logger(logger_name)
+    def __init__(self, metadata: dict, state: dict,
+                 logger_name: str = "SmartRouter", log_file: str = "SmartRouter.log", logger: logging.Logger = None):
+        if logger is None:
+            setup_logger(logger_name=logger_name, log_file=os.path.join(config.LOG_MAIN_FOLDER, log_file))
+            self.logger = get_logger(logger_name)
+        else:
+            self.logger = logger
+
         self.r = redis.Redis(host=config.REDIS_HOST, port=config.REDIS_PORT, decode_responses=True)
         self.math_router = MathSmartRouter(self.logger)
         self.route_expired = 60 * 3
