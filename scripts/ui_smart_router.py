@@ -9,8 +9,10 @@ st.set_page_config(page_title="HorizonEvent", layout="wide", page_icon="👻")
 
 st.markdown(
     """
-    <h1 style="display:flex; align-items:center;">
-        <a href="https://www.flaticon.com/free-icons/event-horizon" title="event horizon icons"></a>
+    <h1 style="display:flex; align-items:center; gap:10px;">
+        <a href="https://www.flaticon.com/free-icons/event-horizon" title="event horizon icons">
+            Event horizon icons created by Pandu Bramantyo - Flaticon
+        </a>
         HorizonEvent
     </h1>
     """,
