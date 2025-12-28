@@ -29,7 +29,7 @@ class PoolMetadataFetcher:
         self.error_sleep_time = conf.error_sleep_time
         self.fetching_sleep_time = conf.fetching_sleep_time
         log_name = f"{self.market}_{self.version}"
-        log_file = f"{config.LOG_MAIN_FOLDER}{self.market}_{self.version}_{self.logger_file}"
+        log_file = f"{config.DATA_FETCHER_LOG_FOLDER}{self.market}_{self.version}_{self.logger_file}"
         setup_logger(logger_name=log_name, log_file=log_file)
 
 

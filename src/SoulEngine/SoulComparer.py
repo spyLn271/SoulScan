@@ -456,7 +456,7 @@ async def comparer(dex: str, network: str, queue: JoinableQueue):
 
     redis_conn = redis.Redis(host=config.REDIS_HOST, port=config.REDIS_PORT, decode_responses=True)
     logger_name = f'{dex}-Scanner-{network}-{os.getpid()}'
-    log_file = os.path.join(config.LOG_MAIN_FOLDER, f'{logger_name}.log')
+    log_file = os.path.join(config.SCANNER_LOG_FOLDER, f'{logger_name}.log')
     setup_logger(logger_name=logger_name, log_file=log_file)
     logger = get_logger(logger_name=logger_name)
 

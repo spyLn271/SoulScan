@@ -61,7 +61,7 @@ async def start_data_fetcher_async(provider_cls: ProviderClass, logger: logging.
 
 def bootstrap_worker(provider_cls: ProviderClass):
     worker_name = f"DataFetcher-{provider_cls.__name__}"
-    log_file_path = os.path.join(config.LOG_MAIN_FOLDER, f"{worker_name}.log")
+    log_file_path = os.path.join(config.SUPERVISOR_LOG_FOLDER, f"{worker_name}.log")
 
     setup_logger(logger_name=worker_name, log_file=log_file_path)
     local_logger = get_logger(logger_name=worker_name)
@@ -92,7 +92,7 @@ def RUN_DATA_FETCHERS(targets: dict[str, ProviderClass], logger_name: str, logge
     signal.signal(signal.SIGTERM, sigterm_handler)
 
     setup_logger(logger_name=logger_name,
-                 log_file=os.path.join(config.LOG_MAIN_FOLDER, logger_file))
+                 log_file=os.path.join(config.SUPERVISOR_LOG_FOLDER, logger_file))
     logger = get_logger(logger_name=logger_name)
     logger.info(f'{logger_name} Supervisor started.')
 

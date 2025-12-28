@@ -23,6 +23,11 @@ echo "Installing dependencies..."
 
 # Create LogFolder if not exists
 mkdir -p "$SCRIPT_DIR/LogFolder"
+mkdir -p "$SCRIPT_DIR/LogFolder/osr"
+mkdir -p "$SCRIPT_DIR/LogFolder/scanner"
+mkdir -p "$SCRIPT_DIR/LogFolder/data-fetcher"
+mkdir -p "$SCRIPT_DIR/LogFolder/supervisor"
+
 
 # Install systemd services
 echo "Installing systemd services..."

@@ -28,7 +28,8 @@ class Scanner:
     def __init__(self, conf: ScannerConfig):
         self.conf = conf
 
-        setup_logger(logger_name=conf.logger_name, log_file=os.path.join(config.LOG_MAIN_FOLDER, conf.logger_file))
+        setup_logger(logger_name=conf.logger_name,
+                     log_file=os.path.join(config.SCANNER_LOG_FOLDER, conf.logger_file))
         self.logger = get_logger(conf.logger_name)
 
         self.logger.info(f"Scanner initialized. Config: {conf.model_dump()}")

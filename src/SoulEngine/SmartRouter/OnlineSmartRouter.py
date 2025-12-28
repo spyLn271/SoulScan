@@ -205,7 +205,7 @@ class OnlineSmartRouter:
         self.conf = conf
         logger_name = conf.logger_name
         log_file = conf.log_file
-        setup_logger(logger_name=logger_name, log_file=os.path.join(config.LOG_MAIN_FOLDER, log_file))
+        setup_logger(logger_name=logger_name, log_file=os.path.join(config.OSR_LOG_FOLDER, log_file))
         self.logger = get_logger(logger_name)
         self.r = redis.Redis(port=config.REDIS_PORT, host=config.REDIS_HOST, decode_responses=True)
 
@@ -229,7 +229,7 @@ class OnlineSmartRouter:
         self.r = redis.Redis(port=config.REDIS_PORT, host=config.REDIS_HOST, decode_responses=True)
         logger_name = 'OSR_worker_%s' % multiprocessing.current_process().name
         log_file = 'OSR_worker_%s.log' % multiprocessing.current_process().name
-        setup_logger(logger_name=logger_name, log_file=os.path.join(config.LOG_MAIN_FOLDER, log_file))
+        setup_logger(logger_name=logger_name, log_file=os.path.join(config.OSR_LOG_FOLDER, log_file))
         self.logger = get_logger(logger_name)
         math_smart_router = MathSmartRouter(logger=self.logger)
         self.engine = OnlineSmartRouter.Engine[state['conf'].version](logger=self.logger, math_smart_router=math_smart_router)

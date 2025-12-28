@@ -49,7 +49,7 @@ class PoolStateFetcher:
         self.provider = conf.provider
         self.provider_kwargs = conf.provider_kwargs
         log_name = f"{self.market}_{self.version}"
-        log_file = f"{config.LOG_MAIN_FOLDER}{self.market}_{self.version}_{self.logger_file}"
+        log_file = f"{config.DATA_FETCHER_LOG_FOLDER}{self.market}_{self.version}_{self.logger_file}"
         setup_logger(logger_name=log_name, log_file=log_file)
 
         self.r = redis.Redis(host=config.REDIS_HOST, port=config.REDIS_PORT, decode_responses=True)

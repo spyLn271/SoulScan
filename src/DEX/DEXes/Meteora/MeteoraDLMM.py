@@ -1,5 +1,6 @@
 from solders.pubkey import Pubkey as SolanaPubkey
 from typing import List
+import os
 
 ####################################
 from src.Config import config
@@ -73,7 +74,8 @@ class MeteoraDLMM(Solana):
                  logger_file="MeteoraDLMM.log"):
         super().__init__(SOLANA_RPC_ENDPOINT)
 
-        setup_logger(logger_name=logger_name, log_file=f"{config.LOG_MAIN_FOLDER}{logger_file}")
+        setup_logger(logger_name=logger_name,
+                     log_file=os.path.join(config.DATA_FETCHER_LOG_FOLDER, logger_file))
         self.logger = get_logger(logger_name)
         self.translater = MeteoraDLMMTranslater(self.logger)
         self.program_id = SolanaPubkey.from_string(config.METEORA_DLMM_PROGRAM_ID)

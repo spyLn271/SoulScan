@@ -1,5 +1,6 @@
 from typing import Tuple, List
 from solders.pubkey import Pubkey as SolanaPubkey
+import os
 
 ####################################
 from src.Config import config
@@ -101,7 +102,8 @@ class RaydiumCLMM(Solana):
                  logger_file="RaydiumCLMM.log"):
         super().__init__(SOLANA_RPC_ENDPOINT)
 
-        setup_logger(logger_name=logger_name, log_file=f"{config.LOG_MAIN_FOLDER}{logger_file}")
+        setup_logger(logger_name=logger_name,
+                     log_file=os.path.join(config.DATA_FETCHER_LOG_FOLDER, logger_file))
         self.logger = get_logger(logger_name=logger_name)
         self.translater = RaydiumCLMMTranslater(logger=self.logger)
         self.program_id = SolanaPubkey.from_string(config.RAYDIUM_CLMM_PROGRAM_ID)

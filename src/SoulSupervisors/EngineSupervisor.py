@@ -36,7 +36,7 @@ class OSRSupervisor:
         signal.signal(signal.SIGTERM, sigterm_handler)
 
         logger_name = "OSRSupervisor"
-        log_file = os.path.join(config.LOG_MAIN_FOLDER, f"{logger_name}.log")
+        log_file = os.path.join(config.SUPERVISOR_LOG_FOLDER, f"{logger_name}.log")
         setup_logger(logger_name=logger_name, log_file=log_file)
         logger = get_logger(logger_name=logger_name)
 
@@ -98,7 +98,7 @@ class ScannerSupervisor:
         signal.signal(signal.SIGTERM, sigterm_handler)
 
         logger_name = "ScannerSupervisor"
-        log_file = os.path.join(config.LOG_MAIN_FOLDER, f"{logger_name}.log")
+        log_file = os.path.join(config.SUPERVISOR_LOG_FOLDER, f"{logger_name}.log")
         setup_logger(logger_name=logger_name, log_file=log_file)
         logger = get_logger(logger_name=logger_name)
 

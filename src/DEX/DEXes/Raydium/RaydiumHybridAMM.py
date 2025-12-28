@@ -1,4 +1,4 @@
-
+import os
 
 ####################################
 from src.Config import config
@@ -74,7 +74,8 @@ class RaydiumHybridAMM(Solana):
     def __init__(self, SOLANA_RPC_ENDPOINT=config.SOLANA_RPC_ENDPOINT, logger_name='RaydiumHybridAMM',
                  logger_file="RaydiumHybridAMM.log"):
         super().__init__(SOLANA_RPC_ENDPOINT)
-        setup_logger(logger_name=logger_name, log_file=f"{config.LOG_MAIN_FOLDER}{logger_file}")
+        setup_logger(logger_name=logger_name,
+                     log_file=os.path.join(config.DATA_FETCHER_LOG_FOLDER, logger_file))
 
         self.logger = get_logger(logger_name=logger_name)
         self.translater = RaydiumHybridAMMTranslater(self.logger)

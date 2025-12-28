@@ -1,6 +1,5 @@
 import logging
 from logging.handlers import RotatingFileHandler
-from src.LoggerHandler.redis_handler import RedisHandler
 
 def setup_logger(level=logging.INFO, log_file="app.log", logger_name=__name__):
     logger = logging.getLogger(logger_name)
@@ -18,13 +17,6 @@ def setup_logger(level=logging.INFO, log_file="app.log", logger_name=__name__):
     file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
-
-    try:
-        redis_handler = RedisHandler()
-        redis_handler.setLevel(level)
-        logger.addHandler(redis_handler)
-    except Exception as e:
-        logger.error(f"Could not connect to Redis for logging: {e}")
 
     logger.info(f"Logger '{logger_name}' initialized and is now online.")
     return logger
