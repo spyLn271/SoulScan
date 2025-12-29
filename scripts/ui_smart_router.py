@@ -190,161 +190,58 @@ st.markdown("""
 with st.sidebar:
     st.markdown("""
         <style>
-            /* Main floating animation */
             @keyframes ghost-float {
-                0%, 100% { transform: translateY(0) rotate(-1deg); }
-                25% { transform: translateY(-8px) rotate(0deg); }
-                50% { transform: translateY(-12px) rotate(1deg); }
-                75% { transform: translateY(-6px) rotate(0deg); }
+                0%, 100% { transform: translateY(0px) rotate(-1deg); }
+                50% { transform: translateY(-15px) rotate(1deg); }
             }
-
-            /* Shadow breathing synced with float */
             @keyframes shadow-pulse {
-                0%, 100% { 
-                    transform: scaleX(1) scaleY(1);
-                    opacity: 0.3;
-                }
-                50% { 
-                    transform: scaleX(0.7) scaleY(0.8);
-                    opacity: 0.15;
-                }
+                0%, 100% { transform: scaleX(1); opacity: 0.4; }
+                50% { transform: scaleX(0.75); opacity: 0.2; }
             }
-
-            /* Subtle body wobble */
-            @keyframes ghost-wobble {
-                0%, 100% { transform: scaleX(1); }
-                50% { transform: scaleX(1.02); }
-            }
-
-            /* Eye blink animation */
             @keyframes blink {
                 0%, 90%, 100% { transform: scaleY(1); }
                 95% { transform: scaleY(0.1); }
             }
-
-            /* Arm wave animation */
-            @keyframes wave-left {
-                0%, 100% { transform: rotate(0deg); }
-                50% { transform: rotate(-15deg); }
-            }
-
-            @keyframes wave-right {
-                0%, 100% { transform: rotate(0deg); }
-                50% { transform: rotate(15deg); }
-            }
-
-            .ghost-container {
+            .ghost-brand {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                gap: 0.75rem;
+                gap: 12px;
+                padding: 1rem 0;
             }
-
-            .ghost-wrapper {
+            .ghost-anim {
                 animation: ghost-float 3s ease-in-out infinite;
             }
-
-            .ghost-shadow-el {
+            .ghost-shadow {
                 transform-origin: center;
                 animation: shadow-pulse 3s ease-in-out infinite;
             }
-
-            .ghost-body-el {
-                animation: ghost-wobble 4s ease-in-out infinite;
-                transform-origin: center bottom;
-            }
-
-            .ghost-eye {
+            .ghost-eyes {
                 transform-origin: center;
                 animation: blink 4s ease-in-out infinite;
             }
-
-            .ghost-eye.right {
-                animation-delay: 0.1s;
-            }
-
-            .ghost-arm-left {
-                transform-origin: 40px 100px;
-                animation: wave-left 2s ease-in-out infinite;
-            }
-
-            .ghost-arm-right {
-                transform-origin: 160px 100px;
-                animation: wave-right 2s ease-in-out infinite;
-                animation-delay: 1s;
-            }
-
-            .ghost-title {
-                color: #fff;
-                font-size: 1.6rem;
+            .ghost-brand-title {
+                font-size: 1.5rem;
                 font-weight: 700;
-                margin: 0;
-                background: linear-gradient(135deg, #ffffff 0%, #a78bfa 100%);
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-                background-clip: text;
+                color: #ffffff;
             }
         </style>
-
         <div class="sidebar-brand">
-            <div class="ghost-container">
-                <div class="ghost-wrapper">
-                    <svg width="80" height="100" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-                        <!-- Shadow -->
-                        <ellipse class="ghost-shadow-el" cx="100" cy="175" rx="50" ry="8" fill="rgba(167, 139, 250, 0.4)" />
-
-                        <!-- Ghost Body Group -->
-                        <g class="ghost-body-el">
-                            <!-- Main Body with gradient -->
-                            <defs>
-                                <linearGradient id="ghostGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                    <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
-                                    <stop offset="100%" style="stop-color:#e8e0ff;stop-opacity:1" />
-                                </linearGradient>
-                                <filter id="ghostGlow" x="-20%" y="-20%" width="140%" height="140%">
-                                    <feGaussianBlur stdDeviation="2" result="glow"/>
-                                    <feMerge>
-                                        <feMergeNode in="glow"/>
-                                        <feMergeNode in="SourceGraphic"/>
-                                    </feMerge>
-                                </filter>
-                            </defs>
-
-                            <path d="M 40 145 
-                                     C 40 50, 160 50, 160 145
-                                     L 160 155
-                                     Q 145 145, 130 160
-                                     Q 115 145, 100 160
-                                     Q 85 145, 70 160
-                                     Q 55 145, 40 155
-                                     L 40 145 Z" 
-                                  fill="url(#ghostGradient)" 
-                                  filter="url(#ghostGlow)"
-                                  stroke="rgba(167, 139, 250, 0.3)" 
-                                  stroke-width="2"/>
-
-                            <!-- Eyes -->
-                            <ellipse class="ghost-eye left" cx="75" cy="95" rx="12" ry="14" fill="#2d2d3d" />
-                            <ellipse class="ghost-eye right" cx="125" cy="95" rx="12" ry="14" fill="#2d2d3d" />
-
-                            <!-- Eye shine -->
-                            <circle cx="70" cy="90" r="4" fill="#ffffff" opacity="0.8" />
-                            <circle cx="120" cy="90" r="4" fill="#ffffff" opacity="0.8" />
-
-                            <!-- Rosy cheeks -->
-                            <ellipse cx="55" cy="115" rx="8" ry="5" fill="#a78bfa" opacity="0.4" />
-                            <ellipse cx="145" cy="115" rx="8" ry="5" fill="#a78bfa" opacity="0.4" />
-
-                            <!-- Cute smile -->
-                            <path d="M 85 120 Q 100 135, 115 120" fill="none" stroke="#2d2d3d" stroke-width="3" stroke-linecap="round"/>
-                        </g>
-
-                        <!-- Arms (outside body group for independent animation) -->
-                        <path class="ghost-arm-left" d="M 45 105 Q 20 95, 25 130" fill="none" stroke="rgba(167, 139, 250, 0.3)" stroke-width="2" stroke-linecap="round"/>
-                        <path class="ghost-arm-right" d="M 155 105 Q 180 95, 175 130" fill="none" stroke="rgba(167, 139, 250, 0.3)" stroke-width="2" stroke-linecap="round"/>
+            <div class="ghost-brand">
+                <div class="ghost-anim">
+                    <svg width="60" height="75" viewBox="0 0 200 200">
+                        <ellipse class="ghost-shadow" cx="100" cy="180" rx="45" ry="6" fill="rgba(167,139,250,0.3)"/>
+                        <path d="M40 140 C40 55,160 55,160 140 L160 155 Q140 140,120 160 Q100 140,80 160 Q60 140,40 155 Z" fill="#f8f8ff" stroke="rgba(167,139,250,0.4)" stroke-width="2"/>
+                        <ellipse class="ghost-eyes" cx="75" cy="100" rx="10" ry="12" fill="#333"/>
+                        <ellipse class="ghost-eyes" cx="125" cy="100" rx="10" ry="12" fill="#333"/>
+                        <circle cx="71" cy="96" r="3" fill="#fff" opacity="0.9"/>
+                        <circle cx="121" cy="96" r="3" fill="#fff" opacity="0.9"/>
+                        <ellipse cx="60" cy="118" rx="7" ry="4" fill="#a78bfa" opacity="0.5"/>
+                        <ellipse cx="140" cy="118" rx="7" ry="4" fill="#a78bfa" opacity="0.5"/>
+                        <path d="M88 125 Q100 138,112 125" fill="none" stroke="#333" stroke-width="3" stroke-linecap="round"/>
                     </svg>
                 </div>
-                <span class="ghost-title">SoulScan</span>
+                <span class="ghost-brand-title">SoulScan</span>
             </div>
         </div>
     """, unsafe_allow_html=True)
