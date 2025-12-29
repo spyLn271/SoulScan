@@ -1,4 +1,5 @@
 import streamlit as st
+from streamlit_option_menu import option_menu
 import redis
 import aiohttp
 import asyncio
@@ -141,8 +142,25 @@ def token_display(token_name):
     return token_name
 
 
-st.sidebar.title("SoulScan")
-page = st.sidebar.radio("Navigation", ["Swap", "Tokens"], label_visibility="collapsed")
+with st.sidebar:
+    page = option_menu(
+        menu_title="SoulScan",
+        menu_icon="ghost",
+        options=["Swap", "Tokens"],
+        icons=["arrow-repeat", "coin"],
+        default_index=1,
+        styles={
+            "container": {"padding": "0!important", "background-color": "#fafafa"},
+            "icon": {"color": "orange", "font-size": "25px"},
+            "nav-link": {"font-size": "17px", "text-align": "left", "margin":"0px", "--hover-color": "#eee"},
+            "nav-link-selected": {"background-color": "#02ab21"},
+        }
+    )
+
+if page == "Swap":
+    st.title("Swap Page")
+elif page == "Tokens":
+    st.title("Tokens Page")
 
 st.markdown("""
 <style>
