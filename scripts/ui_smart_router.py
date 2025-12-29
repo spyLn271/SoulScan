@@ -189,10 +189,69 @@ st.markdown("""
 
 with st.sidebar:
     st.markdown("""
+        <style>
+            @keyframes float {
+                0% { transform: translateY(0px); }
+                50% { transform: translateY(-20px); }
+                100% { transform: translateY(0px); }
+            }
+
+            @keyframes shadow-breathe {
+                0% { 
+                    transform: scale(1); 
+                    opacity: 1;
+                }
+                50% { 
+                    transform: scale(0.85);
+                    opacity: 0.6;
+                }
+                100% { 
+                    transform: scale(1); 
+                    opacity: 1;
+                }
+            }
+
+            .ghost-body {
+                animation: float 3s ease-in-out infinite;
+            }
+
+            .ghost-shadow {
+                transform-origin: center;
+                animation: shadow-breathe 3s ease-in-out infinite;
+            }
+        </style>
+
         <div class="sidebar-brand">
             <h1>
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 8px;">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="#a78bfa"/>
+                <svg width="300" height="300" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+
+                  <!-- The Shadow (Animation applied here) -->
+                  <ellipse class="ghost-shadow" cx="100" cy="175" rx="60" ry="8" fill="#e0e0e0" />
+
+                  <!-- Grouping the Body, Eyes, and Arms to move together -->
+                  <g class="ghost-body">
+                      <!-- Body -->
+                      <path d="M 40 150 
+                               C 40 40, 160 40, 160 150 
+                               Q 130 180, 100 150 
+                               Q 70 180, 40 150 Z" 
+                            fill="#f8f8ff" stroke="#333333" stroke-width="3" stroke-linejoin="round"/>
+
+                      <!-- Eyes -->
+                      <circle cx="75" cy="90" r="7" fill="#333333" />
+                      <circle cx="125" cy="90" r="7" fill="#333333" />
+
+                      <!-- Cheeks -->
+                      <circle cx="65" cy="105" r="5" fill="#ffb6c1" opacity="0.6" />
+                      <circle cx="135" cy="105" r="5" fill="#ffb6c1" opacity="0.6" />
+
+                      <!-- Mouth -->
+                      <ellipse cx="100" cy="105" rx="6" ry="8" fill="#333333" />
+
+                      <!-- Arms -->
+                      <path d="M 40 100 Q 20 90, 30 120" fill="none" stroke="#333333" stroke-width="3" stroke-linecap="round"/>
+                      <path d="M 160 100 Q 180 90, 170 120" fill="none" stroke="#333333" stroke-width="3" stroke-linecap="round"/>
+                  </g>
                 </svg>
                 SoulScan
             </h1>
