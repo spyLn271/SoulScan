@@ -81,55 +81,46 @@ async def search_token_async(mint: str) -> dict | None:
 def search_token_info(mint: str) -> dict | None:
     return asyncio.run(search_token_async(mint))
 
-async def get_tokens_jupiter_async(mints: list[str] = None) -> list | None:
-    """Fetch detailed token info from Jupiter API"""
-    if mints:
-        # Fetch specific tokens by mint addresses
-        url = "https://api.jup.ag/tokens/v1"
-        params = {"ids": ",".join(mints[:100])}  # Limit to 100 tokens
-    else:
-        url = "https://api.jup.ag/tokens/v2/tag?query=lst"
-        params = {}
-
+async def search_token_jupiter_async(mint: str, session: aiohttp.ClientSession) -> dict | None:
+    """Search for a single token by mint address using Jupiter v2 search API"""
+    url = "https://api.jup.ag/tokens/v2/search"
+    params = {"query": mint}
     headers = {"x-api-key": JUPITER_API_KEY}
 
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=headers, params=params, timeout=30) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    return data
-    except:
-        pass
-    return None 
-
-
-async def get_tokens_detailed_async(mints: list[str]) -> list | None:
-    """Fetch detailed token stats from Jupiter tokens v2 API"""
-    if not mints:
-        return []
-    
-    # Jupiter tokens/v2 endpoint for detailed info
-    url = "https://api.jup.ag/tokens/v2"
-    params = {"ids": ",".join(mints[:50])}  # Limit batch size
-    headers = {"x-api-key": JUPITER_API_KEY}
-
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=headers, params=params, timeout=30) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    return data
+        async with session.get(url, headers=headers, params=params, timeout=10) as response:
+            if response.status == 200:
+                data = await response.json()
+                # Search returns an array, get first result that matches the mint exactly
+                if data and isinstance(data, list):
+                    for token in data:
+                        if token.get('id') == mint:
+                            return token
+                    # If no exact match, return first result
+                    if len(data) > 0:
+                        return data[0]
     except Exception as e:
-        print(f"Error fetching token details: {e}")
+        pass
     return None
 
 
-def get_tokens_jupiter(mints: list[str] = None) -> list | None:
-    return asyncio.run(get_tokens_jupiter_async(mints))
+async def get_tokens_detailed_async(mints: list[str]) -> list:
+    """Fetch detailed token stats from Jupiter tokens v2 search API with concurrent requests"""
+    if not mints:
+        return []
+    
+    results = []
+    
+    async with aiohttp.ClientSession() as session:
+        # Create tasks for concurrent requests (limit to 10 at a time)
+        tasks = [search_token_jupiter_async(mint, session) for mint in mints[:20]]
+        results = await asyncio.gather(*tasks)
+    
+    # Filter out None values
+    return [r for r in results if r is not None]
 
 
-def get_tokens_detailed(mints: list[str]) -> list | None:
+def get_tokens_detailed(mints: list[str]) -> list:
     return asyncio.run(get_tokens_detailed_async(mints))
 
 TOKEN_INFO = {
@@ -224,6 +215,10 @@ if page == "🪙 Tokens":
         horizontal=True
     )
     
+    # Initialize page state
+    if "tokens_page" not in st.session_state:
+        st.session_state.tokens_page = 1
+    
     try:
         with st.spinner("Loading tokens from pools..."):
             if token_filter == "All DEX Active Tokens":
@@ -246,116 +241,173 @@ if page == "🪙 Tokens":
             else:
                 filtered_tokens = tokens
             
+            # Sort tokens by symbol
+            sorted_mints = sorted(filtered_tokens.keys(), key=lambda m: filtered_tokens[m].get('symbol', '').upper())
+            
             # Pagination
-            tokens_per_page = 25
-            total_tokens = len(filtered_tokens)
+            tokens_per_page = 20
+            total_tokens = len(sorted_mints)
             total_pages = max(1, (total_tokens + tokens_per_page - 1) // tokens_per_page)
             
-            col1, col2, col3 = st.columns([1, 2, 1])
-            with col2:
-                current_page = st.number_input("Page", min_value=1, max_value=total_pages, value=1, step=1)
+            # Ensure current page is valid
+            if st.session_state.tokens_page > total_pages:
+                st.session_state.tokens_page = 1
             
-            st.markdown(f"Showing page **{current_page}** of **{total_pages}** ({total_tokens} tokens)")
+            # Pagination controls
+            col_prev, col_info, col_next = st.columns([1, 2, 1])
+            
+            with col_prev:
+                if st.button("◀ Previous", disabled=st.session_state.tokens_page <= 1, use_container_width=True):
+                    st.session_state.tokens_page -= 1
+                    st.rerun()
+            
+            with col_info:
+                st.markdown(f"<div style='text-align: center; padding: 8px;'>Page **{st.session_state.tokens_page}** of **{total_pages}** ({total_tokens} tokens)</div>", unsafe_allow_html=True)
+            
+            with col_next:
+                if st.button("Next ▶", disabled=st.session_state.tokens_page >= total_pages, use_container_width=True):
+                    st.session_state.tokens_page += 1
+                    st.rerun()
             
             # Get current page tokens
-            start_idx = (current_page - 1) * tokens_per_page
+            start_idx = (st.session_state.tokens_page - 1) * tokens_per_page
             end_idx = start_idx + tokens_per_page
-            page_mints = list(filtered_tokens.keys())[start_idx:end_idx]
+            page_mints = sorted_mints[start_idx:end_idx]
             
-            # Fetch detailed data from Jupiter
-            with st.spinner("Fetching token details from Jupiter..."):
-                detailed_tokens = get_tokens_detailed(page_mints)
-            
-            # Create lookup for detailed data
+            # Fetch detailed data from Jupiter (using search endpoint for each token)
             detailed_lookup = {}
-            if detailed_tokens:
-                for t in detailed_tokens:
-                    if t and t.get('id'):
-                        detailed_lookup[t['id']] = t
+            with st.spinner("Fetching token details..."):
+                detailed_tokens = get_tokens_detailed(page_mints)
+                if detailed_tokens:
+                    for t in detailed_tokens:
+                        if t and isinstance(t, dict) and t.get('id'):
+                            detailed_lookup[t['id']] = t
             
-            # Display tokens in a rich format
-            for mint in page_mints:
+            # Table header
+            st.markdown("---")
+            header_cols = st.columns([1, 2, 2, 2, 2, 3])
+            with header_cols[0]:
+                st.markdown("**#**")
+            with header_cols[1]:
+                st.markdown("**Token**")
+            with header_cols[2]:
+                st.markdown("**Price**")
+            with header_cols[3]:
+                st.markdown("**24h Change**")
+            with header_cols[4]:
+                st.markdown("**TVL / Volume 24h**")
+            with header_cols[5]:
+                st.markdown("**Mint Address**")
+            st.markdown("---")
+            
+            # Display tokens in a table format
+            for idx, mint in enumerate(page_mints):
                 base_data = filtered_tokens[mint]
                 detail = detailed_lookup.get(mint, {})
                 
-                with st.container(border=True):
-                    col_icon, col_info, col_price, col_stats = st.columns([1, 3, 2, 3])
+                row_cols = st.columns([1, 2, 2, 2, 2, 3])
+                
+                with row_cols[0]:
+                    # Row number
+                    row_num = start_idx + idx + 1
+                    icon_url = detail.get('icon', '')
+                    if icon_url:
+                        st.image(icon_url, width=32)
+                    else:
+                        st.markdown(f"**{row_num}**")
+                
+                with row_cols[1]:
+                    # Token name and symbol
+                    name = detail.get('name', base_data.get('symbol', 'Unknown'))
+                    symbol = detail.get('symbol', base_data.get('symbol', '???'))
+                    decimals = detail.get('decimals', base_data.get('decimals', '?'))
                     
-                    with col_icon:
-                        icon_url = detail.get('icon', '')
-                        if icon_url:
-                            st.image(icon_url, width=48)
+                    is_verified = detail.get('isVerified', False)
+                    verified_badge = " ✅" if is_verified else ""
+                    
+                    st.markdown(f"**{symbol}**{verified_badge}")
+                    st.caption(f"{name[:20]}{'...' if len(name) > 20 else ''}")
+                
+                with row_cols[2]:
+                    # Price
+                    usd_price = detail.get('usdPrice', 0)
+                    if usd_price:
+                        if usd_price >= 1:
+                            st.markdown(f"**${usd_price:,.2f}**")
+                        elif usd_price >= 0.0001:
+                            st.markdown(f"**${usd_price:.6f}**")
                         else:
-                            st.markdown("🪙")
-                    
-                    with col_info:
-                        name = detail.get('name', base_data.get('symbol', 'Unknown'))
-                        symbol = detail.get('symbol', base_data.get('symbol', '???'))
-                        st.markdown(f"**{name}**")
-                        st.caption(f"{symbol} • {mint[:8]}...{mint[-6:]}")
-                        
-                        # Tags and verification
-                        tags = detail.get('tags', [])
-                        is_verified = detail.get('isVerified', False)
-                        cexes = detail.get('cexes', [])
-                        
-                        tag_str = ""
-                        if is_verified:
-                            tag_str += "✅ Verified "
-                        if cexes:
-                            tag_str += f"📊 {', '.join(cexes[:3])} "
-                        if tags:
-                            tag_str += f"🏷️ {', '.join(tags[:3])}"
-                        if tag_str:
-                            st.caption(tag_str)
-                    
-                    with col_price:
-                        usd_price = detail.get('usdPrice', 0)
-                        mcap = detail.get('mcap', 0)
-                        liquidity = detail.get('liquidity', 0)
-                        
-                        if usd_price:
-                            if usd_price >= 0.01:
-                                st.metric("Price", f"${usd_price:,.4f}")
-                            else:
-                                st.metric("Price", f"${usd_price:.8f}")
+                            st.markdown(f"**${usd_price:.10f}**")
+                    else:
+                        st.markdown("—")
+                
+                with row_cols[3]:
+                    # 24h Change
+                    stats_24h = detail.get('stats24h', {})
+                    price_change = stats_24h.get('priceChange', 0)
+                    if price_change:
+                        if price_change >= 0:
+                            st.markdown(f"🟢 **+{price_change:.2f}%**")
                         else:
-                            st.metric("Price", "—")
-                        
-                        if mcap:
-                            if mcap >= 1_000_000:
-                                st.caption(f"MCap: ${mcap/1_000_000:.2f}M")
-                            elif mcap >= 1_000:
-                                st.caption(f"MCap: ${mcap/1_000:.1f}K")
-                            else:
-                                st.caption(f"MCap: ${mcap:.0f}")
+                            st.markdown(f"🔴 **{price_change:.2f}%**")
+                    else:
+                        st.markdown("—")
+                
+                with row_cols[4]:
+                    # TVL and Volume 24h
+                    liquidity = detail.get('liquidity', 0)
+                    volume_24h = 0
+                    if stats_24h:
+                        volume_24h = stats_24h.get('buyVolume', 0) + stats_24h.get('sellVolume', 0)
                     
-                    with col_stats:
-                        stats_24h = detail.get('stats24h', {})
-                        price_change = stats_24h.get('priceChange', 0)
-                        volume = stats_24h.get('buyVolume', 0) + stats_24h.get('sellVolume', 0)
-                        holders = detail.get('holderCount', 0)
-                        
-                        if price_change:
-                            color = "🟢" if price_change >= 0 else "🔴"
-                            st.markdown(f"{color} **{price_change:+.2f}%** (24h)")
-                        
-                        stats_text = []
-                        if volume:
-                            if volume >= 1_000_000:
-                                stats_text.append(f"Vol: ${volume/1_000_000:.1f}M")
-                            elif volume >= 1_000:
-                                stats_text.append(f"Vol: ${volume/1_000:.1f}K")
-                        if liquidity:
-                            if liquidity >= 1_000_000:
-                                stats_text.append(f"Liq: ${liquidity/1_000_000:.1f}M")
-                            elif liquidity >= 1_000:
-                                stats_text.append(f"Liq: ${liquidity/1_000:.1f}K")
-                        if holders:
-                            stats_text.append(f"Holders: {holders:,}")
-                        
-                        if stats_text:
-                            st.caption(" • ".join(stats_text))
+                    tvl_str = "—"
+                    vol_str = "—"
+                    
+                    if liquidity:
+                        if liquidity >= 1_000_000:
+                            tvl_str = f"${liquidity/1_000_000:.2f}M"
+                        elif liquidity >= 1_000:
+                            tvl_str = f"${liquidity/1_000:.1f}K"
+                        else:
+                            tvl_str = f"${liquidity:.0f}"
+                    
+                    if volume_24h:
+                        if volume_24h >= 1_000_000:
+                            vol_str = f"${volume_24h/1_000_000:.2f}M"
+                        elif volume_24h >= 1_000:
+                            vol_str = f"${volume_24h/1_000:.1f}K"
+                        else:
+                            vol_str = f"${volume_24h:.0f}"
+                    
+                    st.markdown(f"TVL: {tvl_str}")
+                    st.caption(f"Vol: {vol_str}")
+                
+                with row_cols[5]:
+                    # Copyable mint address
+                    st.code(mint, language=None)
+                
+                st.markdown("<hr style='margin: 2px 0; border: none; border-top: 1px solid #333;'>", unsafe_allow_html=True)
+            
+            # Bottom pagination
+            st.markdown("")
+            col_prev2, col_info2, col_next2 = st.columns([1, 2, 1])
+            
+            with col_prev2:
+                if st.button("◀ Prev", key="prev_bottom", disabled=st.session_state.tokens_page <= 1, use_container_width=True):
+                    st.session_state.tokens_page -= 1
+                    st.rerun()
+            
+            with col_info2:
+                # Page jump
+                new_page = st.number_input("Go to page", min_value=1, max_value=total_pages, value=st.session_state.tokens_page, step=1, label_visibility="collapsed")
+                if new_page != st.session_state.tokens_page:
+                    st.session_state.tokens_page = new_page
+                    st.rerun()
+            
+            with col_next2:
+                if st.button("Next ▶", key="next_bottom", disabled=st.session_state.tokens_page >= total_pages, use_container_width=True):
+                    st.session_state.tokens_page += 1
+                    st.rerun()
         else:
             st.warning("No tokens found. Make sure Redis is running and pools are loaded.")
             
