@@ -107,13 +107,13 @@ async def get_tokens_detailed_async(mints: list[str]) -> list:
     """Fetch detailed token stats from Jupiter tokens v2 search API with concurrent requests"""
     if not mints:
         return []
-    
+
     results = []
-    
+
     async with aiohttp.ClientSession() as session:
         tasks = [search_token_jupiter_async(mint, session) for mint in mints[:20]]
         results = await asyncio.gather(*tasks)
-    
+
     return [r for r in results if r is not None]
 
 
@@ -142,25 +142,130 @@ def token_display(token_name):
     return token_name
 
 
+st.markdown("""
+<style>
+    /* Sidebar container styling */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+        border-right: 1px solid rgba(79, 70, 229, 0.3);
+    }
+
+    [data-testid="stSidebar"] > div:first-child {
+        padding-top: 0;
+    }
+
+    /* Custom menu container override */
+    [data-testid="stSidebar"] .css-1d391kg, 
+    [data-testid="stSidebar"] .st-emotion-cache-1gwvy71,
+    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+        gap: 0 !important;
+    }
+
+    /* Sidebar branding section */
+    .sidebar-brand {
+        padding: 1.5rem 1rem;
+        text-align: center;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        margin-bottom: 1rem;
+    }
+
+    .sidebar-brand h1 {
+        color: #fff;
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .sidebar-brand .ghost-icon {
+        font-size: 2rem;
+        animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-5px); }
+    }
+
+    /* Sidebar footer */
+    .sidebar-footer {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 1rem;
+        text-align: center;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.3) 100%);
+    }
+
+    .sidebar-footer p {
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 0.75rem;
+        margin: 0;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 with st.sidebar:
+    st.markdown("""
+        <div class="sidebar-brand">
+            <h1><span class="ghost-icon">👻</span> SoulScan</h1>
+        </div>
+    """, unsafe_allow_html=True)
+
     page = option_menu(
-        menu_title="SoulScan",
-        menu_icon="ghost",
+        menu_title=None,
         options=["Swap", "Tokens"],
-        icons=["arrow-repeat", "coin"],
-        default_index=1,
+        icons=["arrow-left-right", "coin"],
+        default_index=0,
+        orientation="vertical",
         styles={
-            "container": {"padding": "0!important", "background-color": "#fafafa"},
-            "icon": {"color": "orange", "font-size": "25px"},
-            "nav-link": {"font-size": "17px", "text-align": "left", "margin":"0px", "--hover-color": "#eee"},
-            "nav-link-selected": {"background-color": "#02ab21"},
+            "container": {
+                "padding": "0.5rem",
+                "background-color": "transparent",
+            },
+            "icon": {
+                "color": "#a78bfa",
+                "font-size": "20px",
+            },
+            "nav-link": {
+                "font-size": "16px",
+                "text-align": "left",
+                "margin": "0.25rem 0",
+                "padding": "0.75rem 1rem",
+                "border-radius": "10px",
+                "color": "rgba(255, 255, 255, 0.8)",
+                "background-color": "transparent",
+                "--hover-color": "rgba(167, 139, 250, 0.1)",
+            },
+            "nav-link-selected": {
+                "background": "linear-gradient(90deg, rgba(79, 70, 229, 0.8) 0%, rgba(139, 92, 246, 0.6) 100%)",
+                "color": "#ffffff",
+                "font-weight": "600",
+                "box-shadow": "0 4px 15px rgba(79, 70, 229, 0.4)",
+            },
+            "menu-title": {
+                "display": "none",
+            }
         }
     )
 
-if page == "Swap":
-    st.title("Swap Page")
-elif page == "Tokens":
-    st.title("Tokens Page")
+    st.markdown("<div style='height: 200px;'></div>", unsafe_allow_html=True)
+
+    st.markdown("""
+        <div style="text-align: center; padding: 1rem; border-top: 1px solid rgba(255,255,255,0.1);">
+            <p style="color: rgba(255,255,255,0.4); font-size: 0.8rem; margin: 0;">
+                Powered by SoulEngine
+            </p>
+            <p style="color: rgba(255,255,255,0.3); font-size: 0.7rem; margin: 0.25rem 0 0 0;">
+                v1.0.0
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
 
 st.markdown("""
 <style>
@@ -219,16 +324,16 @@ def toggle_swap_direction():
 
 if page == "Tokens":
     st.markdown("### Active Tokens")
-    
+
     token_filter = st.radio(
         "Filter Tokens",
         ["All DEX Active Tokens", "Common Tokens (CEX Listed)"],
         horizontal=True
     )
-    
+
     if "tokens_page" not in st.session_state:
         st.session_state.tokens_page = 1
-    
+
     try:
         with st.spinner("Loading tokens from pools..."):
             if token_filter == "All DEX Active Tokens":
@@ -237,7 +342,7 @@ if page == "Tokens":
             else:
                 tokens = get_all_common_dict_of_tokens(r)
                 st.info(f"Found **{len(tokens)}** common tokens (listed on CEX)")
-        
+
         if tokens:
             search = st.text_input("Search by symbol or mint address", placeholder="e.g. SOL or So11111...")
 
@@ -248,23 +353,23 @@ if page == "Tokens":
                 }
             else:
                 filtered_tokens = tokens
-            
+
             sorted_mints = sorted(filtered_tokens.keys(), key=lambda m: filtered_tokens[m].get('symbol', '').upper())
-            
+
             tokens_per_page = 20
             total_tokens = len(sorted_mints)
             total_pages = max(1, (total_tokens + tokens_per_page - 1) // tokens_per_page)
-            
+
             if st.session_state.tokens_page > total_pages:
                 st.session_state.tokens_page = 1
-            
+
             col_prev, col_info, col_next = st.columns([1, 2, 1])
-            
+
             with col_prev:
                 if st.button("◀ Previous", disabled=st.session_state.tokens_page <= 1, use_container_width=True):
                     st.session_state.tokens_page -= 1
                     st.rerun()
-            
+
             with col_info:
                 st.markdown(
                     f"""
@@ -278,11 +383,11 @@ if page == "Tokens":
                 if st.button("Next ▶", disabled=st.session_state.tokens_page >= total_pages, use_container_width=True):
                     st.session_state.tokens_page += 1
                     st.rerun()
-            
+
             start_idx = (st.session_state.tokens_page - 1) * tokens_per_page
             end_idx = start_idx + tokens_per_page
             page_mints = sorted_mints[start_idx:end_idx]
-            
+
             detailed_lookup = {}
             with st.spinner("Fetching token details..."):
                 detailed_tokens = get_tokens_detailed(page_mints)
@@ -290,7 +395,7 @@ if page == "Tokens":
                     for t in detailed_tokens:
                         if t and isinstance(t, dict) and t.get('id'):
                             detailed_lookup[t['id']] = t
-            
+
             st.markdown("---")
             header_cols = st.columns([1, 2, 2, 2, 2, 3])
             with header_cols[0]:
@@ -306,13 +411,13 @@ if page == "Tokens":
             with header_cols[5]:
                 st.markdown("**Mint Address**")
             st.markdown("---")
-            
+
             for idx, mint in enumerate(page_mints):
                 base_data = filtered_tokens[mint]
                 detail = detailed_lookup.get(mint, {})
-                
+
                 row_cols = st.columns([1, 2, 2, 2, 2, 3])
-                
+
                 with row_cols[0]:
                     row_num = start_idx + idx + 1
                     icon_url = detail.get('icon', '')
@@ -320,12 +425,12 @@ if page == "Tokens":
                         st.image(icon_url, width=32)
                     else:
                         st.markdown(f"**{row_num}**")
-                
+
                 with row_cols[1]:
                     name = detail.get('name', base_data.get('symbol', 'Unknown'))
                     symbol = detail.get('symbol', base_data.get('symbol', '???'))
                     decimals = detail.get('decimals', base_data.get('decimals', '?'))
-                    
+
                     is_verified = detail.get('isVerified', False)
                     if is_verified:
                         verified_badge = """
@@ -340,7 +445,7 @@ if page == "Tokens":
 
                     st.markdown(f"**{symbol}**{verified_badge}", unsafe_allow_html=True)
                     st.caption(f"{name[:20]}{'...' if len(name) > 20 else ''}")
-                
+
                 with row_cols[2]:
                     usd_price = detail.get('usdPrice', 0)
                     if usd_price:
@@ -352,7 +457,7 @@ if page == "Tokens":
                             st.markdown(f"**${usd_price:.10f}**")
                     else:
                         st.markdown("—")
-                
+
                 with row_cols[3]:
                     stats_24h = detail.get('stats24h', {})
                     price_change = stats_24h.get('priceChange', 0)
@@ -363,16 +468,16 @@ if page == "Tokens":
                             st.markdown(f":red[↓ **{price_change:.2f}%**]")
                     else:
                         st.markdown("—")
-                
+
                 with row_cols[4]:
                     liquidity = detail.get('liquidity', 0)
                     volume_24h = 0
                     if stats_24h:
                         volume_24h = stats_24h.get('buyVolume', 0) + stats_24h.get('sellVolume', 0)
-                    
+
                     tvl_str = "—"
                     vol_str = "—"
-                    
+
                     if liquidity:
                         if liquidity >= 1_000_000:
                             tvl_str = f"${liquidity/1_000_000:.2f}M"
@@ -380,7 +485,7 @@ if page == "Tokens":
                             tvl_str = f"${liquidity/1_000:.1f}K"
                         else:
                             tvl_str = f"${liquidity:.0f}"
-                    
+
                     if volume_24h:
                         if volume_24h >= 1_000_000:
                             vol_str = f"${volume_24h/1_000_000:.2f}M"
@@ -388,23 +493,23 @@ if page == "Tokens":
                             vol_str = f"${volume_24h/1_000:.1f}K"
                         else:
                             vol_str = f"${volume_24h:.0f}"
-                    
+
                     st.markdown(f"TVL: {tvl_str}")
                     st.caption(f"Vol: {vol_str}")
-                
+
                 with row_cols[5]:
                     st.code(mint, language=None)
 
                 st.markdown("<hr style='margin: 2px 0; border: none; border-top: 1px solid #333;'>", unsafe_allow_html=True)
-            
+
             st.markdown("")
             col_prev2, col_info2, col_next2 = st.columns([1, 2, 1])
-            
+
             with col_prev2:
                 if st.button("◀ Prev", key="prev_bottom", disabled=st.session_state.tokens_page <= 1, use_container_width=True):
                     st.session_state.tokens_page -= 1
                     st.rerun()
-            
+
             with col_info2:
                 st.markdown(
                     f"""
@@ -414,14 +519,14 @@ if page == "Tokens":
                     """,
                     unsafe_allow_html=True
                 )
-            
+
             with col_next2:
                 if st.button("Next ▶", key="next_bottom", disabled=st.session_state.tokens_page >= total_pages, use_container_width=True):
                     st.session_state.tokens_page += 1
                     st.rerun()
         else:
             st.warning("No tokens found. Make sure Redis is running and pools are loaded.")
-            
+
     except redis.ConnectionError:
         st.error("Failed to connect to Redis. Make sure Redis is running.")
     except Exception as e:
