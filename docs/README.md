@@ -39,7 +39,7 @@ journalctl -u 'soulscan-*' --since "1 hour ago"
 ## Prerequisites
 
 - Redis server running on `localhost:6379`
-- Python 3.10+
+- Python 3.12
 - CEX orderbook streams (separate service)
 
 ## File Locations
