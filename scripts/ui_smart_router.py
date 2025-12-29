@@ -4,10 +4,10 @@ import redis
 import aiohttp
 import asyncio
 from src.SoulEngine.SmartRouter import SmartRouter
-from src.SoulEngine.SoulHelper import get_active_metadata, get_active_state, get_all_DEX_active_tokens, get_all_common_dict_of_tokens
+from src.SoulEngine.SoulHelper import get_active_metadata, get_active_state, get_all_DEX_active_tokens, \
+    get_all_common_dict_of_tokens
 
 st.set_page_config(page_title="SoulScan", layout="wide", page_icon="👻")
-
 
 COMMON_TOKENS = {
     "USDC": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
@@ -82,6 +82,7 @@ async def search_token_async(mint: str) -> dict | None:
 def search_token_info(mint: str) -> dict | None:
     return asyncio.run(search_token_async(mint))
 
+
 async def search_token_jupiter_async(mint: str, session: aiohttp.ClientSession) -> dict | None:
     """Search for a single token by mint address using Jupiter v2 search API"""
     url = "https://api.jup.ag/tokens/v2/search"
@@ -119,6 +120,7 @@ async def get_tokens_detailed_async(mints: list[str]) -> list:
 
 def get_tokens_detailed(mints: list[str]) -> list:
     return asyncio.run(get_tokens_detailed_async(mints))
+
 
 TOKEN_INFO = {
     "USDC": {
@@ -269,30 +271,376 @@ with st.sidebar:
 
 st.markdown("""
 <style>
-    .swap-card {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        border-radius: 20px;
-        padding: 24px;
-        border: 1px solid #0f3460;
+    /* ============================================
+       GLOBAL STYLES - Professional Dark Theme
+       ============================================ */
+
+    /* Import Google Font */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    /* Main app container */
+    .stApp {
+        background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0f0f1a 100%);
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
-    .token-box {
-        background: rgba(255,255,255,0.05);
+
+    /* Hide Streamlit branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+
+    /* ============================================
+       TYPOGRAPHY
+       ============================================ */
+
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Inter', sans-serif !important;
+        font-weight: 600 !important;
+        color: #ffffff !important;
+    }
+
+    h1 { font-size: 2.5rem !important; }
+    h2 { font-size: 2rem !important; }
+    h3 { 
+        font-size: 1.5rem !important;
+        background: linear-gradient(90deg, #a78bfa 0%, #818cf8 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    p, span, label, div {
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    /* ============================================
+       CARDS & CONTAINERS
+       ============================================ */
+
+    /* All containers with borders */
+    [data-testid="stVerticalBlock"] > div:has(> [data-testid="stContainer"]) {
+        background: transparent;
+    }
+
+    div[data-testid="stContainer"] {
+        background: linear-gradient(145deg, rgba(26, 26, 46, 0.9) 0%, rgba(22, 33, 62, 0.9) 100%);
+        border: 1px solid rgba(167, 139, 250, 0.2);
+        border-radius: 16px;
+        padding: 1.5rem;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Expander styling */
+    [data-testid="stExpander"] {
+        background: linear-gradient(145deg, rgba(26, 26, 46, 0.8) 0%, rgba(22, 33, 62, 0.8) 100%);
+        border: 1px solid rgba(167, 139, 250, 0.15);
         border-radius: 12px;
-        padding: 16px;
-        margin: 8px 0;
+        overflow: hidden;
     }
-    .swap-label {
-        color: #888;
-        font-size: 14px;
-        margin-bottom: 8px;
+
+    [data-testid="stExpander"] summary {
+        color: #a78bfa !important;
+        font-weight: 500;
     }
-    .token-display {
-        font-size: 24px;
-        font-weight: bold;
+
+    /* ============================================
+       BUTTONS
+       ============================================ */
+
+    /* Primary button */
+    .stButton > button[kind="primary"],
+    button[data-testid="stBaseButton-primary"] {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 12px !important;
+        padding: 0.75rem 1.5rem !important;
+        font-weight: 600 !important;
+        font-size: 1rem !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4) !important;
     }
+
+    .stButton > button[kind="primary"]:hover,
+    button[data-testid="stBaseButton-primary"]:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 25px rgba(139, 92, 246, 0.6) !important;
+    }
+
+    /* Secondary button */
+    .stButton > button[kind="secondary"],
+    button[data-testid="stBaseButton-secondary"] {
+        background: rgba(167, 139, 250, 0.1) !important;
+        color: #a78bfa !important;
+        border: 1px solid rgba(167, 139, 250, 0.3) !important;
+        border-radius: 12px !important;
+        font-weight: 500 !important;
+        transition: all 0.3s ease !important;
+    }
+
+    .stButton > button[kind="secondary"]:hover,
+    button[data-testid="stBaseButton-secondary"]:hover {
+        background: rgba(167, 139, 250, 0.2) !important;
+        border-color: rgba(167, 139, 250, 0.5) !important;
+    }
+
+    /* All buttons base */
+    .stButton > button {
+        border-radius: 10px !important;
+        font-weight: 500 !important;
+        transition: all 0.2s ease !important;
+    }
+
+    /* ============================================
+       INPUTS & FORM ELEMENTS
+       ============================================ */
+
+    /* Text inputs */
+    .stTextInput > div > div > input,
+    .stNumberInput > div > div > input {
+        background: rgba(15, 15, 26, 0.8) !important;
+        border: 1px solid rgba(167, 139, 250, 0.2) !important;
+        border-radius: 10px !important;
+        color: #ffffff !important;
+        font-size: 1.1rem !important;
+        padding: 0.75rem 1rem !important;
+        transition: all 0.3s ease !important;
+    }
+
+    .stTextInput > div > div > input:focus,
+    .stNumberInput > div > div > input:focus {
+        border-color: #a78bfa !important;
+        box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.2) !important;
+    }
+
+    /* Number input - larger styling for swap amounts */
     div[data-testid="stNumberInput"] input {
-        font-size: 24px !important;
-        font-weight: bold !important;
+        font-size: 1.75rem !important;
+        font-weight: 600 !important;
+        background: transparent !important;
+        border: none !important;
+        color: #ffffff !important;
+    }
+
+    /* Selectbox */
+    .stSelectbox > div > div {
+        background: rgba(15, 15, 26, 0.8) !important;
+        border: 1px solid rgba(167, 139, 250, 0.2) !important;
+        border-radius: 10px !important;
+    }
+
+    .stSelectbox > div > div:hover {
+        border-color: rgba(167, 139, 250, 0.4) !important;
+    }
+
+    /* Radio buttons */
+    .stRadio > div {
+        background: rgba(15, 15, 26, 0.5);
+        border-radius: 10px;
+        padding: 0.5rem;
+    }
+
+    .stRadio > div > label {
+        color: rgba(255, 255, 255, 0.8) !important;
+    }
+
+    /* ============================================
+       METRICS & DATA DISPLAY
+       ============================================ */
+
+    [data-testid="stMetric"] {
+        background: linear-gradient(145deg, rgba(26, 26, 46, 0.6) 0%, rgba(22, 33, 62, 0.6) 100%);
+        border: 1px solid rgba(167, 139, 250, 0.15);
+        border-radius: 12px;
+        padding: 1rem;
+    }
+
+    [data-testid="stMetricLabel"] {
+        color: rgba(255, 255, 255, 0.6) !important;
+        font-size: 0.9rem !important;
+    }
+
+    [data-testid="stMetricValue"] {
+        color: #ffffff !important;
+        font-size: 1.5rem !important;
+        font-weight: 600 !important;
+    }
+
+    [data-testid="stMetricDelta"] svg {
+        display: none;
+    }
+
+    /* ============================================
+       ALERTS & NOTIFICATIONS
+       ============================================ */
+
+    .stSuccess {
+        background: linear-gradient(90deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.05) 100%) !important;
+        border-left: 4px solid #10b981 !important;
+        border-radius: 8px !important;
+    }
+
+    .stError {
+        background: linear-gradient(90deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.05) 100%) !important;
+        border-left: 4px solid #ef4444 !important;
+        border-radius: 8px !important;
+    }
+
+    .stWarning {
+        background: linear-gradient(90deg, rgba(245, 158, 11, 0.15) 0%, rgba(245, 158, 11, 0.05) 100%) !important;
+        border-left: 4px solid #f59e0b !important;
+        border-radius: 8px !important;
+    }
+
+    .stInfo {
+        background: linear-gradient(90deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.05) 100%) !important;
+        border-left: 4px solid #3b82f6 !important;
+        border-radius: 8px !important;
+    }
+
+    /* ============================================
+       DIVIDERS & SEPARATORS
+       ============================================ */
+
+    hr {
+        border: none !important;
+        height: 1px !important;
+        background: linear-gradient(90deg, transparent 0%, rgba(167, 139, 250, 0.3) 50%, transparent 100%) !important;
+        margin: 1.5rem 0 !important;
+    }
+
+    /* ============================================
+       CODE BLOCKS
+       ============================================ */
+
+    code {
+        background: rgba(15, 15, 26, 0.8) !important;
+        border: 1px solid rgba(167, 139, 250, 0.2) !important;
+        border-radius: 6px !important;
+        padding: 0.25rem 0.5rem !important;
+        color: #a78bfa !important;
+        font-size: 0.85rem !important;
+    }
+
+    /* ============================================
+       SPINNER & LOADING
+       ============================================ */
+
+    .stSpinner > div {
+        border-top-color: #a78bfa !important;
+    }
+
+    /* ============================================
+       TABLES & ROWS (for Tokens page)
+       ============================================ */
+
+    .token-row {
+        background: rgba(26, 26, 46, 0.4);
+        border-radius: 10px;
+        padding: 0.75rem;
+        margin: 0.25rem 0;
+        transition: all 0.2s ease;
+    }
+
+    .token-row:hover {
+        background: rgba(167, 139, 250, 0.1);
+        transform: translateX(4px);
+    }
+
+    /* ============================================
+       SWAP SPECIFIC STYLES
+       ============================================ */
+
+    .swap-card {
+        background: linear-gradient(145deg, rgba(26, 26, 46, 0.95) 0%, rgba(22, 33, 62, 0.95) 100%);
+        border-radius: 24px;
+        padding: 2rem;
+        border: 1px solid rgba(167, 139, 250, 0.2);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    .token-box {
+        background: rgba(15, 15, 26, 0.6);
+        border-radius: 16px;
+        padding: 1.25rem;
+        margin: 0.5rem 0;
+        border: 1px solid rgba(167, 139, 250, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .token-box:hover {
+        border-color: rgba(167, 139, 250, 0.3);
+        background: rgba(15, 15, 26, 0.8);
+    }
+
+    .swap-label {
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 0.875rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.5rem;
+    }
+
+    .token-display {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #ffffff;
+    }
+
+    /* ============================================
+       CAPTION & SMALL TEXT
+       ============================================ */
+
+    .stCaption, [data-testid="stCaptionContainer"] {
+        color: rgba(255, 255, 255, 0.5) !important;
+    }
+
+    /* ============================================
+       SCROLLBAR STYLING
+       ============================================ */
+
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: rgba(15, 15, 26, 0.5);
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: rgba(167, 139, 250, 0.3);
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: rgba(167, 139, 250, 0.5);
+    }
+
+    /* ============================================
+       ANIMATIONS
+       ============================================ */
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+
+    @keyframes shimmer {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+    }
+
+    .animate-fade-in {
+        animation: fadeIn 0.5s ease-out;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -480,17 +828,17 @@ if page == "Tokens":
 
                     if liquidity:
                         if liquidity >= 1_000_000:
-                            tvl_str = f"${liquidity/1_000_000:.2f}M"
+                            tvl_str = f"${liquidity / 1_000_000:.2f}M"
                         elif liquidity >= 1_000:
-                            tvl_str = f"${liquidity/1_000:.1f}K"
+                            tvl_str = f"${liquidity / 1_000:.1f}K"
                         else:
                             tvl_str = f"${liquidity:.0f}"
 
                     if volume_24h:
                         if volume_24h >= 1_000_000:
-                            vol_str = f"${volume_24h/1_000_000:.2f}M"
+                            vol_str = f"${volume_24h / 1_000_000:.2f}M"
                         elif volume_24h >= 1_000:
-                            vol_str = f"${volume_24h/1_000:.1f}K"
+                            vol_str = f"${volume_24h / 1_000:.1f}K"
                         else:
                             vol_str = f"${volume_24h:.0f}"
 
@@ -500,13 +848,15 @@ if page == "Tokens":
                 with row_cols[5]:
                     st.code(mint, language=None)
 
-                st.markdown("<hr style='margin: 2px 0; border: none; border-top: 1px solid #333;'>", unsafe_allow_html=True)
+                st.markdown("<hr style='margin: 2px 0; border: none; border-top: 1px solid #333;'>",
+                            unsafe_allow_html=True)
 
             st.markdown("")
             col_prev2, col_info2, col_next2 = st.columns([1, 2, 1])
 
             with col_prev2:
-                if st.button("◀ Prev", key="prev_bottom", disabled=st.session_state.tokens_page <= 1, use_container_width=True):
+                if st.button("◀ Prev", key="prev_bottom", disabled=st.session_state.tokens_page <= 1,
+                             use_container_width=True):
                     st.session_state.tokens_page -= 1
                     st.rerun()
 
@@ -521,7 +871,8 @@ if page == "Tokens":
                 )
 
             with col_next2:
-                if st.button("Next ▶", key="next_bottom", disabled=st.session_state.tokens_page >= total_pages, use_container_width=True):
+                if st.button("Next ▶", key="next_bottom", disabled=st.session_state.tokens_page >= total_pages,
+                             use_container_width=True):
                     st.session_state.tokens_page += 1
                     st.rerun()
         else:
@@ -794,7 +1145,8 @@ elif page == "Swap":
                 st.success("SmartRouter Success")
                 st.metric(result_label, f"{smart_router_human:,.6f}")
                 st.write(
-                    f"**Route:** `{' → '.join(result.get('route', []))[:50]}...`" if result.get('route') else "No route")
+                    f"**Route:** `{' → '.join(result.get('route', []))[:50]}...`" if result.get(
+                        'route') else "No route")
                 with st.expander("Full Response"):
                     st.json(result)
             else:
