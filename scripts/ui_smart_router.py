@@ -146,7 +146,9 @@ def token_display(token_name):
 
 st.markdown("""
 <style>
+    #MainMenu {visibility: hidden;}
     [data-testid="stSidebar"] {
+        border-radius: 0 20px 20px 0;
         background: linear-gradient(180deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
         border-right: 1px solid rgba(79, 70, 229, 0.3);
     }
@@ -610,26 +612,6 @@ if page == "Tokens":
             if st.session_state.tokens_page > total_pages:
                 st.session_state.tokens_page = 1
 
-            col_prev, col_info, col_next = st.columns([1, 2, 1])
-
-            with col_prev:
-                if st.button("◀ Previous", disabled=st.session_state.tokens_page <= 1, use_container_width=True):
-                    st.session_state.tokens_page -= 1
-                    st.rerun()
-
-            with col_info:
-                st.markdown(
-                    f"""
-                    <div style='text-align: center; padding: 8px;'>
-                        Page <b>{st.session_state.tokens_page}</b> of <b>{total_pages}</b> ({total_tokens} tokens)
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-            with col_next:
-                if st.button("Next ▶", disabled=st.session_state.tokens_page >= total_pages, use_container_width=True):
-                    st.session_state.tokens_page += 1
-                    st.rerun()
 
             start_idx = (st.session_state.tokens_page - 1) * tokens_per_page
             end_idx = start_idx + tokens_per_page
@@ -751,15 +733,15 @@ if page == "Tokens":
                             unsafe_allow_html=True)
 
             st.markdown("")
-            col_prev2, col_info2, col_next2 = st.columns([1, 2, 1])
+            col_prev, col_info, col_next = st.columns([1, 2, 1])
 
-            with col_prev2:
+            with col_prev:
                 if st.button("◀ Prev", key="prev_bottom", disabled=st.session_state.tokens_page <= 1,
                              use_container_width=True):
                     st.session_state.tokens_page -= 1
                     st.rerun()
 
-            with col_info2:
+            with col_info:
                 st.markdown(
                     f"""
                         <div style='text-align: center; padding: 8px;'>
@@ -769,7 +751,7 @@ if page == "Tokens":
                     unsafe_allow_html=True
                 )
 
-            with col_next2:
+            with col_next:
                 if st.button("Next ▶", key="next_bottom", disabled=st.session_state.tokens_page >= total_pages,
                              use_container_width=True):
                     st.session_state.tokens_page += 1
@@ -789,7 +771,7 @@ elif page == "Swap":
     with swap_col:
         st.markdown("### Swap")
 
-        with st.expander("⚙️ Settings", expanded=True):
+        with st.expander("⚙ Settings", expanded=True):
             swap_mode_option = st.radio(
                 "Swap Mode",
                 ["Exact Input", "Exact Output"],
