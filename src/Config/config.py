@@ -48,5 +48,5 @@ MARKETS = {
 }
 ACTIVE_MARKETS = ['meteora_dlmm', 'orca_clmm', 'raydium_clmm', 'raydium_amm']
 
-MINIMAL_PROFIT = 100
+MINIMAL_PROFIT = 1
 SWAPPER_FEE = 0.005  # 0.5 %
