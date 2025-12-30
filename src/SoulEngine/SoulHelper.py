@@ -1,3 +1,5 @@
+import secrets
+from typing import Dict, Optional, Set, Tuple
 import redis
 import json
 import networkx as nx
@@ -7,6 +9,7 @@ import math
 
 ####################################
 from src.Config import config, BasicSchemeAndTypeDict
+from src.Config.config import MINIMAL_PROFIT
 from src.CEX.contract_address_cex_checker.service.lookup import lookup_mint
 from src.CEX.CEXAPI import get_exchange_asks, get_exchange_bids
 ####################################
@@ -166,3 +169,137 @@ async def get_orderbook(exchange: str, symbol: str, mode: str) -> list[list[floa
         raise Exception(f'Failed to get orderbook for {exchange} {symbol} {mode}')
 
     return orderbook
+
+class CexDexSignalManager:
+    CEX_DEX_OPPORTUNITIES_KEY = 'cex-dex-opportunities'
+    CEX_DEX_EVENTS_KEY = 'cex-dex-events'
+
+    STREAM_MAX_LEN = 1000
+
+    def __init__(self, redis_client: redis.Redis, dex: str, network: str, logger: logging.Logger):
+        self.redis_client = redis_client
+        self.logger = logger
+        self.dex = dex
+        self.network = network
+        self.active_signals: Dict[str, Tuple[str, float]] = {}
+
+    def _create_composite_key(self, cex: str, mode: str, token_pair: str) -> str:
+        return f"{self.dex}:{self.network}:{cex.upper()}:{mode}:{token_pair}"
+
+    @staticmethod
+    def _create_unique_id(composite_key: str, hash_suffix: str) -> str:
+        return f"{composite_key}:{hash_suffix}"
+
+    @staticmethod
+    def _generate_short_hash() -> str:
+        return secrets.token_hex(2).upper()
+
+    def _get_id(self, composite_key: str) -> str:
+        if composite_key in self.active_signals:
+            unique_id, _ = self.active_signals[composite_key]
+            self.active_signals[composite_key] = (unique_id, time.time())
+            return unique_id
+        else:
+            hash_suffix = self._generate_short_hash()
+            unique_id = self._create_unique_id(composite_key, hash_suffix)
+            self.active_signals[composite_key] = (unique_id, time.time())
+            self.logger.info(f"New CEX-DEX signal created: {unique_id}")
+            return unique_id
+
+    def _upsert_signal(self, unique_id: str, payload: dict) -> None:
+        json_data = json.dumps(payload)
+
+        self.redis_client.hset(self.CEX_DEX_OPPORTUNITIES_KEY, unique_id, json_data)
+
+        self.redis_client.xadd(self.CEX_DEX_EVENTS_KEY, {
+            'action': 'upsert',
+            'unique_id': unique_id,
+            'data': json_data
+        }, maxlen=self.STREAM_MAX_LEN)
+
+    def _remove_signal(self, unique_id: str) -> None:
+        self.redis_client.hdel(self.CEX_DEX_OPPORTUNITIES_KEY, unique_id)
+
+        self.redis_client.xadd(
+            self.CEX_DEX_EVENTS_KEY,
+            {
+                'action': 'remove',
+                'unique_id': unique_id,
+                'data': ''
+            },
+            maxlen=self.STREAM_MAX_LEN,
+        )
+
+    def finalize_signal(
+            self,
+            cex: str,
+            mode: str,
+            base: str,
+            quote: str,
+            base_address: str,
+            quote_address: str,
+            best_swap: dict,
+            order_number: int,
+    ) -> Optional[str]:
+        profit = best_swap.get('profit', 0)
+        if profit < MINIMAL_PROFIT:
+            return None
+
+        token_pair = f"{base}{quote}"
+        composite_key = self._create_composite_key(cex, mode, token_pair)
+        unique_id = self._get_id(composite_key)
+
+        payload = {
+            'unique_id': unique_id,
+            'timestamp': int(time.time()),
+            'dex': self.dex,
+            'network': self.network,
+            'cex': cex.upper(),
+            'mode': mode,
+            'token_pair': token_pair,
+            'profit': profit,
+            'target_token': base,
+            'target_address': base_address,
+            'base_token': quote,
+            'base_address': quote_address,
+            'CEX_amountIn': best_swap.get('CEX_amountIn'),
+            'CEX_amountOut': best_swap.get('CEX_amountOut'),
+            'DEX_amountIn': best_swap.get('DEX_amountIn'),
+            'DEX_amountOut': best_swap.get('DEX_amountOut'),
+            'order_number': order_number,
+            'CEX_start_price': best_swap.get('CEX_start_price'),
+            'CEX_end_price': best_swap.get('CEX_end_price'),
+        }
+
+        self._upsert_signal(unique_id, payload)
+        self.logger.debug(f"Upserted signal: {unique_id} profit={profit}")
+
+        return composite_key
+
+    def garbage_collect(self, current_keys: Set[str]) -> int:
+        stale_count = 0
+
+        for composite_key, (unique_id, _) in list(self.active_signals.items()):
+            if composite_key not in current_keys:
+                self._remove_signal(unique_id)
+                del self.active_signals[composite_key]
+                self.logger.info(f"Garbage collected: {unique_id}")
+                stale_count += 1
+
+        return stale_count
+
+    def clear_all(self) -> int:
+        count = self.redis_client.hlen(self.CEX_DEX_OPPORTUNITIES_KEY)
+        if count > 0:
+            self.redis_client.delete(self.CEX_DEX_OPPORTUNITIES_KEY)
+            self.logger.info(f"Cleared {count} stale CEX-DEX signals")
+
+        self.active_signals.clear()
+
+        return count
+
+    def get_active_count(self) -> int:
+        return len(self.active_signals)
+
+    def get_redis_count(self) -> int:
+        return self.redis_client.hlen(self.CEX_DEX_OPPORTUNITIES_KEY)

@@ -11,6 +11,7 @@ from src.CEX.contract_address_cex_checker.service.lookup import lookup_mint
 from src.CEX.CEXAPI import get_exchange_asks, get_exchange_bids
 from src.LoggerHandler.logger import setup_logger, get_logger
 from src.SoulEngine.SmartRouter.SmartRouter import SmartRouter
+from src.SoulEngine.SoulHelper import CexDexSignalManager
 ####################################
 
 CEX_QUOTES = ['USDC', 'USDT']
@@ -35,6 +36,13 @@ class Comparer:
         self.r = r
         self.network = network
         self.dex = dex
+
+        self.publisher = CexDexSignalManager(
+            dex=dex,
+            network=network,
+            logger=self.logger,
+            redis_client=r
+        )
 
     async def start_comparing(self, base_mint: str, base_decimals: int, smart_router: SmartRouter):
         self.logger.info(
@@ -225,14 +233,14 @@ class Comparer:
 
         self.logger.info(f"Total Time For Calculation: {time.time() - start_time}")
 
-        self._finalizer(cex=cex,
-                        mode='CEX->DEX',
-                        base=base_symbol,
-                        quote=quote_symbol,
-                        base_address=base_mint,
-                        quote_address=DEX_QUOTE,
-                        order_number=order_number,
-                        best_swap=best_swap)
+        self.publisher.finalize_signal(cex=cex,
+                                       mode='CEX->DEX',
+                                       base=base_symbol,
+                                       quote=quote_symbol,
+                                       base_address=base_mint,
+                                       quote_address=DEX_QUOTE,
+                                       order_number=order_number,
+                                       best_swap=best_swap)
 
     async def _probe_cex_bid(self, cex: str, base_mint: str, base_symbol: str, quote_symbol: str,
                              smart_router: SmartRouter, base_decimals: int, quote_decimals: int):
@@ -379,52 +387,14 @@ class Comparer:
 
         self.logger.info(f"Total Time For Calculation: {time.time() - start_time}")
 
-        self._finalizer(cex=cex,
-                        mode='DEX->CEX',
-                        base=base_symbol,
-                        quote=quote_symbol,
-                        base_address=base_mint,
-                        quote_address=DEX_QUOTE,
-                        best_swap=best_swap,
-                        order_number=order_number)
-
-    def _finalizer(self, cex, mode, base, quote, base_address, quote_address, best_swap, order_number):
-        try:
-            if best_swap.get('profit') < config.MINIMAL_PROFIT:
-                return
-
-
-            signal_payload = config.SignalFormat(
-                dex=self.dex,
-                network=self.network,
-                cex=cex,
-                mode=mode,
-                token_pair=f"{base}{quote}",
-                profit=best_swap['profit'],
-                target_token=base,
-                target_address=base_address,
-                base_address=quote_address,
-                base_token=quote,
-                CEX_amountIn=best_swap['CEX_amountIn'],
-                CEX_amountOut=best_swap['CEX_amountOut'],
-                DEX_amountIn=best_swap['DEX_amountIn'],
-                DEX_amountOut=best_swap['DEX_amountOut'],
-                order_number=order_number,
-                CEX_start_price=best_swap['CEX_start_price'],
-                CEX_end_price=best_swap['CEX_end_price'],
-            )
-
-            self.logger.info(f"\n============---- [{cex} {mode} {base}/{quote}] FINAL ----============\n"
-                             f'Signal: {signal_payload.model_dump()}\n')
-            self.logger.info('_' * 50)
-
-            signal_dict = signal_payload.model_dump()
-            self.r.xadd(
-                config.SIGNAL_STREAM_REDIS_KEY,
-                {'signal': json.dumps(signal_dict)}
-            )
-        except Exception as e:
-            self.logger.warning(f"Finalizer failed. Error: {e}")
+        self.publisher.finalize_signal(cex=cex,
+                                       mode='DEX->CEX',
+                                       base=base_symbol,
+                                       quote=quote_symbol,
+                                       base_address=base_mint,
+                                       quote_address=DEX_QUOTE,
+                                       best_swap=best_swap,
+                                       order_number=order_number)
 
 
 

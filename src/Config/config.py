@@ -48,26 +48,5 @@ MARKETS = {
 }
 ACTIVE_MARKETS = ['meteora_dlmm', 'orca_clmm', 'raydium_clmm', 'raydium_amm']
 
-SIGNAL_STREAM_REDIS_KEY = 'saniya'
 MINIMAL_PROFIT = 100
 SWAPPER_FEE = 0.005  # 0.5 %
-
-class SignalFormat(pydantic.BaseModel):
-    dex: str
-    network: str
-    cex: str
-    mode: str
-    token_pair: str
-    profit: float | int
-    target_token: str
-    target_address: str
-    base_address: str
-    base_token: str
-    CEX_amountIn: float | int
-    CEX_amountOut: float | int
-    DEX_amountIn: float | int
-    DEX_amountOut: float | int
-    order_number: int
-    CEX_start_price: float | int
-    CEX_end_price: float | int
-    timestamp: float = pydantic.Field(default_factory=time.time)
