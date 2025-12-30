@@ -8,12 +8,10 @@ from src.ui.pages.tokens import render_tokens_page
 
 st.set_page_config(page_title="SoulScan", layout="wide", page_icon="👻")
 
-# Initialize
 r = redis.Redis(decode_responses=True)
 apply_styles()
 init_session_state()
 
-# Layout
 page = render_sidebar()
 
 if page == "Swap":

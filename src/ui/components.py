@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 from streamlit_option_menu import option_menu
 from src.ui.state import TOKEN_INFO
 
@@ -69,6 +70,25 @@ def render_sidebar():
             </div>
         """, unsafe_allow_html=True)
 
+        st.markdown("""
+            <style>
+                /* 1. Target the iframe itself */
+                iframe {
+                    background-color: transparent !important;
+                }
+
+                /* 2. Target the specific Streamlit container holding the iframe */
+                [data-testid="stElementContainer"] {
+                    background-color: transparent !important;
+                }
+
+                /* 3. Target the iframe specifically by title (fallback) */
+                iframe[title="streamlit_option_menu.option_menu"] {
+                    background-color: transparent !important;
+                }
+            </style>
+        """, unsafe_allow_html=True)
+
         page = option_menu(
             menu_title=None,
             options=["Swap", "Tokens"],
@@ -118,5 +138,26 @@ def render_sidebar():
                 </p>
             </div>
         """, unsafe_allow_html=True)
+
+        components.html("""
+        <script>
+            const fixTransparency = () => {
+                const iframes = window.parent.document.querySelectorAll('iframe[title="streamlit_option_menu.option_menu"]');
+
+                iframes.forEach(iframe => {
+                    try {
+                        const internalBody = iframe.contentDocument.body;
+                        if (internalBody) {
+                            internalBody.style.backgroundColor = "transparent";
+                        }
+                    } catch (e) {
+                        console.log("Could not reach inside iframe:", e);
+                    }
+                });
+            };
+
+            fixTransparency();
+        </script>
+        """, height=0)
 
     return page
