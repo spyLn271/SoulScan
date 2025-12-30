@@ -19,7 +19,7 @@ class ScannerConfig(pydantic.BaseModel):
     logger_name: str = "Scanner"
     logger_file: str = "Scanner.log"
     worker_number: int = 5
-    sleep_interval: int = 5
+    sleep_interval: int = 1
     token_list_update_interval: int = 60
     network: str = "Solana"
     dex: str = "Jupiter"
