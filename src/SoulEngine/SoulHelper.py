@@ -1,4 +1,4 @@
-import secrets
+import hashlib
 from typing import Dict, Optional, Set, Tuple
 import redis
 import json
@@ -194,8 +194,8 @@ class CexDexSignalManager:
         return f"{composite_key}:{hash_suffix}"
 
     @staticmethod
-    def _generate_short_hash() -> str:
-        return secrets.token_hex(2).upper()
+    def _generate_short_hash(composite_key: str) -> str:
+        return hashlib.md5(composite_key.encode()).hexdigest()[:4].upper()
 
     def _get_id(self, composite_key: str) -> str:
         if composite_key in self.active_signals:
@@ -203,7 +203,7 @@ class CexDexSignalManager:
             self.active_signals[composite_key] = (unique_id, time.time())
             return unique_id
         else:
-            hash_suffix = self._generate_short_hash()
+            hash_suffix = self._generate_short_hash(composite_key)
             unique_id = self._create_unique_id(composite_key, hash_suffix)
             self.active_signals[composite_key] = (unique_id, time.time())
             self.logger.info(f"New CEX-DEX signal created: {unique_id}")
