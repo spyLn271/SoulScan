@@ -154,8 +154,11 @@ def break_tasks_in_chunks(worker_number, task_list: list):
 
 def break_dict_in_chunks(worker_number, dict_to_break: dict):
     items = list(dict_to_break.items())
-    for chunk in range(0, len(items), worker_number):
-        yield dict(items[chunk:chunk + worker_number])
+    chunk_size = math.ceil(len(items) / worker_number)
+    if chunk_size == 0:
+        return
+    for i in range(0, len(items), chunk_size):
+        yield dict(items[i:i + chunk_size])
 
 async def get_orderbook(exchange: str, symbol: str, mode: str) -> list[list[float]]:
     if mode == 'CEX->DEX':
