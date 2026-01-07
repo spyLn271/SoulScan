@@ -174,6 +174,20 @@ async def get_orderbook(exchange: str, symbol: str, mode: str) -> list[list[floa
     return orderbook
 
 class CexDexSignalManager:
+    NETWORK_NAME_MAP = {
+        "ERC20": "Ethereum", "erc20": "Ethereum",
+        "ARBITRUM": "Arbitrum", "ARB": "Arbitrum",
+        "BEP20": "BNB",
+        "OPTIMISM": "OP_Mainnet",
+        "solana": "Solana", "SOL": "Solana",
+        "polygon": "Polygon", "POLYGON": "Polygon",
+        "BASE": "Base",
+        "AVAXCCHAIN": "Avalanche", "AVAX": "Avalanche",
+        "CELO": "Celo",
+        "TRC20": "Tron",
+    }
+
+    CEX_COINS_KEY_PREFIX = "cex:coins:"
     CEX_DEX_OPPORTUNITIES_KEY = 'cex-dex-opportunities'
     CEX_DEX_EVENTS_KEY = 'cex-dex-events'
 
@@ -233,6 +247,38 @@ class CexDexSignalManager:
             maxlen=self.STREAM_MAX_LEN,
         )
 
+    def _fetch_cex_fee(self, cex: str, coin: str) -> Optional[dict]:
+        """
+        Fetch withdrawal fee data for a coin on a specific CEX and network.
+
+        Returns: {"withdrawFee": float, "withdrawFeeUSD": float,
+                  "depositEnabled": bool, "withdrawEnabled": bool} or None
+        """
+        try:
+            exchange_key = cex.lower()
+
+            normalized_network = self.NETWORK_NAME_MAP.get(self.network, self.network)
+
+            coin_data_json = self.redis_client.hget(f"{self.CEX_COINS_KEY_PREFIX}{exchange_key}", coin)
+            if not coin_data_json:
+                return None
+
+            coin_data = json.loads(coin_data_json)
+            networks = coin_data.get("networks", {})
+
+            fee_data = networks.get(normalized_network)
+            if fee_data:
+                return fee_data
+
+            for net_name, net_data in networks.items():
+                if net_name.lower() == normalized_network.lower():
+                    return net_data
+
+            return None
+        except Exception as e:
+            self.logger.warning(f"Failed to fetch fee for {coin} on {cex}/{self.network}: {e}")
+            return None
+
     def finalize_signal(
             self,
             cex: str,
@@ -251,6 +297,8 @@ class CexDexSignalManager:
         token_pair = f"{base}{quote}"
         composite_key = self._create_composite_key(cex, mode, token_pair)
         unique_id = self._get_id(composite_key)
+
+        fee_data = self._fetch_cex_fee(cex, base)
 
         payload = {
             'unique_id': unique_id,
@@ -272,6 +320,10 @@ class CexDexSignalManager:
             'order_number': order_number,
             'CEX_start_price': best_swap.get('CEX_start_price'),
             'CEX_end_price': best_swap.get('CEX_end_price'),
+            'cex_withdraw_fee': fee_data.get('withdrawFee') if fee_data else None,
+            'cex_withdraw_fee_usd': fee_data.get('withdrawFeeUSD') if fee_data else None,
+            'cex_deposit_enabled': fee_data.get('depositEnabled') if fee_data else None,
+            'cex_withdraw_enabled': fee_data.get('withdrawEnabled') if fee_data else None,
         }
 
         self._upsert_signal(unique_id, payload)
