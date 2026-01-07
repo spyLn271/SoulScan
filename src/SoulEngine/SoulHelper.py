@@ -298,6 +298,20 @@ class CexDexSignalManager:
         composite_key = self._create_composite_key(cex, mode, token_pair)
         unique_id = self._get_id(composite_key)
 
+        cex_in = best_swap.get('CEX_amountIn', 0) or 0
+        cex_out = best_swap.get('CEX_amountOut', 0) or 0
+        dex_in = best_swap.get('DEX_amountIn', 0) or 0
+        dex_out = best_swap.get('DEX_amountOut', 0) or 0
+
+        if mode == "CEX->DEX":
+            usdt_in = cex_in
+            usdt_out = dex_out
+        else:
+            usdt_in = dex_in
+            usdt_out = cex_out
+
+        profit_percent = ((usdt_out / usdt_in) - 1) * 100 if usdt_in > 0 else 0
+
         fee_data = self._fetch_cex_fee(cex, base)
 
         payload = {
@@ -309,6 +323,7 @@ class CexDexSignalManager:
             'mode': mode,
             'token_pair': token_pair,
             'profit': profit,
+            'profit_percent': round(profit_percent, 4),
             'target_token': base,
             'target_address': base_address,
             'base_token': quote,
