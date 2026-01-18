@@ -339,6 +339,7 @@ class CexDexSignalManager:
             'cex_withdraw_fee_usd': fee_data.get('withdrawFeeUSD') if fee_data else None,
             'cex_deposit_enabled': fee_data.get('depositEnabled') if fee_data else None,
             'cex_withdraw_enabled': fee_data.get('withdrawEnabled') if fee_data else None,
+            'is_it_in_one_network': True if fee_data else None,
         }
 
         self._upsert_signal(unique_id, payload)
