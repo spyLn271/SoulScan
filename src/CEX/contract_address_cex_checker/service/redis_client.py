@@ -74,8 +74,7 @@ class RedisClient:
         Returns:
             Dict of {exchange_name: coin_name} or None if not found
         """
-        addr = contract_address.lower()
-        result = self.client.hget(REDIS_CONFIG.contract_index_key, addr)
+        result = self.client.hget(REDIS_CONFIG.contract_index_key, contract_address)
 
         if result:
             return json.loads(result)
