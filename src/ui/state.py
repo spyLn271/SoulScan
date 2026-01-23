@@ -2,6 +2,7 @@ import streamlit as st
 
 COMMON_TOKENS = {
     "USDC": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "USDT": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
     "SOL (Wrapped)": "So11111111111111111111111111111111111111112",
 }
 
@@ -10,6 +11,11 @@ TOKEN_INFO = {
         "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
         "icon": "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png",
         "decimals": 6
+    },
+    "USDT": {
+        "mint": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+        "icon": "https://cryptologos.cc/logos/tether-usdt-logo.png",
+        "decimals": 6,
     },
     "SOL": {
         "mint": "So11111111111111111111111111111111111111112",

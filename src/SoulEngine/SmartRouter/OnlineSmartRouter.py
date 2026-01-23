@@ -192,7 +192,7 @@ class OnlineSmartRouterEngineV1:
 class OnlineSmartRouterConfigScheme(pydantic.BaseModel):
     logger_name: str = 'OnlineSmartRouter'
     log_file: str = 'OnlineSmartRouter.log'
-    worker_number: int = 20
+    worker_number: int = 35
     Graph_update_time: int = 60
     version: Literal['v1'] = 'v1'
     quote: list[str] = pydantic.Field(default_factory=lambda: Bases.SUPPORTED_QUOTES)

@@ -23,7 +23,7 @@ def render_swap_page(r: redis.Redis):
             amount_specified_is_input = (swap_mode_option == "Exact Input")
 
         if st.session_state.a_to_b:
-            sell_token_options = ["Custom"] + [k for k in TOKEN_INFO.keys() if k != "USDC"]
+            sell_token_options = ["Custom"] + [k for k in TOKEN_INFO.keys() if k not in ["USDC", "USDT"]]
             default_sell_idx = 1
         else:
             sell_token_options = None
@@ -31,7 +31,7 @@ def render_swap_page(r: redis.Redis):
         if st.session_state.a_to_b:
             buy_token_options = None
         else:
-            buy_token_options = ["Custom"] + [k for k in TOKEN_INFO.keys() if k != "USDC"]
+            buy_token_options = ["Custom"] + [k for k in TOKEN_INFO.keys() if k not in ["USDC", "USDT"]]
             default_buy_idx = 1
 
         with st.container(border=True):
