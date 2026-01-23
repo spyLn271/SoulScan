@@ -41,6 +41,8 @@ def init_session_state():
         st.session_state.custom_buy_token = None
     if "tokens_page" not in st.session_state:
         st.session_state.tokens_page = 1
+    if "quote_currency" not in st.session_state:
+        st.session_state.quote_currency = "USDC"
 
 def toggle_swap_direction():
     st.session_state.a_to_b = not st.session_state.a_to_b

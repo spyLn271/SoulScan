@@ -22,6 +22,15 @@ def render_swap_page(r: redis.Redis):
             )
             amount_specified_is_input = (swap_mode_option == "Exact Input")
 
+            quote_currency = st.selectbox(
+                "Quote Currency",
+                ["USDC", "USDT"],
+                index=["USDC", "USDT"].index(st.session_state.quote_currency),
+                key="quote_currency_select",
+                help="Select the stablecoin to use as quote currency"
+            )
+            st.session_state.quote_currency = quote_currency
+
         if st.session_state.a_to_b:
             sell_token_options = ["Custom"] + [k for k in TOKEN_INFO.keys() if k not in ["USDC", "USDT"]]
             default_sell_idx = 1
@@ -96,8 +105,8 @@ def render_swap_page(r: redis.Redis):
                         base_mint = TOKEN_INFO[sell_choice]["mint"]
                         input_decimals = TOKEN_INFO[sell_choice]["decimals"]
                 else:
-                    st.markdown(token_display("USDC"), unsafe_allow_html=True)
-                    input_decimals = 6
+                    st.markdown(token_display(st.session_state.quote_currency), unsafe_allow_html=True)
+                    input_decimals = TOKEN_INFO[st.session_state.quote_currency]["decimals"]
 
         _, btn_col, _ = st.columns([3, 1, 3])
         with btn_col:
@@ -128,9 +137,9 @@ def render_swap_page(r: redis.Redis):
 
             with recv_col2:
                 if st.session_state.a_to_b:
-                    st.markdown(token_display("USDC"), unsafe_allow_html=True)
-                    quote_mint = TOKEN_INFO["USDC"]["mint"]
-                    output_decimals = 6
+                    st.markdown(token_display(st.session_state.quote_currency), unsafe_allow_html=True)
+                    quote_mint = TOKEN_INFO[st.session_state.quote_currency]["mint"]
+                    output_decimals = TOKEN_INFO[st.session_state.quote_currency]["decimals"]
                 else:
                     buy_choice = st.selectbox(
                         "Token",
@@ -169,7 +178,7 @@ def render_swap_page(r: redis.Redis):
                     else:
                         base_mint = TOKEN_INFO[buy_choice]["mint"]
                         output_decimals = TOKEN_INFO[buy_choice]["decimals"]
-                    quote_mint = TOKEN_INFO["USDC"]["mint"]
+                    quote_mint = TOKEN_INFO[st.session_state.quote_currency]["mint"]
 
         if amount_specified_is_input:
             decimals = input_decimals
