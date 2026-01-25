@@ -30,8 +30,8 @@ class OnlineSmartRouterEngineV1:
         self.logger = logger
         self.math_smart_router = math_smart_router
 
-    def filter_candidates_v1(self, unfiltered_candidates: list[list[str]], state: dict, metadata: dict, mint_in: str,
-                             mint_out: str) -> list[list[str]]:
+    def _filter_candidates_v1(self, unfiltered_candidates: list[list[str]], state: dict, metadata: dict, mint_in: str,
+                              mint_out: str) -> list[list[str]]:
 
         if len(unfiltered_candidates) <= self.MIN_CANDIDATES_LENGTH_REQUIREMENTS:
             return unfiltered_candidates
@@ -92,7 +92,7 @@ class OnlineSmartRouterEngineV1:
         return best_candidates
 
     @staticmethod
-    def get_candidate_mint_path(all_paths, Bases_mint) -> list:
+    def _get_candidate_mint_path(all_paths, Bases_mint) -> list:
         filtered_paths = []
 
         for path in all_paths:
@@ -102,16 +102,16 @@ class OnlineSmartRouterEngineV1:
 
         return filtered_paths
 
-    def find_candidates_v1(self, G: nx.Graph, token_in: str, token_out: str) -> list[list[str]]:
+    def _find_candidates_v1(self, G: nx.Graph, token_in: str, token_out: str) -> list[list[str]]:
         all_paths = list(nx.all_simple_paths(G, token_in, token_out, cutoff=3))
         if not all_paths:
             self.logger.warning(f"No paths found between {token_in} and {token_out}")
             return []
 
-        filtered_paths = self.get_candidate_mint_path(all_paths, Bases.Bases_mint)
+        filtered_paths = self._get_candidate_mint_path(all_paths, Bases.Bases_mint)
 
         if not filtered_paths:
-            filtered_paths = self.get_candidate_mint_path(all_paths, Bases.Second_Bases_mint)
+            filtered_paths = self._get_candidate_mint_path(all_paths, Bases.Second_Bases_mint)
 
         if not filtered_paths:
             self.logger.warning(f"Paths between {token_in} and {token_out} don't contain any of the Bases. Returning empty list.")
@@ -133,7 +133,7 @@ class OnlineSmartRouterEngineV1:
 
         return candidates
 
-    def get_all_candidates_v1(self, G: nx.Graph, target_bases: list[str], quotes: list) -> dict:
+    def _get_all_candidates_v1(self, G: nx.Graph, target_bases: list[str], quotes: list) -> dict:
         all_paths = {}
 
         for quote in quotes:
@@ -143,47 +143,23 @@ class OnlineSmartRouterEngineV1:
                 elif base in Bases.exclude_bases:
                     continue
 
-                candidates = self.find_candidates_v1(G, base, quote)
+                candidates = self._find_candidates_v1(G, base, quote)
                 all_paths[f"{base}/{quote}"] = candidates
 
         return all_paths
 
-    @staticmethod
-    def save_candidates_to_redis(candidates: dict, redis_connection: redis.Redis):
-        """
-            candidates format:
-            {
-                "SOL/USDC": [ ...list of routes... ],
-                "RAY/USDT": [ ...list of routes... ]
-            }
-        """
-
-        if not candidates: return
-
-        current_time = str(int(time.time()))
-        mapped_candidates = {}
-        for quote, candidates_list in candidates.items():
-            payload = {
-                "ts": current_time,
-                "routes": candidates_list
-            }
-            mapped_candidates[quote] = json.dumps(payload)
-
-        if mapped_candidates:
-            redis_connection.hset(config.REDIS_KEY_COLD_PATH, mapping=mapped_candidates)
-
     def get_the_best_candidates(self, G: nx.Graph, target_bases: list[str], quotes: list,
                                 state: dict, metadata: dict) -> dict[str, list[list[str]]]:
-        all_candidates = self.get_all_candidates_v1(G, target_bases, quotes)
+        all_candidates = self._get_all_candidates_v1(G, target_bases, quotes)
         best_candidates = {}
         for quote, candidates in all_candidates.items():
             try:
                 mint_in, mint_out = quote.split('/')
-                best_candidates[quote] = self.filter_candidates_v1(unfiltered_candidates=candidates,
-                                                                   state=state,
-                                                                   metadata=metadata,
-                                                                   mint_in=mint_in,
-                                                                   mint_out=mint_out)
+                best_candidates[quote] = self._filter_candidates_v1(unfiltered_candidates=candidates,
+                                                                    state=state,
+                                                                    metadata=metadata,
+                                                                    mint_in=mint_in,
+                                                                    mint_out=mint_out)
             except Exception as e:
                 self.logger.warning(f"Filter failed for {quote}. Exception: {e}")
         return best_candidates
@@ -234,6 +210,29 @@ class OnlineSmartRouter:
         math_smart_router = MathSmartRouter(logger=self.logger)
         self.engine = OnlineSmartRouter.Engine[state['conf'].version](logger=self.logger, math_smart_router=math_smart_router)
 
+    @staticmethod
+    def save_candidates_to_redis(candidates: dict, redis_connection: redis.Redis):
+        """
+            candidates format:
+            {
+                "SOL/USDC": [ ...list of routes... ],
+                "RAY/USDT": [ ...list of routes... ]
+            }
+        """
+
+        if not candidates: return
+
+        current_time = str(int(time.time()))
+        mapped_candidates = {}
+        for quote, candidates_list in candidates.items():
+            payload = {
+                "ts": current_time,
+                "routes": candidates_list
+            }
+            mapped_candidates[quote] = json.dumps(payload)
+
+        if mapped_candidates:
+            redis_connection.hset(config.REDIS_KEY_COLD_PATH, mapping=mapped_candidates)
 
     def _worker(self):
         while True:
@@ -248,7 +247,7 @@ class OnlineSmartRouter:
                                                                  quotes=self.conf.quote,
                                                                  state=state,
                                                                  metadata=metadata)
-                self.engine.save_candidates_to_redis(candidates, self.r)
+                self.save_candidates_to_redis(candidates, self.r)
                 self.logger.info(f"Worker {multiprocessing.current_process().name} finished task.")
 
             except Exception as e:
