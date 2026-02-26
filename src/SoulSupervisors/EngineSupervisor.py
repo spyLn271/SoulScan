@@ -107,26 +107,26 @@ class ScannerSupervisor:
             logger.critical(f"Wrong start method: {start_method}. Must be 'spawn'. Exiting.")
             return
 
-        osr_worker: multiprocessing.Process = None
+        scanner_worker: multiprocessing.Process = None
 
         while True:
             try:
-                if osr_worker is None:
-                    osr_worker = self._start_scanner_process(logger)
-                elif not osr_worker.is_alive():
+                if scanner_worker is None:
+                    scanner_worker = self._start_scanner_process(logger)
+                elif not scanner_worker.is_alive():
                     logger.error("Scanner died. Restarting...")
-                    osr_worker.join()
-                    osr_worker = self._start_scanner_process(logger)
+                    scanner_worker.join()
+                    scanner_worker = self._start_scanner_process(logger)
 
             except (KeyboardInterrupt, TerminateSignal):
                 logger.info("Shutdown signal received. Stopping Scanner...")
-                if osr_worker is not None and osr_worker.is_alive():
-                    osr_worker.terminate()
-                    osr_worker.join(timeout=10)
-                    if osr_worker.is_alive():
+                if scanner_worker is not None and scanner_worker.is_alive():
+                    scanner_worker.terminate()
+                    scanner_worker.join(timeout=10)
+                    if scanner_worker.is_alive():
                         logger.warning("Scanner didn't stop gracefully. Killing...")
-                        osr_worker.kill()
-                        osr_worker.join()
+                        scanner_worker.kill()
+                        scanner_worker.join()
                 logger.info("OSRSupervisor stopped.")
                 break
 
