@@ -152,16 +152,16 @@ class OnlineSmartRouterEngineV1:
                                 state: dict, metadata: dict) -> dict[str, list[list[str]]]:
         all_candidates = self._get_all_candidates_v1(G, target_bases, quotes)
         best_candidates = {}
-        for quote, candidates in all_candidates.items():
+        for pair, candidates in all_candidates.items():
             try:
-                mint_in, mint_out = quote.split('/')
-                best_candidates[quote] = self._filter_candidates_v1(unfiltered_candidates=candidates,
+                mint_in, mint_out = pair.split('/')
+                best_candidates[pair] = self._filter_candidates_v1(unfiltered_candidates=candidates,
                                                                     state=state,
                                                                     metadata=metadata,
                                                                     mint_in=mint_in,
                                                                     mint_out=mint_out)
             except Exception as e:
-                self.logger.warning(f"Filter failed for {quote}. Exception: {e}")
+                self.logger.warning(f"Filter failed for {pair}. Exception: {e}")
         return best_candidates
 
 
