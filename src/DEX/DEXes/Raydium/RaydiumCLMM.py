@@ -50,16 +50,12 @@ class RaydiumCLMMTranslater(Translater):
             liquidity = parsed_data['liquidity']
             sqrt_price_x64 = parsed_data['sqrt_price_x64']
             tick_current = parsed_data['tick_current']
-            amm_config = parsed_data['amm_config']
-            tick_array_bitmap = parsed_data['tick_array_bitmap']
 
 
             return {"tick_spacing": tick_spacing,
                     "liquidity": liquidity,
                     "sqrt_price_x64": sqrt_price_x64,
-                    "tick_current": tick_current,
-                    "amm_config": amm_config,
-                    "tick_array_bitmap": tick_array_bitmap}
+                    "tick_current": tick_current}
         except Exception as e:
             self.logger.error(e)
             return {}

@@ -18,8 +18,6 @@ class RaydiumPoolState(TypedDict):
     liquidity: int
     sqrt_price_x64: int
     tick_current: int
-    amm_config: str
-    tick_array_bitmap: list[int]
 
 
 class RaydiumClmm(TypedDict):

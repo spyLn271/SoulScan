@@ -20,8 +20,6 @@ class RaydiumPoolStateScheme(pydantic.BaseModel):
     liquidity: int
     sqrt_price_x64: int
     tick_current: int
-    amm_config: str
-    tick_array_bitmap: list[int]
 
 
 class RaydiumClmmScheme(pydantic.BaseModel):
