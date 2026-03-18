@@ -3,7 +3,7 @@ from pathlib import Path
 import pydantic
 import time
 
-SOLANA_RPC_ENDPOINT = "https://solana-mainnet.core.chainstack.com/d70aa036553f9b407feda39c2d88a5f0"
+SOLANA_RPC_ENDPOINT = "https://solana-mainnet.g.alchemy.com/v2/ws5O2-Cjjmaf5ulBS5kx2"
 
 REDIS_HOST = "localhost"
 REDIS_PORT = 6379
