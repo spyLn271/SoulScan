@@ -27,6 +27,7 @@ mkdir -p "$SCRIPT_DIR/LogFolder/osr"
 mkdir -p "$SCRIPT_DIR/LogFolder/scanner"
 mkdir -p "$SCRIPT_DIR/LogFolder/data-fetcher"
 mkdir -p "$SCRIPT_DIR/LogFolder/supervisor"
+mkdir -p "$SCRIPT_DIR/LogFolder/cex"
 
 
 # Install systemd services
@@ -41,6 +42,7 @@ systemctl enable soulscan-state-fetcher
 systemctl enable soulscan-smart-router
 systemctl enable soulscan-scanner
 systemctl enable soulscan-aggregator
+systemctl enable soulscan-cex-orderbooks
 
 echo ""
 echo "=== Installation Complete ==="
@@ -51,9 +53,7 @@ echo "  sudo systemctl start soulscan-state-fetcher"
 echo "  sudo systemctl start soulscan-smart-router"
 echo "  sudo systemctl start soulscan-scanner"
 echo "  sudo systemctl start soulscan-aggregator"
-echo ""
-echo "Or start all at once:"
-echo "  sudo systemctl start soulscan-{metadata-fetcher,state-fetcher,smart-router,scanner,aggregator}"
+echo "  sudo systemctl start soulscan-cex-orderbooks"
 echo ""
 echo "View logs:"
 echo "  journalctl -u soulscan-scanner -f"
