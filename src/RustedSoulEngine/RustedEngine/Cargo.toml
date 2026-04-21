@@ -4,4 +4,4 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-rusted_soul_dex = {path = "../RustedSoul"}
+rusted_soul_dex = {path = "../RustedMath"}
