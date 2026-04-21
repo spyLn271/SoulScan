@@ -126,7 +126,7 @@ class SmartRouter:
         route_of_max = []
         route_of_min = []
 
-        start_time_swap_calculation = time.time()
+        start_time_swap_calculation = time.perf_counter()
         for route in cold_path.routes:
             try:
                 smart_swap_result = self.math_router.smart_swap(route=route,
@@ -151,7 +151,7 @@ class SmartRouter:
 
             except Exception as e:
                 self.logger.warning(f"Error in MathSmartRouter: {e}. route: {route}")
-        self.logger.info(f"ExactSwap took {time.time() - start_time_swap_calculation} seconds")
+        self.logger.info(f"ExactSwap took {time.perf_counter() - start_time_swap_calculation} seconds")
 
         if amount_specified_is_input:
             if _max != -math.inf:
