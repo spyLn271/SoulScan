@@ -4,7 +4,7 @@ Usage: python -m scripts.run_supervisor <supervisor_name>
 """
 import sys
 import multiprocessing
-from src.SoulSupervisors import RUN_METADATA_FETCHERS, RUN_STATE_FETCHERS, OSRSupervisor
+from src.SoulSupervisors import RUN_METADATA_FETCHERS, RUN_STATE_FETCHERS, OSRSupervisor, RUN_CEX_ORDERBOOKS
 from src.SoulSupervisors.EngineSupervisor import ScannerSupervisor
 
 multiprocessing.set_start_method('spawn', force=True)
@@ -17,6 +17,7 @@ def main():
         print("  state_fetcher     - Fetches live pool state via RPC")
         print("  smart_router      - Computes optimal swap routes")
         print("  scanner           - Scans for CEX/DEX arbitrage opportunities")
+        print("  cex_orderbooks    - Streams CEX orderbooks to Redis for the reader contract")
         sys.exit(1)
 
     supervisor = sys.argv[1].lower()
@@ -29,6 +30,8 @@ def main():
         OSRSupervisor().RUN_ONLINE_SMART_ROUTER()
     elif supervisor == "scanner":
         ScannerSupervisor().RUN_ONLINE_SCANNER()
+    elif supervisor == "cex_orderbooks":
+        RUN_CEX_ORDERBOOKS()
     else:
         print(f"Unknown supervisor: {supervisor}")
         sys.exit(1)

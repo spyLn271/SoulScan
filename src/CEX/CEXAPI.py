@@ -2,17 +2,21 @@ import asyncio
 import json
 import redis.asyncio as redis
 from typing import Dict, List, Optional
-import logging
 
 from src.CEX.stream_watcher_function import SUPPORTED_EXCHANGES
+from src.LoggerHandler.logger import get_logger
+
+logger = get_logger("CEX-API")
+
+from src.Config import config as _sscfg
+
 
 class OrderbookAggregator:
-    """
-    High-performance orderbook aggregator that fetches data from all exchanges concurrently
-    P.S DO NOT FORGET TO CHANGE PORT TO DEFAULT
-    """
+    """High-performance orderbook aggregator fetching from all exchanges concurrently."""
 
-    def __init__(self, redis_host: str = "localhost", redis_port: int = 6379, redis_db: int = 0):
+    def __init__(self, redis_host: str = None, redis_port: int = None, redis_db: int = 0):
+        redis_host = redis_host if redis_host is not None else _sscfg.REDIS_HOST
+        redis_port = redis_port if redis_port is not None else _sscfg.REDIS_PORT
         """
         Initialize the aggregator
 
@@ -52,7 +56,7 @@ class OrderbookAggregator:
                 'asks': json.loads(data.get('asks', '[]'))
             }
         except (json.JSONDecodeError, ValueError, KeyError) as e:
-            logging.error(f"Failed to parse orderbook data: {e}")
+            logger.error(f"Failed to parse orderbook data: {e}")
             return None
 
     async def _get_exchange_orderbook(self, exchange: str, symbol: str) -> Optional[Dict[str, any]]:
@@ -81,13 +85,13 @@ class OrderbookAggregator:
                             return parsed_data
 
                 except Exception as e:
-                    logging.debug(f"No data in {stream_key}: {e}")
+                    logger.debug(f"No data in {stream_key}: {e}")
                     continue
 
             return None
 
         except Exception as e:
-            logging.error(f"Error fetching orderbook for {exchange}: {e}")
+            logger.error(f"Error fetching orderbook for {exchange}: {e}")
             return None
 
     async def get_all_orderbooks(self, symbol: str) -> Dict[str, Dict[str, any]]:
@@ -116,7 +120,7 @@ class OrderbookAggregator:
                 if orderbook_data:
                     results[exchange] = orderbook_data
             except Exception as e:
-                logging.error(f"Task failed for {exchange}: {e}")
+                logger.error(f"Task failed for {exchange}: {e}")
 
         return results
 
@@ -128,12 +132,25 @@ class OrderbookAggregator:
 
 
 _aggregator = None
+_aggregator_loop_id = None
 
 
 async def _get_aggregator() -> OrderbookAggregator:
-    global _aggregator
+    """Return a singleton aggregator bound to the current event loop.
+
+    Reset if the caller is running under a different loop — guards against
+    `RuntimeError: got Future attached to a different loop` when code runs
+    `asyncio.run(...)` more than once in the same process (common in tests
+    and REPL sessions).
+    """
+    global _aggregator, _aggregator_loop_id
+    current_loop_id = id(asyncio.get_running_loop())
+    if _aggregator is not None and _aggregator_loop_id != current_loop_id:
+        _aggregator.redis_client = None
+        _aggregator = None
     if _aggregator is None:
         _aggregator = OrderbookAggregator()
+        _aggregator_loop_id = current_loop_id
     return _aggregator
 
 
@@ -296,6 +313,6 @@ async def cleanup_aggregator():
             await _aggregator.close()
             _aggregator = None
     except Exception as e:
-        logging.error(f"Cleanup failed for {_aggregator}: {e}")
+        logger.error(f"Cleanup failed for {_aggregator}: {e}")
 
 

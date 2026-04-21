@@ -9,7 +9,8 @@ import json
 import redis.asyncio as redis
 from datetime import datetime
 from typing import Dict, Any, Optional, Callable, Union, List, Tuple
-import logging
+
+from src.LoggerHandler.logger import get_logger
 
 # Supported exchanges and their market types
 SUPPORTED_EXCHANGES = {
@@ -27,14 +28,16 @@ SUPPORTED_EXCHANGES = {
 }
 
 
-class StreamWatcher:
-    """
-    Universal stream watcher for cryptocurrency exchange orderbook data
-    P.S DO NOT FORGET TO CHANGE PORT TO DEFAULT
-    """
+from src.Config import config as _sscfg
 
-    def __init__(self, redis_host: str = "localhost", redis_port: int = 6379,
+
+class StreamWatcher:
+    """Universal stream watcher for cryptocurrency exchange orderbook data."""
+
+    def __init__(self, redis_host: str = None, redis_port: int = None,
                  redis_db: int = 0):
+        redis_host = redis_host if redis_host is not None else _sscfg.REDIS_HOST
+        redis_port = redis_port if redis_port is not None else _sscfg.REDIS_PORT
         """
         Initialize the stream watcher
 
@@ -47,7 +50,7 @@ class StreamWatcher:
         self.redis_port = redis_port
         self.redis_db = redis_db
         self.redis_client = None
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger("CEX-StreamWatcher")
 
     async def connect(self):
         """Connect to Redis server"""
@@ -164,11 +167,10 @@ class StreamWatcher:
         stream_key = self._build_stream_key(exchange, market_type, symbol)
 
         try:
-            # Try to get the latest message from the stream
-            messages = await redis.asyncio.retry.AsyncRetry(
-                asyncio.wait_for,
-                timeout
-            )(self.redis_client.xrevrange(stream_key, count=1), timeout)
+            messages = await asyncio.wait_for(
+                self.redis_client.xrevrange(stream_key, count=1),
+                timeout=timeout,
+            )
 
             if not messages:
                 self.logger.warning(f"No data found in stream: {stream_key}")
