@@ -11,6 +11,7 @@ REDIS_PORT = 6379
 REDIS_METADATA_KEY = 'snapshot:metadata:%s:%s'  # market and version
 POOLS_CURRENT_STATE_DICT_REDIS_KEY = 'snapshot:state:%s:%s'  # market and version
 REDIS_KEY_COLD_PATH = "snapshot:cold_path"
+REDIS_SOLANA_DEX_MINTS = "snapshot:solana_dex_mints"
 
 BASE_DIR = Path(__file__).resolve().parent
 LOG_MAIN_FOLDER = ''

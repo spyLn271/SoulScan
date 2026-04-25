@@ -6,7 +6,13 @@ version = 4
 name = "RustedEngine"
 version = "0.1.0"
 dependencies = [
+ "r2d2",
+ "r2d2_redis",
+ "redis 1.2.0",
  "rusted_soul_dex",
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]

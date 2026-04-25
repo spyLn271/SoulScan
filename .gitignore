@@ -66,3 +66,6 @@ app_log/
 error_log/
 *.log
 *.log.*
+
+# Rust
+target/

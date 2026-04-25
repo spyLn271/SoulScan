@@ -234,6 +234,12 @@ class OnlineSmartRouter:
         if mapped_candidates:
             redis_connection.hset(config.REDIS_KEY_COLD_PATH, mapping=mapped_candidates)
 
+    @staticmethod
+    def save_dex_mints(mints: list, redis_connection: redis.Redis):
+        if not mints: return
+
+        redis_connection.set(config.REDIS_SOLANA_DEX_MINTS, json.dumps({"mints": mints}))
+
     def _worker(self):
         while True:
             try:
@@ -342,6 +348,7 @@ class OnlineSmartRouter:
         G = create_graph(metadata, state)
         last_graph_update = time.time()
         bases = list(G.nodes)
+        self.save_dex_mints(bases, self.r)
 
         while True:
             try:
@@ -351,6 +358,7 @@ class OnlineSmartRouter:
                     G = create_graph(metadata, state)
                     last_graph_update = time.time()
                     bases = list(G.nodes)
+                    self.save_dex_mints(bases, self.r)
 
                 if not bases:
                     self.logger.warning("No bases found. Sleeping.")
