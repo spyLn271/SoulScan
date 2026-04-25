@@ -25,7 +25,7 @@ class MeteoraDlmmMetadata(PoolMetadataFetcher):
             for pool in response_data.get("data", []):
                 try:
                     is_blacklisted = pool["is_blacklisted"]
-                    trade_volume_24h = pool["volume"]["24"]
+                    trade_volume_24h = pool["volume"]["24h"]
                     if is_blacklisted:
                         continue
                     if trade_volume_24h < config.MIN_VOL24:
