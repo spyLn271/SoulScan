@@ -31,6 +31,7 @@ class MeteoraDlmmMetadata(PoolMetadataFetcher):
                     if trade_volume_24h < config.MIN_VOL24:
                         continue
 
+                    self.logger.info(f"Processing pool: {pool['address']}")
                     address = pool["address"]
 
                     token_x = pool["token_x"]
