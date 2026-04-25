@@ -1,5 +1,5 @@
 """
-Exchange fetchers package. CEX
+Exchange fetchers package.
 """
 from typing import Dict
 

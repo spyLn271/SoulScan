@@ -1,5 +1,5 @@
 """
-MEXC exchange implementation. CEX
+MEXC exchange implementation.
 """
 import hmac
 import hashlib

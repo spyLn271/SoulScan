@@ -1,5 +1,5 @@
 """
-Binance exchange implementation. CEX
+Binance exchange implementation.
 """
 import hmac
 import hashlib

@@ -1,5 +1,5 @@
 """
-Bitget exchange implementation. CEX
+Bitget exchange implementation.
 """
 from typing import List
 import aiohttp

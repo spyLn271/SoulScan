@@ -1,9 +1,8 @@
 """
 Redis updater service - fetches from all exchanges and updates Redis.
-Runs in a loop: update -> sleep 20 min -> repeat lol
+Runs in a loop: update -> sleep 20 min -> repeat
 """
 import asyncio
-import logging
 from typing import Dict, List, Optional
 import aiohttp
 
@@ -11,12 +10,12 @@ from .config import UPDATE_INTERVAL_SECONDS, FetchStrategy
 from .exchanges import get_all_exchanges
 from .exchanges.base import BaseExchange, CoinEntry
 from .redis_client import RedisClient
+from src.LoggerHandler.logger import get_logger
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger("updater")
+# The supervisor (or run_updater.py for standalone use) installs the root
+# handler. Internal getLogger calls (here and in exchanges/base.py) propagate
+# up to root, which writes to LogFolder/cex-contracts/CEX-Contracts.log.
+logger = get_logger("CEX-Contracts.updater")
 
 
 class UpdaterService:

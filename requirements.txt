@@ -14,3 +14,6 @@ websockets == 12.0
 python-socks == 2.5.0
 httpx == 0.27.2
 protobuf == 5.27.2
+
+# CEX market data handlers (src/CEX/market_data/): synchronous REST polling
+requests == 2.33.1

@@ -1,5 +1,5 @@
 """
-CoinEx exchange implementation. CEX
+CoinEx exchange implementation.
 """
 from typing import List
 import aiohttp

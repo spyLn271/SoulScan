@@ -1,6 +1,6 @@
 """
 Centralized configuration for all exchange-specific settings.
-API keys, rate limits, wait times, base URLs, etc. lol
+API keys, rate limits, wait times, base URLs, etc.
 """
 import os
 from dataclasses import dataclass

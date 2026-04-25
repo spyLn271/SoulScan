@@ -1,5 +1,5 @@
 """
-Bybit exchange implementation. CEX
+Bybit exchange implementation.
 """
 import hmac
 import hashlib

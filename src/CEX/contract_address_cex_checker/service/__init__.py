@@ -1,5 +1,5 @@
 """
-CEX Contract Address Lookup Service. lol
+CEX Contract Address Lookup Service.
 
 Usage:
     # Lookup a mint address

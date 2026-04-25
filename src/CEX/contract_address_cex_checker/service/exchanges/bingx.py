@@ -1,5 +1,5 @@
 """
-BingX exchange implementation. CEX
+BingX exchange implementation.
 """
 import hmac
 import hashlib

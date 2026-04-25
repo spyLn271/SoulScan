@@ -1,6 +1,6 @@
 """
 OKX exchange implementation.
-Sequential fetching with rate limiting. CEX
+Sequential fetching with rate limiting.
 """
 import hmac
 import hashlib

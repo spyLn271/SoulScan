@@ -1,5 +1,5 @@
 """
-HTX (Huobi) exchange implementation. CEX
+HTX (Huobi) exchange implementation.
 """
 from typing import List
 import aiohttp

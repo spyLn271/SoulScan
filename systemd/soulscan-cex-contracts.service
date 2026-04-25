@@ -1,0 +1,20 @@
+[Unit]
+Description=SoulScan CEX Contracts Resolver - Maps CEX tickers to on-chain contract addresses
+After=network.target redis.service
+Requires=redis.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/root/HorizonEvent/SoulScan
+Environment="PYTHONPATH=/root/HorizonEvent/SoulScan"
+EnvironmentFile=-/root/HorizonEvent/SoulScan/.env
+ExecStart=/root/HorizonEvent/SoulScan/venv/bin/python -m scripts.run_supervisor cex_contracts
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

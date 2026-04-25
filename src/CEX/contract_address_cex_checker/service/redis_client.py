@@ -1,5 +1,5 @@
 """
-Redis client for storing and retrieving exchange data. 
+Redis client for storing and retrieving exchange data.
 """
 import json
 import time
@@ -8,6 +8,18 @@ import redis
 
 from .config import REDIS_CONFIG
 from .exchanges.base import CoinEntry
+
+
+_EVM_HEX = set("0123456789abcdefABCDEF")
+
+
+def _normalize_address(addr: str) -> str:
+    """EVM addresses are case-insensitive hex (`0x` + 40 hex chars) — lowercase
+    them so different casings collide on the same index entry. Solana base58
+    and other non-EVM formats are case-sensitive: preserve them verbatim."""
+    if len(addr) == 42 and addr.startswith("0x") and all(c in _EVM_HEX for c in addr[2:]):
+        return addr.lower()
+    return addr
 
 
 class RedisClient:
@@ -46,7 +58,7 @@ class RedisClient:
         for exchange_name, entries in all_exchange_data.items():
             for entry in entries:
                 if entry.contract_address:  # Skip empty addresses
-                    addr = entry.contract_address.lower()  # Normalize to lowercase
+                    addr = _normalize_address(entry.contract_address)
                     if addr not in index:
                         index[addr] = {}
                     index[addr][exchange_name] = entry.coin
@@ -74,7 +86,7 @@ class RedisClient:
         Returns:
             Dict of {exchange_name: coin_name} or None if not found
         """
-        result = self.client.hget(REDIS_CONFIG.contract_index_key, contract_address)
+        result = self.client.hget(REDIS_CONFIG.contract_index_key, _normalize_address(contract_address))
 
         if result:
             return json.loads(result)

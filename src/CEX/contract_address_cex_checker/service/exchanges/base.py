@@ -1,5 +1,5 @@
 """
-Abstract base class for exchange fetchers. CEX
+Abstract base class for exchange fetchers.
 """
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, asdict

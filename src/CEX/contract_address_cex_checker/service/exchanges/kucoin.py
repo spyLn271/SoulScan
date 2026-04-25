@@ -1,5 +1,5 @@
 """
-KuCoin exchange implementation. CEX
+KuCoin exchange implementation.
 """
 from typing import List
 import aiohttp

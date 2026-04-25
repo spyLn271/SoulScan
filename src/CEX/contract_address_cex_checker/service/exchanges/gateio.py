@@ -1,6 +1,6 @@
 """
 Gate.io exchange implementation.
-Sequential per-token fetching with rate limiting. CEX
+Sequential per-token fetching with rate limiting.
 """
 import asyncio
 from typing import List

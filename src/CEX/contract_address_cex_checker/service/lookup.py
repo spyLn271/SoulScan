@@ -1,5 +1,5 @@
 """
-Contract address lookup module. lol
+Contract address lookup module.
 
 Usage:
     from service.lookup import lookup_mint

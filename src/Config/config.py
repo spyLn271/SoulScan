@@ -26,6 +26,8 @@ SCANNER_LOG_FOLDER = os.path.join(LOG_MAIN_FOLDER, "scanner/")
 DATA_FETCHER_LOG_FOLDER = os.path.join(LOG_MAIN_FOLDER, "data-fetcher/")
 SUPERVISOR_LOG_FOLDER = os.path.join(LOG_MAIN_FOLDER, "supervisor/")
 CEX_LOG_FOLDER = os.path.join(LOG_MAIN_FOLDER, "cex/")
+CEX_MARKET_DATA_LOG_FOLDER = os.path.join(LOG_MAIN_FOLDER, "cex-market-data/")
+CEX_CONTRACTS_LOG_FOLDER = os.path.join(LOG_MAIN_FOLDER, "cex-contracts/")
 
 ORCA_CLMM_PROGRAM_ID = 'whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc'
 METEORA_DLMM_PROGRAM_ID = 'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo'
