@@ -68,4 +68,4 @@ class MeteoraDlmmMetadata(PoolMetadataFetcher):
         if not target_mints:
             raise Exception(f"No valid pools found for {self.market} {self.version}.")
 
-        return pool
+        return pools
