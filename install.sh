@@ -43,6 +43,8 @@ systemctl enable soulscan-smart-router
 systemctl enable soulscan-scanner
 systemctl enable soulscan-aggregator
 systemctl enable soulscan-cex-orderbooks
+systemctl enable soulscan-cex-contracts
+systemctl enable soulscan-cex-market-data
 
 echo ""
 echo "=== Installation Complete ==="
@@ -54,6 +56,8 @@ echo "  sudo systemctl start soulscan-smart-router"
 echo "  sudo systemctl start soulscan-scanner"
 echo "  sudo systemctl start soulscan-aggregator"
 echo "  sudo systemctl start soulscan-cex-orderbooks"
+echo "  sudo systemctl start soulscan-cex-contracts"
+echo "  sudo systemctl start soulscan-cex-market-data"
 echo ""
 echo "View logs:"
 echo "  journalctl -u soulscan-scanner -f"

@@ -1,7 +1,7 @@
 [Unit]
 Description=SoulScan CEX Contracts Resolver - Maps CEX tickers to on-chain contract addresses
-After=network.target redis.service
-Requires=redis.service
+After=network.target
+
 
 [Service]
 Type=simple

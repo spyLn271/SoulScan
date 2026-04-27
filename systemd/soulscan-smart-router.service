@@ -1,7 +1,6 @@
 [Unit]
 Description=SoulScan Smart Router - Computes optimal swap routes
-After=network.target redis.service soulscan-state-fetcher.service
-Requires=redis.service
+After=network.target
 
 [Service]
 Type=simple

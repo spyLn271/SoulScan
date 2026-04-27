@@ -1,7 +1,6 @@
 [Unit]
 Description=SoulScan Scanner - Scans for CEX/DEX arbitrage opportunities
 After=network.target redis.service soulscan-smart-router.service
-Requires=redis.service
 
 [Service]
 Type=simple
