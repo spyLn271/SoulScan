@@ -619,6 +619,12 @@ class BaseExchangeConnector(ABC):
             if self.requires_orderbook_normalization:
                 bids, asks = self._normalize_orderbook(bids, asks)
 
+            # Coerce every level to [float, float] so every exchange's stream
+            # has the same numeric shape — Rust readers can deserialize as
+            # [f64, f64] without per-exchange string/number branching.
+            bids = self._coerce_levels_to_floats(bids)
+            asks = self._coerce_levels_to_floats(asks)
+
             # Prepare simplified data for Redis (only essential fields)
             redis_data = {
                 'timestamp_ms': timestamp_ms,
@@ -645,6 +651,23 @@ class BaseExchangeConnector(ABC):
         except Exception as e:
             self.logger.error(f"Error storing orderbook data: {e}")
             await self.report_error([data.get('symbol', 'unknown')], "StorageError", str(e))
+
+    def _coerce_levels_to_floats(self, levels: List[List]) -> List[List[float]]:
+        """Normalize every [price, qty, ...] entry to [float, float]. Drops any
+        level whose price or qty cannot be parsed (rather than mixing a malformed
+        row into an otherwise numeric stream). Trailing fields (e.g. order count)
+        are discarded — readers only need price and qty."""
+        if not levels:
+            return []
+        out: List[List[float]] = []
+        for level in levels:
+            try:
+                price = float(level[0])
+                qty = float(level[1])
+            except (TypeError, ValueError, IndexError):
+                continue
+            out.append([price, qty])
+        return out
 
     def _normalize_orderbook(self, bids: List[List], asks: List[List]) -> Tuple[List[List], List[List]]:
         """

@@ -171,6 +171,22 @@ async def cleanup_error_queue_for_symbols(exchange: str, reconnected_symbols: Li
         logger.error(f"Error during error queue cleanup: {e}")
 
 # ------------------ Utilities ------------------ #
+def coerce_levels_to_floats(levels: List) -> List[List[float]]:
+    """Normalize every [price, qty, ...] entry to [float, float] so the
+    stream matches the canonical shape produced by base_connector. Drops
+    any malformed level rather than poisoning a numeric stream."""
+    if not levels:
+        return []
+    out: List[List[float]] = []
+    for level in levels:
+        try:
+            price = float(level[0])
+            qty = float(level[1])
+        except (TypeError, ValueError, IndexError):
+            continue
+        out.append([price, qty])
+    return out
+
 def count_decimals(v: Any) -> int:
     if v is None:
         return 0
@@ -515,8 +531,8 @@ async def batch_worker(batch_id: str, symbols: List[str], suffixes: Dict[str, st
                                         consecutive_failures = 0
 
                                     data_obj = payload.get("data", {})
-                                    bids = data_obj.get("bids", [])
-                                    asks = data_obj.get("asks", [])
+                                    bids = coerce_levels_to_floats(data_obj.get("bids", []))
+                                    asks = coerce_levels_to_floats(data_obj.get("asks", []))
                                     sequence = data_obj.get("sequence", "")
                                     ts = data_obj.get("timestamp") or int(time.time() * 1000)
                                     kucoin_name = symbol_kucoin_name[raw_symbol]
