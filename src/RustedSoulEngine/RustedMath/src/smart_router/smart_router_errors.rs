@@ -1,11 +1,10 @@
 use crate::smart_router::manager_errors::SoulManagerError;
-use std::convert::From;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum SoulSmartRouterError {
-    #[error("error in Manager")]
-    ManagerError(SoulManagerError),
+    #[error("error in Manager {0}")]
+    ManagerError(#[from] SoulManagerError),
 
     #[error("no metadata was found")]
     NoMetadataForPool,
@@ -27,7 +26,7 @@ pub enum SoulSmartRouterError {
 
     #[error("Didnt find such a pool {0} in Pool State")]
     NoPoolInPoolState(String),
-    
+
     #[error("Unsupported Market")]
     UnsupportedMarket,
 
@@ -57,10 +56,4 @@ pub enum SoulSmartRouterError {
 
     #[error("error")]
     Error,
-}
-
-impl From<SoulManagerError> for SoulSmartRouterError {
-    fn from(error: SoulManagerError) -> Self {
-        SoulSmartRouterError::ManagerError(error)
-    }
 }

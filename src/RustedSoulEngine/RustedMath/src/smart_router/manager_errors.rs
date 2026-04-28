@@ -1,17 +1,20 @@
-use std::convert::From;
+use thiserror::Error;
 use crate::math::errors::SoulMathError;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum SoulManagerError {
-    MathError(SoulMathError),
-    RunOutOfLiquidity,
-    LiquidityOverflow,
-    LiquidityUnderflow,
-    AmountOverflow
-}
+    #[error("Error in Math u256 {0}")]
+    MathError(#[from] SoulMathError),
 
-impl From<SoulMathError> for SoulManagerError {
-    fn from(error: SoulMathError) -> Self {
-        SoulManagerError::MathError(error)
-    }
+    #[error("Run out of Liquidity")]
+    RunOutOfLiquidity,
+
+    #[error("Liquidity overflow (more that u128 can handle)")]
+    LiquidityOverflow,
+
+    #[error("Unsufficient Liquidity")]
+    LiquidityUnderflow,
+
+    #[error("Amount overflow")]
+    AmountOverflow
 }

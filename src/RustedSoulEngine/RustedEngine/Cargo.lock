@@ -3,19 +3,6 @@
 version = 4
 
 [[package]]
-name = "RustedEngine"
-version = "0.1.0"
-dependencies = [
- "r2d2",
- "r2d2_redis",
- "redis 1.2.0",
- "rusted_soul_dex",
- "serde",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
 name = "arcstr"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -385,6 +372,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed2bf2547551a7053d6fdfafda3f938979645c44812fbfcda098faae3f1a362d"
 dependencies = [
  "bitflags",
+]
+
+[[package]]
+name = "rusted_engine"
+version = "0.1.0"
+dependencies = [
+ "r2d2",
+ "r2d2_redis",
+ "redis 1.2.0",
+ "rusted_soul_dex",
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]

@@ -1,30 +1,17 @@
-use std::convert::From;
+use thiserror::Error;
 
 use crate::math::errors::SoulMathError;
 use crate::smart_router::manager_errors::SoulManagerError;
 use crate::smart_router::smart_router_errors::SoulSmartRouterError;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum Errors {
-    MathError(SoulMathError),
-    ManagerError(SoulManagerError),
-    SmartRouterError(SoulSmartRouterError)
-}
+    #[error("Soul Math error {0}")]
+    MathError(#[from] SoulMathError),
 
-impl From<SoulMathError> for Errors {
-    fn from(error: SoulMathError) -> Self {
-        Errors::MathError(error)
-    }
-}
+    #[error("Soul Manager error {0}")]
+    ManagerError(#[from] SoulManagerError),
 
-impl From<SoulManagerError> for Errors {
-    fn from(error: SoulManagerError) -> Self {
-        Errors::ManagerError(error)
-    }
-}
-
-impl From<SoulSmartRouterError> for Errors{
-    fn from(error: SoulSmartRouterError) -> Self {
-        Errors::SmartRouterError(error)
-    }
+    #[error("Smart Router error {0}")]
+    SmartRouterError(#[from] SoulSmartRouterError)
 }
