@@ -1,5 +1,5 @@
 base58 == 2.1.1
-redis == 7.1.0
+redis == 7.4.0
 construct == 2.10.70
 networkx == 3.5
 pydantic == 2.12.5

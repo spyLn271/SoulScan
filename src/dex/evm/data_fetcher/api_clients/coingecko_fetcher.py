@@ -17,10 +17,6 @@ from src.settings.config import get_config
 
 _config = get_config()
 
-"""
-https://api.geckoterminal.com/api/v2/networks/optimism/dexes/uniswap-v2-optimism/pools?include=base_token,quote_token&sort=h24_volume_usd_desc&page=1
-"""
-
 API_ENDPOINT = "https://api.geckoterminal.com/api/v2/networks/%s/dexes/%s/pools?include=base_token,quote_token&sort=h24_volume_usd_desc&page=%s"
 
 class CoingeckoEvmFetcher:
@@ -50,6 +46,7 @@ class CoingeckoEvmFetcher:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self._is_session_open:
+            self._is_session_open = False
             await self.session.close()
             self.logger.info("PoolMetadataFetcher session closed.")
         else:
@@ -76,7 +73,10 @@ class CoingeckoEvmFetcher:
             self.logger.error(f"Error saving metadata for {market} {version}: {e}")
             return False
 
-    def _normalize_included(self, included: list) -> dict:
+    def _normalize_included(
+            self,
+            included: list
+    ) -> dict:
         normalized_included = {}
 
         for data in included:
@@ -103,17 +103,34 @@ class CoingeckoEvmFetcher:
             url = API_ENDPOINT % (network, gecko_dex_id, _page)
 
             async with self.session.get(url=url, headers=headers) as response:
-                if not response.status == 200:
-                    raise Exception(f"Error fetching metadata for {gecko_dex_id} {network}. "
-                                    f"Response status: {response.status}")
+                if response.status != 200:
+                    text = await response.text()
+                    raise Exception(
+                        f"Error fetching metadata for {gecko_dex_id} {network}. "
+                        f"Page: {_page}. Status: {response.status}. Body: {text[:500]}"
+                    )
+
                 return await response.json()
 
 
-        tasks = []
-        for page in range(1, 11):
-            tasks.append(fetch_page(page))
+        while True:
+            tasks = [fetch_page(page) for page in range(1, 11)]
 
-        res = await asyncio.gather(*tasks, return_exceptions=True)
+            try:
+                res = await asyncio.gather(*tasks)
+                break
+
+            except Exception as e:
+                for task in tasks:
+                    if isinstance(task, asyncio.Task):
+                        task.cancel()
+
+                await asyncio.gather(*tasks, return_exceptions=True)
+
+                self.logger.error(f"Error fetching metadata for {gecko_dex_id} {network}: {e}")
+                self.logger.info(f"Sleeping for 60 seconds.")
+                await asyncio.sleep(60)
+
 
         market_metadata: dict[str, MetadataDict] = {}
         for result in res:
@@ -199,15 +216,5 @@ class CoingeckoEvmFetcher:
                     await asyncio.sleep(90)
             except Exception as e:
                 self.logger.error(f"Error in main loop: {e}")
-                self.logger.info(f"Sleeping for 600 seconds.")
-                await asyncio.sleep(600)
-
-
-
-
-async def _test():
-    async with CoingeckoEvmFetcher() as fetcher:
-        await fetcher.main()
-
-if __name__ == "__main__":
-    asyncio.run(_test())
+                self.logger.info(f"Sleeping for 1800 seconds.")
+                await asyncio.sleep(1800)
