@@ -1,5 +1,5 @@
-from src.SoulEngine.SmartRouter.SmartRouter import SmartRouter
-from src.SoulEngine.SoulHelper import get_active_metadata, get_active_state
+from src.engine.osr import SmartRouter
+from src.engine.osr import get_active_metadata, get_active_state
 import redis
 
 redis_conn = redis.Redis(decode_responses=True)

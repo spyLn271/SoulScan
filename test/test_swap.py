@@ -1,5 +1,5 @@
 import time
-from src.DEX.Swap import Swap
+from src.dex.swap_python import Swap
 import redis
 import json
 from decimal import Decimal
@@ -7,10 +7,10 @@ import rusted_swap
 
 redis_client = redis.Redis()
 
-raw_orca_json = redis_client.get("snapshot:state:orca:clmm")
+raw_orca_json = redis_client.get("snapshot:state:metadata:clmm")
 orca_clmm = json.loads(raw_orca_json.decode()).get("pool_state")
 
-raw_orca_metadata = redis_client.get("snapshot:metadata:orca:clmm")
+raw_orca_metadata = redis_client.get("snapshot:metadata:metadata:clmm")
 orca_metadata = json.loads(raw_orca_metadata.decode())
 
 sol_usdt_pool = orca_clmm.get("Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE")
@@ -27,7 +27,7 @@ payload = Swap.swap_params(
 
 start = time.perf_counter()
 
-res = Swap().swap(dex="orca", version="clmm", params=payload)
+res = Swap().swap(dex="metadata", version="clmm", params=payload)
 
 elapsed = time.perf_counter() - start
 
