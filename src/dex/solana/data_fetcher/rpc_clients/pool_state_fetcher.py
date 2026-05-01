@@ -8,7 +8,7 @@ from typing import Union, Type, TYPE_CHECKING
 
 
 ####################################
-from src.settings import config, default_metadata
+from src.settings import config
 from src.logger_handler.logger import get_logger, setup_logger
 from src.dex.solana.data_fetcher.rpc_clients import pfs_exception
 
@@ -93,18 +93,11 @@ class PoolStateFetcher:
             self.logger.error(f"Error getting metadata for {self.market} {self.version}: {e}")
             return {}
 
-    def __get_default_metadata(self) -> dict:
-        return default_metadata.default_metadata.get(self.market, {}).get(self.version, {})
 
     def __get_metadata_and_addresses(self) -> tuple[dict, list]:
         metadata = self.__get_pool_metadata()
         if not metadata:
-            self.logger.error(f"Metadata for {self.market} {self.version} not found.")
-            self.logger.info(f"Getting default metadata for {self.market} {self.version}.")
-            metadata = self.__get_default_metadata()
-            if not metadata:
-                raise pfs_exception.NoMetadataException(f"No metadata found for {self.market} {self.version}.")
-            self.logger.info(f"Default metadata for {self.market} {self.version} fetched.")
+            raise pfs_exception.NoMetadataException(f"No metadata found for {self.market} {self.version}.")
         addresses = self.__get_pool_addresses(metadata)
         return metadata, addresses
 
