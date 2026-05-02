@@ -406,8 +406,6 @@ class CoingeckoEvmFetcher:
                     self.logger.error(f"Error parsing metadata for {gecko_dex_id} {network}: {e}")
                     continue
 
-        print(json.dumps(market_metadata, indent=4))
-
         self.logger.info(f"Fetched metadata for {gecko_dex_id} {network}. Length: {len(market_metadata)}.")
 
         return market_metadata
