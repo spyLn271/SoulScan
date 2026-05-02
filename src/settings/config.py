@@ -157,15 +157,13 @@ EVM_NATIVE_TOKEN_ADDRESSES = {
 }
 
 STATE_VIEW_ADDRESS = {
-    "uniswap": {
-        'base': '0xa3c0c9b65bad0b08107aa264b0f3db444b867a71',
-        'eth': '0x7ffe42c4a5deea5b0fec41c94c136cf115597227',
-        'arbitrum': '0x76fd297e2d437cd7f76d50f01afe6160f86e9990',
-        'avax': '0xc3c9e198c735a4b97e3e683f391ccbdd60b69286',
-        'bsc': '0xd13dd3d6e93f276fafc9db9e6bb47c1180aee0c4',
-        'polygon': '0x5ea1bd7974c8a611cbab0bdcafcb1d9cc9b3ba5a',
-        'optimism': '0xc18a3169788f4f75a170290584eca6395c75ecdb'
-    }
+    'base': '0xa3c0c9b65bad0b08107aa264b0f3db444b867a71',
+    'eth': '0x7ffe42c4a5deea5b0fec41c94c136cf115597227',
+    'arbitrum': '0x76fd297e2d437cd7f76d50f01afe6160f86e9990',
+    'avax': '0xc3c9e198c735a4b97e3e683f391ccbdd60b69286',
+    'bsc': '0xd13dd3d6e93f276fafc9db9e6bb47c1180aee0c4',
+    'polygon': '0x5ea1bd7974c8a611cbab0bdcafcb1d9cc9b3ba5a',
+    'optimism': '0xc18a3169788f4f75a170290584eca6395c75ecdb'
 }
 
 POOL_MANAGER_ADDRESS = {
@@ -261,12 +259,12 @@ ACTIVE_MARKETS = [
 
 # Since Sushi Swap and Pancake swap are direct fork of Uniswap protocols V2 and V3, they will be saved along uniswap
 SUPPORTED_EVM_MARKETS = [
-    # "eth_uniswap_v2",
+    "eth_uniswap_v2",
     "eth_uniswap_v3",
-    # "eth_uniswap_v4",
-    # "eth_pancakeswap_v2",
+    "eth_uniswap_v4",
+    "eth_pancakeswap_v2",
     "eth_pancakeswap_v3",
-    # "eth_sushiswap_v2",
+    "eth_sushiswap_v2",
     "eth_sushiswap_v3",
 
     "arbitrum_uniswap_v2",
