@@ -2,9 +2,6 @@ import redis
 import aiohttp
 import asyncio
 import json
-from typing import Literal
-from web3 import Web3
-from web3.eth.eth import ChecksumAddress
 
 ##########################################
 from src.logger_handler.logger import get_logger, setup_logger
@@ -23,10 +20,6 @@ from src.dex.evm.uniswap.state.v4 import UniswapV4
 _config = get_config()
 
 API_ENDPOINT = "https://api.geckoterminal.com/api/v2/networks/%s/dexes/%s/pools?include=base_token,quote_token&sort=h24_volume_usd_desc&page=%s"
-
-"""
-https://api.geckoterminal.com/api/v2/networks/eth/dexes/uniswap_v2/pools?include=base_token,quote_token&sort=h24_volume_usd_desc&page=1
-"""
 
 # Since Sushi Swap and Pancake swap are direct fork of Uniswap protocols V2 and V3, they will be saved along uniswap
 SUPPORTED_EVM_MARKETS = [
