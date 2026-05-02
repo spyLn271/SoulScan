@@ -54,7 +54,7 @@ class UniswapV4(Ethereum):
             self,
             pool_ids: list[str],
             chunk_size: int = 100
-    ) -> dict:
+    ) -> dict[str, dict[str, int]]:
         results = {}
         tasks = []
 

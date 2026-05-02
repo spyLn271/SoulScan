@@ -8,6 +8,7 @@ from src.logger_handler.logger import get_logger, setup_logger
 from src.settings.config import (EVM_NATIVE_TOKEN_ADDRESSES,
                                  MARKETS,
                                  MIN_VOL24,
+                                 MIN_TVL,
                                  REDIS_METADATA_KEY,
                                  DEX,
                                  Network)
@@ -22,60 +23,60 @@ _config = get_config()
 API_ENDPOINT = "https://api.geckoterminal.com/api/v2/networks/%s/dexes/%s/pools?include=base_token,quote_token&sort=h24_volume_usd_desc&page=%s"
 
 # Since Sushi Swap and Pancake swap are direct fork of Uniswap protocols V2 and V3, they will be saved along uniswap
-SUPPORTED_EVM_MARKETS = [
-    "eth_uniswap_v2",
-    "eth_uniswap_v3",
-    "eth_uniswap_v4",
-    "eth_pancakeswap_v2",
-    "eth_pancakeswap_v3",
-    "eth_sushiswap_v2",
-    "eth_sushiswap_v3",
+SUPPORTED_EVM_MARKETS: list[tuple[Network, DEX, str]] = [
+    ("eth", "uniswap", "v2"),
+    ("eth", "uniswap", "v3"),
+    ("eth", "uniswap", "v4"),
+    ("eth", "pancakeswap", "v2"),
+    ("eth", "pancakeswap", "v3"),
+    ("eth", "sushiswap", "v2"),
+    ("eth", "sushiswap", "v3"),
 
-    "arbitrum_uniswap_v2",
-    "arbitrum_uniswap_v3",
-    "arbitrum_uniswap_v4",
-    "arbitrum_pancakeswap_v2",
-    "arbitrum_pancakeswap_v3",
-    "arbitrum_sushiswap_v2",
-    "arbitrum_sushiswap_v3",
+    ("arbitrum", "uniswap", "v2"),
+    ("arbitrum", "uniswap", "v3"),
+    ("arbitrum", "uniswap", "v4"),
+    ("arbitrum", "pancakeswap", "v2"),
+    ("arbitrum", "pancakeswap", "v3"),
+    ("arbitrum", "sushiswap", "v2"),
+    ("arbitrum", "sushiswap", "v3"),
 
-    "base_uniswap_v2",
-    "base_uniswap_v3",
-    "base_uniswap_v4",
-    "base_pancakeswap_v2",
-    "base_pancakeswap_v3",
-    "base_sushiswap_v2",
-    "base_sushiswap_v3",
+    ("base", "uniswap", "v2"),
+    ("base", "uniswap", "v3"),
+    ("base", "uniswap", "v4"),
+    ("base", "pancakeswap", "v2"),
+    ("base", "pancakeswap", "v3"),
+    ("base", "sushiswap", "v2"),
+    ("base", "sushiswap", "v3"),
 
-    "bsc_uniswap_v2",
-    "bsc_uniswap_v3",
-    "bsc_uniswap_v4",
-    "bsc_pancakeswap_v2",
-    "bsc_pancakeswap_v3",
-    "bsc_sushiswap_v2",
-    "bsc_sushiswap_v3",
+    ("bsc", "uniswap", "v2"),
+    ("bsc", "uniswap", "v3"),
+    ("bsc", "uniswap", "v4"),
+    ("bsc", "pancakeswap", "v2"),
+    ("bsc", "pancakeswap", "v3"),
+    ("bsc", "sushiswap", "v2"),
+    ("bsc", "sushiswap", "v3"),
 ]
 
-EVM_PARENT = {
-    "eth_pancakeswap_v2": "eth_uniswap_v2",
-    "eth_pancakeswap_v3": "eth_uniswap_v3",
-    "eth_sushiswap_v2": "eth_uniswap_v2",
-    "eth_sushiswap_v3": "eth_uniswap_v3",
+EVM_PARENT: dict[tuple[Network, DEX, str], tuple[Network, DEX, str]] = {
+    ("eth", "pancakeswap", "v2"): ("eth", "uniswap", "v2"),
+    ("eth", "pancakeswap", "v3"): ("eth", "uniswap", "v3"),
+    ("eth", "sushiswap", "v2"): ("eth", "uniswap", "v2"),
+    ("eth", "sushiswap", "v3"): ("eth", "uniswap", "v3"),
 
-    "arbitrum_pancakeswap_v2": "arbitrum_uniswap_v2",
-    "arbitrum_pancakeswap_v3": "arbitrum_uniswap_v3",
-    "arbitrum_sushiswap_v2": "arbitrum_uniswap_v2",
-    "arbitrum_sushiswap_v3": "arbitrum_uniswap_v3",
+    ("arbitrum", "pancakeswap", "v2"): ("arbitrum", "uniswap", "v2"),
+    ("arbitrum", "pancakeswap", "v3"): ("arbitrum", "uniswap", "v3"),
+    ("arbitrum", "sushiswap", "v2"): ("arbitrum", "uniswap", "v2"),
+    ("arbitrum", "sushiswap", "v3"): ("arbitrum", "uniswap", "v3"),
 
-    "base_pancakeswap_v2": "base_uniswap_v2",
-    "base_pancakeswap_v3": "base_uniswap_v3",
-    "base_sushiswap_v2": "base_uniswap_v2",
-    "base_sushiswap_v3": "base_uniswap_v3",
+    ("base", "pancakeswap", "v2"): ("base", "uniswap", "v2"),
+    ("base", "pancakeswap", "v3"): ("base", "uniswap", "v3"),
+    ("base", "sushiswap", "v2"): ("base", "uniswap", "v2"),
+    ("base", "sushiswap", "v3"): ("base", "uniswap", "v3"),
 
-    "bsc_pancakeswap_v2": "bsc_uniswap_v2",
-    "bsc_pancakeswap_v3": "bsc_uniswap_v3",
-    "bsc_sushiswap_v2": "bsc_uniswap_v2",
-    "bsc_sushiswap_v3": "bsc_uniswap_v3",
+    ("bsc", "pancakeswap", "v2"): ("bsc", "uniswap", "v2"),
+    ("bsc", "pancakeswap", "v3"): ("bsc", "uniswap", "v3"),
+    ("bsc", "sushiswap", "v2"): ("bsc", "uniswap", "v2"),
+    ("bsc", "sushiswap", "v3"): ("bsc", "uniswap", "v3"),
 }
 
 GECKO_DEX_IDS = {
@@ -261,6 +262,7 @@ class CoingeckoEvmFetcher:
 
             return _pool_addresses
 
+        try_counter = 0
         while True:
             tasks = [
                 asyncio.create_task(fetch_page(page))
@@ -272,6 +274,7 @@ class CoingeckoEvmFetcher:
                 break
 
             except Exception as e:
+                try_counter += 1
                 for task in tasks:
                     if not task.done():
                         task.cancel()
@@ -308,13 +311,13 @@ class CoingeckoEvmFetcher:
             uniV3 = UniswapV3(network=network, dex=dex)
             all_pool_addresses = get_all_pool_addresses(res)
 
-            on_chain_metadata = uniV3.fetch_metadata_initialization(all_pool_addresses)
+            on_chain_metadata = await uniV3.fetch_metadata_initialization(all_pool_addresses)
 
         elif version == "v4":
             uniV4 = UniswapV4(network=network, dex=dex)
             all_pool_addresses = get_all_pool_addresses(res)
 
-            on_chain_metadata = uniV4.fetch_initialize_events(all_pool_addresses)
+            on_chain_metadata = await uniV4.fetch_initialize_events(all_pool_addresses)
 
         else:
             raise Exception(f"Unknown version: {version}")
@@ -349,6 +352,11 @@ class CoingeckoEvmFetcher:
                     decimals1 = int(included[quote_token_id]["decimals"])
                     addr1 = included[quote_token_id]["address"].lower()
 
+                    if addr0 > addr1:
+                        addr0, addr1 = addr1, addr0
+                        token0, token1 = token1, token0
+                        decimals0, decimals1 = decimals1, decimals0
+
                     network_native_token_alies = EVM_NATIVE_TOKEN_ADDRESSES[network]["alias"]
                     network_native_token_alies_addr = EVM_NATIVE_TOKEN_ADDRESSES[network]["alias_addresses"]
 
@@ -375,9 +383,7 @@ class CoingeckoEvmFetcher:
                         fee_rate = pool_on_chain_metadata["fee_rate"]
                         tick_spacing = pool_on_chain_metadata["tick_spacing"]
 
-
-
-                    if volume24h < MIN_VOL24:
+                    if volume24h < MIN_VOL24 or tvl < MIN_TVL:
                         continue
 
                     market_metadata[pool_address] = MetadataDict(
@@ -410,7 +416,7 @@ class CoingeckoEvmFetcher:
                 evm_metadata = {}
 
                 for market in SUPPORTED_EVM_MARKETS:
-                    network, dex, version = market.split("_")
+                    network, dex, version = market
 
                     parent_market = EVM_PARENT.get(market, market)
 
@@ -426,7 +432,8 @@ class CoingeckoEvmFetcher:
                     await asyncio.sleep(90)
 
                 for market, metadata in evm_metadata.items():
-                    self._save_metadata(metadata, MARKETS[market]["market"], MARKETS[market]["version"])
+                    market_key = "_".join(market)
+                    self._save_metadata(metadata, MARKETS[market_key]["market"], MARKETS[market_key]["version"])
 
             except Exception as e:
                 self.logger.error(f"Error in main loop: {e}")

@@ -100,10 +100,10 @@ class Ethereum:
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        for result in results:
+        for chunk_input, result in zip(list(self.chunks(inputs, chunk_size)), results):
             if isinstance(result, Exception):
                 self.logger.error(f"Multi Call failed: {result}")
-                return_data.extend([(False, b'')] * chunk_size)
+                return_data.extend([(False, b'')] * len(chunk_input))
             else:
                 return_data.extend(result)
 
