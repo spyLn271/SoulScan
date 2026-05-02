@@ -7,7 +7,90 @@ from src.settings.config import get_config, POOL_MANAGER_ADDRESSES, DEX, Network
 from src.logger_handler.logger import get_logger, setup_logger
 ####################################
 
-
+UNISWAP_V4_ABI = [
+    {
+        "inputs": [
+            {
+                "internalType": "PoolId",
+                "name": "poolId",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "int24",
+                "name": "tick",
+                "type": "int24"
+            }
+        ],
+        "name": "getTickLiquidity",
+        "outputs": [
+            {
+                "internalType": "uint128",
+                "name": "liquidityGross",
+                "type": "uint128"
+            },
+            {
+                "internalType": "int128",
+                "name": "liquidityNet",
+                "type": "int128"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "PoolId",
+                "name": "poolId",
+                "type": "bytes32"
+            }
+        ],
+        "name": "getSlot0",
+        "outputs": [
+            {
+                "internalType": "uint160",
+                "name": "sqrtPriceX96",
+                "type": "uint160"
+            },
+            {
+                "internalType": "int24",
+                "name": "tick",
+                "type": "int24"
+            },
+            {
+                "internalType": "uint24",
+                "name": "protocolFee",
+                "type": "uint24"
+            },
+            {
+                "internalType": "uint24",
+                "name": "lpFee",
+                "type": "uint24"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "PoolId",
+                "name": "poolId",
+                "type": "bytes32"
+            }
+        ],
+        "name": "getLiquidity",
+        "outputs": [
+            {
+                "internalType": "uint128",
+                "name": "liquidity",
+                "type": "uint128"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    }
+]
 
 class UniswapV4(Ethereum):
     def __init__(
@@ -55,23 +138,23 @@ class UniswapV4(Ethereum):
             pool_ids: list[str],
             chunk_size: int = 100
     ) -> dict[str, dict[str, int]]:
-        results = {}
-        tasks = []
+        results: dict[str, dict[str, int]] = {}
 
-        for pool_id_chunk in self.chunks(pool_ids, chunk_size):
-            tasks.append(
-                self.w3.eth.get_logs(
-                    {
-                        "address": self.POOL_MANAGER_ADDRESS,
-                        "fromBlock": 0,
-                        "toBlock": "latest",
-                        "topics": [
-                            "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
-                            pool_id_chunk,
-                        ],
-                    }
-                )
+        tasks = [
+            self.w3.eth.get_logs(
+                {
+                    "address": self.POOL_MANAGER_ADDRESS,
+                    "fromBlock": 0,
+                    "toBlock": "latest",
+                    "topics": [
+                        "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+                        pool_id_chunk,
+                    ],
+                }
             )
+
+            for pool_id_chunk in self.chunks(pool_ids, chunk_size)
+        ]
 
         res = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -87,8 +170,6 @@ class UniswapV4(Ethereum):
 
                 pool_id = Web3.to_hex(args["id"]).lower()
 
-                curr0 = args["currency0"].lower()
-                curr1 = args["currency1"].lower()
                 hooks = args["hooks"].lower()
                 tickSpacing = int(args["tickSpacing"])
                 fee_rate = int(args["fee"])
@@ -97,11 +178,8 @@ class UniswapV4(Ethereum):
                     fee_rate = 500
 
                 results[pool_id] = {
-                    "currency0": curr0,
-                    "currency1": curr1,
                     "fee_rate": fee_rate,
                     "tick_spacing": tickSpacing,
-                    "hooks": hooks,
                 }
 
         return results
