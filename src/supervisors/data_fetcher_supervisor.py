@@ -9,7 +9,7 @@ import signal
 ####################################
 from src.dex.solana.data_fetcher import MeteoraDlmmState, RaydiumClmmState, RaydiumAmmState, OrcaClmmState
 from src.dex.solana.data_fetcher import MeteoraDlmmMetadata, RaydiumClmmMetadata, RaydiumHybridAmmMetadata, OrcaClmmMetadata
-from src.dex.evm.data_fetcher.api_clients.coingecko_fetcher import CoingeckoEvmFetcher
+from src.dex.evm.data_fetcher.metadata.coingecko_fetcher import CoingeckoEvmFetcher
 from src.logger_handler.logger import setup_logger, get_logger
 from src.settings import config
 from src.settings.graceful_shut_down import TerminateSignal, sigterm_handler

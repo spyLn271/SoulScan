@@ -16,6 +16,10 @@ class Config(BaseSettings):
     )
 
     SOLANA_RPC_ENDPOINT: str
+    ETHEREUM_RPC_ENDPOINT: str
+    BNB_RPC_ENDPOINT: str
+    ARB_RPC_ENDPOINT: str
+    BASE_RPC_ENDPOINT: str
 
     COINGECKO_API: str
 
@@ -70,6 +74,12 @@ _config = get_config()
 
 
 SOLANA_RPC_ENDPOINT = _config.SOLANA_RPC_ENDPOINT
+EVM_RPC_ENDPOINT = {
+    'base': _config.BASE_RPC_ENDPOINT,
+    'eth': _config.ETHEREUM_RPC_ENDPOINT,
+    'arbitrum': _config.ARB_RPC_ENDPOINT,
+    'bsc': _config.BNB_RPC_ENDPOINT,
+}
 
 REDIS_HOST = _config.REDIS.HOST
 REDIS_PORT = _config.REDIS.PORT
@@ -158,15 +168,14 @@ STATE_VIEW_ADDRESS = {
     }
 }
 
-CHAIN_ID_DICT = {
-    'ethereum': 1,
-    'arbitrum': 42161,
-    'avalanche': 43114,
-    'base': 8453,
-    'op_mainnet': 10,
-    'polygon': 137,
-    'bsc': 56,
-    'unichain': 130,
+POOL_MANAGER_ADDRESS = {
+    "base": "0x498581ff718922c3f8e6a244956af099b2652b2b",
+    "eth": "0x000000000004444c5dc75cB358380D2e3dE08A90",
+    "arbitrum": "0x360e68faccca8ca495c1b759fd9eee466db9fb32",
+    "avax": "0x06380c0e0912312b5150364b9dc4542ba0dbbc85",
+    "bsc": "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df",
+    "polygon": "0x67366782805870060151383f4bbff9dab53e5cd6",
+    "optimism": "0x9a13f98cb987694c9f086b1f5eb990eea8264ec3",
 }
 
 MARKETS = {
@@ -181,58 +190,36 @@ MARKETS = {
     "eth_uniswap_v2": {"market": "eth:uniswap", "version": "v2"},
     "eth_uniswap_v3": {"market": "eth:uniswap", "version": "v3"},
     "eth_uniswap_v4": {"market": "eth:uniswap", "version": "v4"},
-    "eth_pancakeswap_v2": {"market": "eth:pancakeswap", "version": "v2"},
-    "eth_pancakeswap_v3": {"market": "eth:pancakeswap", "version": "v3"},
-    "eth_sushiswap_v2": {"market": "eth:sushiswap", "version": "v2"},
-    "eth_sushiswap_v3": {"market": "eth:sushiswap", "version": "v3"},
 
     # Arbitrum
     "arbitrum_uniswap_v2": {"market": "arbitrum:uniswap", "version": "v2"},
     "arbitrum_uniswap_v3": {"market": "arbitrum:uniswap", "version": "v3"},
     "arbitrum_uniswap_v4": {"market": "arbitrum:uniswap", "version": "v4"},
-    "arbitrum_pancakeswap_v2": {"market": "arbitrum:pancakeswap", "version": "v2"},
-    "arbitrum_pancakeswap_v3": {"market": "arbitrum:pancakeswap", "version": "v3"},
-    "arbitrum_sushiswap_v2": {"market": "arbitrum:sushiswap", "version": "v2"},
-    "arbitrum_sushiswap_v3": {"market": "arbitrum:sushiswap", "version": "v3"},
 
     # Optimism
     "optimism_uniswap_v2": {"market": "optimism:uniswap", "version": "v2"},
     "optimism_uniswap_v3": {"market": "optimism:uniswap", "version": "v3"},
     "optimism_uniswap_v4": {"market": "optimism:uniswap", "version": "v4"},
-    "optimism_sushiswap_v2": {"market": "optimism:sushiswap", "version": "v2"},
-    "optimism_sushiswap_v3": {"market": "optimism:sushiswap", "version": "v3"},
 
     # Base
     "base_uniswap_v2": {"market": "base:uniswap", "version": "v2"},
     "base_uniswap_v3": {"market": "base:uniswap", "version": "v3"},
     "base_uniswap_v4": {"market": "base:uniswap", "version": "v4"},
-    "base_pancakeswap_v2": {"market": "base:pancakeswap", "version": "v2"},
-    "base_pancakeswap_v3": {"market": "base:pancakeswap", "version": "v3"},
-    "base_sushiswap_v2": {"market": "base:sushiswap", "version": "v2"},
-    "base_sushiswap_v3": {"market": "base:sushiswap", "version": "v3"},
 
     # Polygon PoS
     "polygon_uniswap_v2": {"market": "polygon:uniswap", "version": "v2"},
     "polygon_uniswap_v3": {"market": "polygon:uniswap", "version": "v3"},
     "polygon_uniswap_v4": {"market": "polygon:uniswap", "version": "v4"},
-    "polygon_sushiswap_v2": {"market": "polygon:sushiswap", "version": "v2"},
-    "polygon_sushiswap_v3": {"market": "polygon:sushiswap", "version": "v3"},
 
     # BNB Chain
     "bsc_uniswap_v2": {"market": "bsc:uniswap", "version": "v2"},
     "bsc_uniswap_v3": {"market": "bsc:uniswap", "version": "v3"},
     "bsc_uniswap_v4": {"market": "bsc:uniswap", "version": "v4"},
-    "bsc_pancakeswap_v2": {"market": "bsc:pancakeswap", "version": "v2"},
-    "bsc_pancakeswap_v3": {"market": "bsc:pancakeswap", "version": "v3"},
-    "bsc_sushiswap_v2": {"market": "bsc:sushiswap", "version": "v2"},
-    "bsc_sushiswap_v3": {"market": "bsc:sushiswap", "version": "v3"},
 
     # Avalanche
     "avax_uniswap_v2": {"market": "avax:uniswap", "version": "v2"},
     "avax_uniswap_v3": {"market": "avax:uniswap", "version": "v3"},
     "avax_uniswap_v4": {"market": "avax:uniswap", "version": "v4"},
-    "avax_sushiswap_v2": {"market": "avax:sushiswap", "version": "v2"},
-    "avax_sushiswap_v3": {"market": "avax:sushiswap", "version": "v3"},
 }
 ACTIVE_MARKETS = [
     'meteora_dlmm',
@@ -243,62 +230,43 @@ ACTIVE_MARKETS = [
     "eth_uniswap_v2",
     "eth_uniswap_v3",
     "eth_uniswap_v4",
-    "eth_pancakeswap_v2",
-    "eth_pancakeswap_v3",
-    "eth_sushiswap_v2",
-    "eth_sushiswap_v3",
 
     "arbitrum_uniswap_v2",
     "arbitrum_uniswap_v3",
     "arbitrum_uniswap_v4",
-    "arbitrum_pancakeswap_v2",
-    "arbitrum_pancakeswap_v3",
-    "arbitrum_sushiswap_v2",
-    "arbitrum_sushiswap_v3",
 
     # "optimism_uniswap_v2",
     # "optimism_uniswap_v3",
     # "optimism_uniswap_v4",
-    # "optimism_sushiswap_v2",
-    # "optimism_sushiswap_v3",
 
     "base_uniswap_v2",
     "base_uniswap_v3",
     "base_uniswap_v4",
-    "base_pancakeswap_v2",
-    "base_pancakeswap_v3",
-    "base_sushiswap_v2",
-    "base_sushiswap_v3",
 
     # "polygon_uniswap_v2",
     # "polygon_uniswap_v3",
     # "polygon_uniswap_v4",
-    # "polygon_sushiswap_v2",
-    # "polygon_sushiswap_v3",
 
     "bsc_uniswap_v2",
     "bsc_uniswap_v3",
     "bsc_uniswap_v4",
-    "bsc_pancakeswap_v2",
-    "bsc_pancakeswap_v3",
-    "bsc_sushiswap_v2",
-    "bsc_sushiswap_v3",
 
     # "avax_uniswap_v2",
     # "avax_uniswap_v3",
     # "avax_uniswap_v4",
-    # "avax_sushiswap_v2",
-    # "avax_sushiswap_v3",
 
 ]
 
-EVM_MARKETS = [
-    "eth_uniswap_v2",
+
+
+# Since Sushi Swap and Pancake swap are direct fork of Uniswap protocols V2 and V3, they will be saved along uniswap
+SUPPORTED_EVM_MARKETS = [
+    # "eth_uniswap_v2",
     "eth_uniswap_v3",
-    "eth_uniswap_v4",
-    "eth_pancakeswap_v2",
+    # "eth_uniswap_v4",
+    # "eth_pancakeswap_v2",
     "eth_pancakeswap_v3",
-    "eth_sushiswap_v2",
+    # "eth_sushiswap_v2",
     "eth_sushiswap_v3",
 
     "arbitrum_uniswap_v2",
@@ -337,6 +305,39 @@ EVM_MARKETS = [
     # "avax_sushiswap_v2",
     # "avax_sushiswap_v3",
 ]
+
+EVM_PARENT = {
+    "eth_pancakeswap_v2": "eth_uniswap_v2",
+    "eth_pancakeswap_v3": "eth_uniswap_v3",
+    "eth_sushiswap_v2": "eth_uniswap_v2",
+    "eth_sushiswap_v3": "eth_uniswap_v3",
+
+    "arbitrum_pancakeswap_v2": "arbitrum_uniswap_v2",
+    "arbitrum_pancakeswap_v3": "arbitrum_uniswap_v3",
+    "arbitrum_sushiswap_v2": "arbitrum_uniswap_v2",
+    "arbitrum_sushiswap_v3": "arbitrum_uniswap_v3",
+
+    "base_pancakeswap_v2": "base_uniswap_v2",
+    "base_pancakeswap_v3": "base_uniswap_v3",
+    "base_sushiswap_v2": "base_uniswap_v2",
+    "base_sushiswap_v3": "base_uniswap_v3",
+
+    "bsc_pancakeswap_v2": "bsc_uniswap_v2",
+    "bsc_pancakeswap_v3": "bsc_uniswap_v3",
+    "bsc_sushiswap_v2": "bsc_uniswap_v2",
+    "bsc_sushiswap_v3": "bsc_uniswap_v3",
+
+
+    # "avax_sushiswap_v2": "avax_uniswap_v2",
+    # "avax_sushiswap_v3": "avax_uniswap_v3",
+    # "avax_uniswap_v2": "avax_uniswap_v2",
+    # "avax_uniswap_v3": "avax_uniswap_v3",
+
+    # "polygon_sushiswap_v2": "polygon_uniswap_v2",
+    # "polygon_sushiswap_v3": "polygon_uniswap_v3",
+    # "polygon_uniswap_v2": "polygon_uniswap_v2",
+    # "polygon_uniswap_v3": "polygon_uniswap_v3",
+}
 
 GECKO_DEX_IDS = {
     "eth": {

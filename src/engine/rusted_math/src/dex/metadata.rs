@@ -13,10 +13,13 @@ pub struct Metadata  {
     pub version: String,
     pub is_blacklisted: Option<bool>,
 
-    #[serde(rename = "feeRate")]
+    #[serde(alias = "feeRate", alias = "fee_rate", alias = "fee-rate")]
     pub fee_rate: Option<f64>,
-    #[serde(rename = "poolType")]
+
+    #[serde(alias = "poolType")]
     pub pool_type: Option<String>,
+
+    pub tick_spacing: Option<u16>,
 
     pub af: Option<bool>
 }

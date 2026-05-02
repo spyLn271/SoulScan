@@ -5,13 +5,14 @@ import json
 
 ##########################################
 from src.logger_handler.logger import get_logger, setup_logger
-from src.settings.config import (EVM_MARKETS,
+from src.settings.config import (SUPPORTED_EVM_MARKETS,
                                  EVM_NATIVE_TOKEN_ADDRESSES,
+                                 EVM_PARENT,
                                  MARKETS,
                                  MIN_VOL24,
                                  GECKO_DEX_IDS,
                                  REDIS_METADATA_KEY)
-from src.dex.evm.data_fetcher.api_clients.metadata import MetadataDict
+from src.dex.evm.data_fetcher.metadata.metadata import MetadataDict
 from src.settings.config import get_config
 ##########################################
 
@@ -191,29 +192,35 @@ class CoingeckoEvmFetcher:
                     self.logger.error(f"Error parsing metadata for {gecko_dex_id} {network}: {e}")
                     continue
 
+        self.logger.info(f"Fetched metadata for {gecko_dex_id} {network}. Length: {len(market_metadata)}.")
+
         return market_metadata
 
 
     async def main(self):
         while True:
             try:
-                for market in EVM_MARKETS:
-                    network, dex, version = market.split("_")
-                    gecko_dex_id = GECKO_DEX_IDS[network][dex][version]
+                evm_metadata = {}
 
-                    redis_key_market, redis_key_version = MARKETS[market]["market"], MARKETS[market]["version"]
+                for market in SUPPORTED_EVM_MARKETS:
+                    network, dex, version = market.split("_")
+
+                    parent_market = EVM_PARENT.get(market, market)
+
+                    gecko_dex_id = GECKO_DEX_IDS[network][dex][version]
 
                     self.logger.info(f"Fetching metadata for {market}...")
 
                     metadata = await self.fetch_metadata(network, gecko_dex_id, dex, version)
 
-                    if self._save_metadata(metadata, redis_key_market, redis_key_version):
-                        self.logger.info(f"Metadata for {market} saved. Length: {len(metadata)}.")
-                    else:
-                        self.logger.error(f"Failed to save metadata for {market}.")
+                    evm_metadata.setdefault(parent_market, {}).update(metadata)
 
                     self.logger.info(f"Sleeping for 90 seconds. Because of rate limit of this bullshit coingecko api.")
                     await asyncio.sleep(90)
+
+                for market, metadata in evm_metadata.items():
+                    self._save_metadata(metadata, MARKETS[market]["market"], MARKETS[market]["version"])
+
             except Exception as e:
                 self.logger.error(f"Error in main loop: {e}")
                 self.logger.info(f"Sleeping for 1800 seconds.")

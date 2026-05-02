@@ -4,7 +4,7 @@ import base58
 import pydantic
 
 ####################################
-from src.settings import IDLs
+from src.dex.tools.helpers.solana import IDLs
 from src.dex.tools.helpers.solana.types import (Int128ul, Int128sl, Bool, DynamicTickArray,
                                                 PoolStateRaydium, TickArrayStateRaydium, RaydiumAmmInfo,
                                                 RaydiumAlternativeAmmInfo)

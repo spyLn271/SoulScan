@@ -8,6 +8,8 @@ class Metadata(BaseModel):
     mint1: str
     decimals0: int
     decimals1: int
+    fee_rate: int
+    tick_spacing: int
     volume24h: float
     tvl: float
     dex: str
@@ -20,6 +22,8 @@ class MetadataDict(TypedDict):
     mint1: str
     decimals0: int
     decimals1: int
+    fee_rate: int
+    tick_spacing: int
     volume24h: float
     tvl: float
     dex: str

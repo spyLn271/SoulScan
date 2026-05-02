@@ -3,7 +3,7 @@ import asyncio
 ####################################
 from src.dex.solana.data_fetcher.api_clients.pool_medata_fetcher import PoolMetadataFetcher, PoolMetadataConfigScheme
 from src.settings import config
-from src.dex.tools.rpc.Solana import Solana
+from src.dex.tools.rpc.solana import Solana
 ####################################
 
 

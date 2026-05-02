@@ -4,7 +4,7 @@ import os
 
 ####################################
 from src.settings import config
-from src.dex.tools.rpc.Solana import Solana
+from src.dex.tools.rpc.solana import Solana
 from src.dex.tools.helpers.solana.translater import Translater
 from src.logger_handler.logger import setup_logger, get_logger
 from src.dex.solana.meteora.state.meteora_scheme import LbPairDependenciesScheme
