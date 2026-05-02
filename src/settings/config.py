@@ -1,4 +1,6 @@
 from pathlib import Path
+
+from typing import Literal
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import model_validator
 from functools import lru_cache
@@ -166,7 +168,7 @@ STATE_VIEW_ADDRESS = {
     'optimism': '0xc18a3169788f4f75a170290584eca6395c75ecdb'
 }
 
-POOL_MANAGER_ADDRESS = {
+POOL_MANAGER_ADDRESSES = {
     "base": "0x498581ff718922c3f8e6a244956af099b2652b2b",
     "eth": "0x000000000004444c5dc75cB358380D2e3dE08A90",
     "arbitrum": "0x360e68faccca8ca495c1b759fd9eee466db9fb32",
@@ -255,189 +257,8 @@ ACTIVE_MARKETS = [
 
 ]
 
-
-
-# Since Sushi Swap and Pancake swap are direct fork of Uniswap protocols V2 and V3, they will be saved along uniswap
-SUPPORTED_EVM_MARKETS = [
-    "eth_uniswap_v2",
-    "eth_uniswap_v3",
-    "eth_uniswap_v4",
-    "eth_pancakeswap_v2",
-    "eth_pancakeswap_v3",
-    "eth_sushiswap_v2",
-    "eth_sushiswap_v3",
-
-    "arbitrum_uniswap_v2",
-    "arbitrum_uniswap_v3",
-    "arbitrum_uniswap_v4",
-    "arbitrum_pancakeswap_v2",
-    "arbitrum_pancakeswap_v3",
-    "arbitrum_sushiswap_v2",
-    "arbitrum_sushiswap_v3",
-
-    "base_uniswap_v2",
-    "base_uniswap_v3",
-    "base_uniswap_v4",
-    "base_pancakeswap_v2",
-    "base_pancakeswap_v3",
-    "base_sushiswap_v2",
-    "base_sushiswap_v3",
-
-    # "polygon_uniswap_v2",
-    # "polygon_uniswap_v3",
-    # "polygon_uniswap_v4",
-    # "polygon_sushiswap_v2",
-    # "polygon_sushiswap_v3",
-
-    "bsc_uniswap_v2",
-    "bsc_uniswap_v3",
-    "bsc_uniswap_v4",
-    "bsc_pancakeswap_v2",
-    "bsc_pancakeswap_v3",
-    "bsc_sushiswap_v2",
-    "bsc_sushiswap_v3",
-
-    # "avax_uniswap_v2",
-    # "avax_uniswap_v3",
-    # "avax_uniswap_v4",
-    # "avax_sushiswap_v2",
-    # "avax_sushiswap_v3",
-]
-
-EVM_PARENT = {
-    "eth_pancakeswap_v2": "eth_uniswap_v2",
-    "eth_pancakeswap_v3": "eth_uniswap_v3",
-    "eth_sushiswap_v2": "eth_uniswap_v2",
-    "eth_sushiswap_v3": "eth_uniswap_v3",
-
-    "arbitrum_pancakeswap_v2": "arbitrum_uniswap_v2",
-    "arbitrum_pancakeswap_v3": "arbitrum_uniswap_v3",
-    "arbitrum_sushiswap_v2": "arbitrum_uniswap_v2",
-    "arbitrum_sushiswap_v3": "arbitrum_uniswap_v3",
-
-    "base_pancakeswap_v2": "base_uniswap_v2",
-    "base_pancakeswap_v3": "base_uniswap_v3",
-    "base_sushiswap_v2": "base_uniswap_v2",
-    "base_sushiswap_v3": "base_uniswap_v3",
-
-    "bsc_pancakeswap_v2": "bsc_uniswap_v2",
-    "bsc_pancakeswap_v3": "bsc_uniswap_v3",
-    "bsc_sushiswap_v2": "bsc_uniswap_v2",
-    "bsc_sushiswap_v3": "bsc_uniswap_v3",
-
-
-    # "avax_sushiswap_v2": "avax_uniswap_v2",
-    # "avax_sushiswap_v3": "avax_uniswap_v3",
-    # "avax_uniswap_v2": "avax_uniswap_v2",
-    # "avax_uniswap_v3": "avax_uniswap_v3",
-
-    # "polygon_sushiswap_v2": "polygon_uniswap_v2",
-    # "polygon_sushiswap_v3": "polygon_uniswap_v3",
-    # "polygon_uniswap_v2": "polygon_uniswap_v2",
-    # "polygon_uniswap_v3": "polygon_uniswap_v3",
-}
-
-GECKO_DEX_IDS = {
-    "eth": {
-        "uniswap": {
-            "v2": "uniswap_v2",
-            "v3": "uniswap_v3",
-            "v4": "uniswap-v4-ethereum",
-        },
-        "sushiswap": {
-            "v2": "sushiswap",
-            "v3": "sushiswap-v3-ethereum",
-        },
-        "pancakeswap": {
-            "v2": "pancakeswap_ethereum",
-            "v3": "pancakeswap-v3-ethereum",
-        },
-    },
-
-    "arbitrum": {
-        "uniswap": {
-            "v2": "uniswap-v2-arbitrum",
-            "v3": "uniswap_v3_arbitrum",
-            "v4": "uniswap-v4-arbitrum",
-        },
-        "sushiswap": {
-            "v2": "sushiswap_arbitrum",
-            "v3": "sushiswap-v3-arbitrum",
-        },
-        "pancakeswap": {
-            "v2": "pancakeswap-v2-arbitrum",
-            "v3": "pancakeswap-v3-arbitrum",
-        },
-    },
-
-    "optimism": {
-        "uniswap": {
-            "v2": "uniswap-v2-optimism",
-            "v3": "uniswap_v3_optimism",
-            "v4": "uniswap-v4-optimism",
-        },
-        "sushiswap": {
-            "v2": "sushiswap-v2-optimism",
-            "v3": "sushiswap-v3-optimism",
-        },
-    },
-
-    "base": {
-        "uniswap": {
-            "v2": "uniswap-v2-base",
-            "v3": "uniswap-v3-base",
-            "v4": "uniswap-v4-base",
-        },
-        "sushiswap": {
-            "v2": "sushiswap-v2-base",
-            "v3": "sushiswap-v3-base",
-        },
-        "pancakeswap": {
-            "v2": "pancakeswap-v2-base",
-            "v3": "pancakeswap-v3-base",
-        },
-    },
-
-    "polygon": {
-        "uniswap": {
-            "v2": "uniswap-v2-polygon",
-            "v3": "uniswap_v3_polygon_pos",
-            "v4": "uniswap-v4-polygon",
-        },
-        "sushiswap": {
-            "v2": "sushiswap_polygon_pos",
-            "v3": "sushiswap-v3-polygon",
-        },
-    },
-
-    "bsc": {
-        "uniswap": {
-            "v2": "uniswap-v2-bsc",
-            "v3": "uniswap-bsc",
-            "v4": "uniswap-v4-bsc",
-        },
-        "sushiswap": {
-            "v2": "sushiswap_bsc",
-            "v3": "sushiswap-v3-bsc",
-        },
-        "pancakeswap": {
-            "v2": "pancakeswap_v2",
-            "v3": "pancakeswap-v3-bsc",
-        },
-    },
-
-    "avax": {
-        "uniswap": {
-            "v2": "uniswap-v2-avalanche",
-            "v3": "uniswap-v3-avalanche",
-            "v4": "uniswap-v4-avalanche",
-        },
-        "sushiswap": {
-            "v2": "sushiswap_avalanche",
-            "v3": "sushiswap-v3-avalanche",
-        },
-    },
-}
+Network = Literal["eth", "base", "arbitrum", "bsc", "solana"]
+DEX = Literal["uniswap", "sushiswap", "pancakeswap"]
 
 
 MIN_VOL24 = _config.MIN_VOL24
