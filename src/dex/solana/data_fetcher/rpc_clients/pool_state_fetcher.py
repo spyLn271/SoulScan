@@ -27,6 +27,7 @@ class PoolStateConfigScheme(pydantic.BaseModel):
     interval_sleep_time: int = 0
     market: str
     version: str
+    network: str = "solana"
     logger_name: str = "PSF"
     logger_file: str = "PSF.log"
     provider: Type
@@ -41,6 +42,7 @@ class PoolStateFetcher:
 
         self.market = conf.market
         self.version = conf.version
+        self.network = conf.network
         self.logger_name = conf.logger_name
         self.logger_file = conf.logger_file
         self.cache_update_time = conf.cache_update_time
@@ -69,7 +71,7 @@ class PoolStateFetcher:
                 "pool_state": pool_state,
                 "ts": int(time.time()),
             }
-            self.r.set(config.POOLS_STATE_DICT_REDIS_KEY % (self.market, self.version),
+            self.r.set(config.POOLS_STATE_DICT_REDIS_KEY % (self.network, self.market, self.version),
                        json.dumps(payload))
             self.logger.info(f"State for {self.market} {self.version} saved.")
             return True
@@ -80,7 +82,7 @@ class PoolStateFetcher:
     def __get_pool_metadata(self) -> dict:
         try:
             self.logger.info(f"Getting metadata for {self.market} {self.version} from redis.")
-            raw = self.r.get(config.REDIS_METADATA_KEY % (self.market, self.version))
+            raw = self.r.get(config.REDIS_METADATA_KEY % (self.network, self.market, self.version))
 
             if not isinstance(raw, str):
                 self.logger.error(f"Metadata for {self.market} {self.version} not found.")

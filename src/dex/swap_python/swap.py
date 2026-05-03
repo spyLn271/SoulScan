@@ -23,16 +23,16 @@ class Swap:
 
 
     def swap(self, dex: str, version: str, params: SwapParamsTD) -> swap_manager.PoolSwap:
-        if dex == 'metadata' and version == 'clmm':
+        if dex.lower() == 'orca' and version.lower() == 'clmm':
             orca_params = swap_manager.OrcaClmmSwapTD(**params)
             return self.orca_clmm.orca_clmm_swap(orca_params)
-        elif dex == 'state' and version == 'clmm':
+        elif dex.lower() == 'raydium' and version.lower() == 'clmm':
             rayclmm_params = swap_manager.RayClmmSwapTD(**params)
             return self.raydium_clmm.raydium_clmm_swap(rayclmm_params)
-        elif dex == 'state' and version == 'amm':
+        elif dex.lower() == 'raydium' and version.lower() == 'amm':
             rayamm_params = swap_manager.RayAmmSwapTD(**params)
             return self.raydium_amm.raydium_amm_swap(rayamm_params)
-        elif dex == 'metadata' and version == 'dlmm':
+        elif dex.lower() == 'meteora' and version.lower() == 'dlmm':
             meteora_dlmm_params = swap_manager.MeteoraDlmmSwapTD(**params)
             return self.meteora_dlmm.meteora_dlmm_swap(meteora_dlmm_params)
         else:

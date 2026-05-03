@@ -6,7 +6,7 @@ from src.settings import config
 
 class RaydiumClmmMetadata(PoolMetadataFetcher):
     RAYDIUM_CLMM_URL = "https://api-v3.raydium.io/pools/info/list-v2?poolType=Concentrated&sortField=volume24h&sortType=desc&size=1000"
-    MARKET, VERSION = config.MARKETS.get('raydium_clmm').values()
+    MARKET, VERSION, NETWORK = config.MARKETS.get('raydium_clmm').values()
 
     def __init__(self):
         conf = PoolMetadataConfigScheme(market=self.MARKET, version=self.VERSION)

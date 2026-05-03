@@ -32,6 +32,8 @@ class Config(BaseSettings):
 
     METADATA_FETCH_INTERVAL: int
 
+    EVM_TICKS_FETCH_RANGE: int
+
     POOL_STATE_DECAY_TIME: int
 
     MINIMAL_PROFIT: int
@@ -88,8 +90,8 @@ EVM_RPC_ENDPOINT = {
 REDIS_HOST = _config.REDIS.HOST
 REDIS_PORT = _config.REDIS.PORT
 
-REDIS_METADATA_KEY = 'snapshot:metadata:%s:%s'  # market and version
-POOLS_STATE_DICT_REDIS_KEY = 'snapshot:state:%s:%s'  # market and version
+REDIS_METADATA_KEY = 'snapshot:metadata:%s:%s:%s'  # network, market and version
+POOLS_STATE_DICT_REDIS_KEY = 'snapshot:state:%s:%s:%s'  # network, market and version
 REDIS_KEY_COLD_PATH = "snapshot:cold_path"
 REDIS_SOLANA_DEX_MINTS = "snapshot:solana_dex_mints"
 
@@ -162,46 +164,46 @@ EVM_NATIVE_TOKEN_ADDRESSES = {
 
 MARKETS = {
     # Solana
-    "meteora_dlmm": {"market": "solana:meteora", "version": "dlmm"},
-    "meteora_dammV2": {"market": "solana:meteora", "version": "dammV2"},
-    "orca_clmm": {"market": "solana:orca", "version": "clmm"},
-    "raydium_clmm": {"market": "solana:raydium", "version": "clmm"},
-    "raydium_amm": {"market": "solana:raydium", "version": "amm"},
+    "meteora_dlmm": {"market": "meteora", "version": "dlmm", "network": "solana"},
+    "meteora_dammV2": {"market": "meteora", "version": "dammV2",  "network": "solana"},
+    "orca_clmm": {"market": "orca", "version": "clmm",  "network": "solana"},
+    "raydium_clmm": {"market": "raydium", "version": "clmm",  "network": "solana"},
+    "raydium_amm": {"market": "raydium", "version": "amm",  "network": "solana"},
 
     # Ethereum
-    "eth_uniswap_v2": {"market": "eth:uniswap", "version": "v2"},
-    "eth_uniswap_v3": {"market": "eth:uniswap", "version": "v3"},
-    "eth_uniswap_v4": {"market": "eth:uniswap", "version": "v4"},
+    "eth_uniswap_v2": {"market": "uniswap", "version": "v2",  "network": "eth"},
+    "eth_uniswap_v3": {"market": "uniswap", "version": "v3",  "network": "eth"},
+    "eth_uniswap_v4": {"market": "uniswap", "version": "v4",  "network": "eth"},
 
     # Arbitrum
-    "arbitrum_uniswap_v2": {"market": "arbitrum:uniswap", "version": "v2"},
-    "arbitrum_uniswap_v3": {"market": "arbitrum:uniswap", "version": "v3"},
-    "arbitrum_uniswap_v4": {"market": "arbitrum:uniswap", "version": "v4"},
+    "arbitrum_uniswap_v2": {"market": "uniswap", "version": "v2", "network": "arbitrum"},
+    "arbitrum_uniswap_v3": {"market": "uniswap", "version": "v3", "network": "arbitrum"},
+    "arbitrum_uniswap_v4": {"market": "uniswap", "version": "v4", "network": "arbitrum"},
 
     # Optimism
-    "optimism_uniswap_v2": {"market": "optimism:uniswap", "version": "v2"},
-    "optimism_uniswap_v3": {"market": "optimism:uniswap", "version": "v3"},
-    "optimism_uniswap_v4": {"market": "optimism:uniswap", "version": "v4"},
+    "optimism_uniswap_v2": {"market": "uniswap", "version": "v2", "network": "optimism"},
+    "optimism_uniswap_v3": {"market": "uniswap", "version": "v3", "network": "optimism"},
+    "optimism_uniswap_v4": {"market": "uniswap", "version": "v4", "network": "optimism"},
 
     # Base
-    "base_uniswap_v2": {"market": "base:uniswap", "version": "v2"},
-    "base_uniswap_v3": {"market": "base:uniswap", "version": "v3"},
-    "base_uniswap_v4": {"market": "base:uniswap", "version": "v4"},
+    "base_uniswap_v2": {"market": "uniswap", "version": "v2", "network": "base"},
+    "base_uniswap_v3": {"market": "uniswap", "version": "v3", "network": "base"},
+    "base_uniswap_v4": {"market": "uniswap", "version": "v4", "network": "base"},
 
     # Polygon PoS
-    "polygon_uniswap_v2": {"market": "polygon:uniswap", "version": "v2"},
-    "polygon_uniswap_v3": {"market": "polygon:uniswap", "version": "v3"},
-    "polygon_uniswap_v4": {"market": "polygon:uniswap", "version": "v4"},
+    "polygon_uniswap_v2": {"market": "uniswap", "version": "v2", "network": "polygon"},
+    "polygon_uniswap_v3": {"market": "uniswap", "version": "v3", "network": "polygon"},
+    "polygon_uniswap_v4": {"market": "uniswap", "version": "v4", "network": "polygon"},
 
     # BNB Chain
-    "bsc_uniswap_v2": {"market": "bsc:uniswap", "version": "v2"},
-    "bsc_uniswap_v3": {"market": "bsc:uniswap", "version": "v3"},
-    "bsc_uniswap_v4": {"market": "bsc:uniswap", "version": "v4"},
+    "bsc_uniswap_v2": {"market": "uniswap", "version": "v2", "network": "bsc"},
+    "bsc_uniswap_v3": {"market": "uniswap", "version": "v3", "network": "bsc"},
+    "bsc_uniswap_v4": {"market": "uniswap", "version": "v4", "network": "bsc"},
 
     # Avalanche
-    "avax_uniswap_v2": {"market": "avax:uniswap", "version": "v2"},
-    "avax_uniswap_v3": {"market": "avax:uniswap", "version": "v3"},
-    "avax_uniswap_v4": {"market": "avax:uniswap", "version": "v4"},
+    "avax_uniswap_v2": {"market": "uniswap", "version": "v2", "network": "avax"},
+    "avax_uniswap_v3": {"market": "uniswap", "version": "v3", "network": "avax"},
+    "avax_uniswap_v4": {"market": "uniswap", "version": "v4", "network": "avax"},
 }
 ACTIVE_MARKETS = [
     'meteora_dlmm',

@@ -6,7 +6,7 @@ from src.dex.solana.meteora.state.meteora_dlmm import MeteoraDLMM
 
 
 class MeteoraDlmmState(PoolStateFetcher):
-    MARKET, VERSION = config.MARKETS.get('meteora_dlmm').values()
+    MARKET, VERSION, NETWORK = config.MARKETS.get('meteora_dlmm').values()
 
     def __init__(self):
         conf = PoolStateConfigScheme(market=self.MARKET,

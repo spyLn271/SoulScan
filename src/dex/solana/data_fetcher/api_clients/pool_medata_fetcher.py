@@ -6,7 +6,7 @@ import pydantic
 
 ####################################
 from src.settings import config
-from src.settings.config import get_config
+from src.settings.config import get_config, Network
 from src.logger_handler.logger import get_logger, setup_logger
 ####################################
 
@@ -15,6 +15,7 @@ class PoolMetadataConfigScheme(pydantic.BaseModel):
     fetching_sleep_time: int = get_config().METADATA_FETCH_INTERVAL
     market: str
     version: str
+    network: Network = "solana"
     logger_name: str = "PMF"
     logger_file: str = "PMF.log"
 
@@ -25,6 +26,7 @@ class PoolMetadataFetcher:
 
         self.market = conf.market
         self.version = conf.version
+        self.network = conf.network
         self.logger_name = conf.logger_name
         self.logger_file = conf.logger_file
         self.error_sleep_time = conf.error_sleep_time
@@ -60,9 +62,9 @@ class PoolMetadataFetcher:
 
     def _save_metadata(self, metadata: dict) -> bool:
         try:
-            self.logger.info(f"Saving metadata for {self.market} {self.version} to redis. "
+            self.logger.info(f"Saving metadata for {self.network} {self.market} {self.version} to redis. "
                              f"Saving data length: {len(metadata)}.")
-            self.r.set(config.REDIS_METADATA_KEY % (self.market, self.version), json.dumps(metadata))
+            self.r.set(config.REDIS_METADATA_KEY % (self.network, self.market, self.version), json.dumps(metadata))
             self.logger.info(f"Metadata for {self.market} {self.version} saved.")
             return True
         except Exception as e:

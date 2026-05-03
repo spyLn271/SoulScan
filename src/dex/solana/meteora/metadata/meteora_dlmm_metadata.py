@@ -8,7 +8,7 @@ from src.settings import config
 
 class MeteoraDlmmMetadata(PoolMetadataFetcher):
     METEORA_URL = "https://dlmm.datapi.meteora.ag/pools?page=1&page_size=500"
-    MARKET, VERSION = config.MARKETS.get('meteora_dlmm').values()
+    MARKET, VERSION, NETWORK = config.MARKETS.get('meteora_dlmm').values()
 
     def __init__(self):
         conf = PoolMetadataConfigScheme(market=self.MARKET, version=self.VERSION)

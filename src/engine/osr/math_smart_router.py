@@ -17,8 +17,17 @@ class MathSmartRouter:
         self.logger = logger
         self.swap = Swap()
 
-    def smart_swap(self, route: list[str], metadata: dict, state: dict, delta_amount: int | float | Decimal,
-                   base_mint: str, quote_mint: str, amount_specified_is_input: bool, a_to_b: bool = True) -> SmartSwapResult:
+    def smart_swap(
+            self,
+            route: list[str],
+            metadata: dict,
+            state: dict,
+            delta_amount: int | float | Decimal,
+            base_mint: str,
+            quote_mint: str,
+            amount_specified_is_input: bool,
+            a_to_b: bool = True
+    ) -> SmartSwapResult:
         """
 
         :param route:

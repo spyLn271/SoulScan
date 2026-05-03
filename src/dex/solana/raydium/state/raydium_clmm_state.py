@@ -6,7 +6,7 @@ from src.dex.solana.raydium.state.raydium_clmm import RaydiumCLMM
 
 
 class RaydiumClmmState(PoolStateFetcher):
-    MARKET, VERSION = config.MARKETS.get('raydium_clmm').values()
+    MARKET, VERSION, NETWORK = config.MARKETS.get('raydium_clmm').values()
 
     def __init__(self):
         conf = PoolStateConfigScheme(market=self.MARKET,

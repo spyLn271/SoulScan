@@ -9,7 +9,7 @@ class OrcaClmmMetadata(PoolMetadataFetcher):
     ORCA_CLMM_URL = "https://api.orca.so/v2/solana/pools?sortBy=volume24h&sortDirection=desc&next=%s&hasWarning=false"
 
     CYCLE = 4
-    MARKET, VERSION = config.MARKETS.get('orca_clmm').values()
+    MARKET, VERSION, NETWORK = config.MARKETS.get('orca_clmm').values()
 
     def __init__(self):
         conf = PoolMetadataConfigScheme(market=self.MARKET, version=self.VERSION)

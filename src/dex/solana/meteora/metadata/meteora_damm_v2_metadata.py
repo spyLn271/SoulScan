@@ -11,7 +11,7 @@ class MeteoraDammV2Metadata(PoolMetadataFetcher):
     METEORA_DAMM_V2_URL = "https://dammv2-api.meteora.ag/pools?tokens_verified=true&order_by=volume24h&order=desc&limit=100&offset=%s"
     OFFSET = 100
     CYCLE = 3
-    MARKET, VERSION = config.MARKETS.get('meteora_dammV2').values()
+    MARKET, VERSION, NETWORK = config.MARKETS.get('meteora_dammV2').values()
 
 
     def __init__(self):

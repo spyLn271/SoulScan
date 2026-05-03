@@ -21,9 +21,9 @@ class Helper:
     def _get_address_chunk(addresses, chunk_size=100) -> list:
         return [addresses[i:i + chunk_size] for i in range(0, len(addresses), chunk_size)]
 
-    def _getPoolsList(self, dex, protocol) -> list:
+    def _getPoolsList(self, dex, protocol, network) -> list:
         pools_list = []
-        data = self.r.get(config.REDIS_METADATA_KEY % (dex, protocol))
+        data = self.r.get(config.REDIS_METADATA_KEY % (network, dex, protocol))
         for pool in json.loads(data):
             pools_list.append(pool)
 

@@ -7,7 +7,7 @@ from src.dex.solana.orca.state.orca_clmm import OrcaCLMM
 
 
 class OrcaClmmState(PoolStateFetcher):
-    MARKET, VERSION = config.MARKETS.get('orca_clmm').values()
+    MARKET, VERSION, NETWORK = config.MARKETS.get('orca_clmm').values()
     def __init__(self):
         conf = PoolStateConfigScheme(market=self.MARKET,
                                      version=self.VERSION,

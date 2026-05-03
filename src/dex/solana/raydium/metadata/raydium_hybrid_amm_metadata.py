@@ -6,7 +6,7 @@ from src.settings import config
 
 class RaydiumHybridAmmMetadata(PoolMetadataFetcher):
     RAYDIUM_HYBRID_AMM_URL = "https://api-v3.raydium.io/pools/info/list-v2?poolType=Standard&sortField=volume24h&sortType=desc&size=500"
-    MARKET, VERSION = config.MARKETS.get('raydium_amm').values()
+    MARKET, VERSION, NETWORK = config.MARKETS.get('raydium_amm').values()
 
     def __init__(self):
         conf = PoolMetadataConfigScheme(market=self.MARKET, version=self.VERSION)

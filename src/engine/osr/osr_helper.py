@@ -37,8 +37,8 @@ def get_active_metadata(
     for active_market in config.ACTIVE_MARKETS:
         try:
 
-            market, version = config.MARKETS.get(active_market).values()
-            raw = redis_connection.get(config.REDIS_METADATA_KEY % (market, version))
+            market, version, network = config.MARKETS.get(active_market).values()
+            raw = redis_connection.get(config.REDIS_METADATA_KEY % (network, market, version))
 
             if not isinstance(raw, str):
                 logger.warning(f'Pool metadata fo market {market} version {version} not a string')
@@ -64,8 +64,8 @@ def get_active_state(
     for active_market in config.ACTIVE_MARKETS:
         current_time = int(time.time())
         try:
-            market, version = config.MARKETS.get(active_market).values()
-            raw = redis_connection.get(config.POOLS_STATE_DICT_REDIS_KEY % (market, version))
+            market, version, network = config.MARKETS.get(active_market).values()
+            raw = redis_connection.get(config.POOLS_STATE_DICT_REDIS_KEY % (network, market, version))
 
             if not isinstance(raw, str):
                 logger.warning(f"Pool state for {active_market} market {version} is not a string.")

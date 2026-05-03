@@ -1,6 +1,4 @@
 from web3.eth.eth import ChecksumAddress
-import asyncio
-from web3 import Web3
 
 ####################################
 from src.dex.tools.rpc.ethereum import Ethereum
@@ -158,6 +156,8 @@ TICK_SPACING = ['int24']
 
 LIQUIDITY_TYPES = ['uint128']
 
+TICKS_TYPES = ['uint128', 'int128', 'uint256', 'uint256', 'int56', 'uint160', 'uint32', 'bool']
+
 class UniswapV3(Ethereum):
     def __init__(
             self,
@@ -169,6 +169,8 @@ class UniswapV3(Ethereum):
             log_file=f"{get_config().DATA_FETCHER_LOG_FOLDER}/uniswap_v3_state.log"
         )
 
+        self.fetching_range: int = get_config().EVM_TICKS_FETCH_RANGE
+
         self.logger = get_logger("Uniswap_v3_state")
         self.network = network
         self.dex = dex
@@ -176,6 +178,9 @@ class UniswapV3(Ethereum):
         super().__init__(logger=self.logger, network=network, dex=dex)
 
         self.uniswap_v3_contract = self.w3.eth.contract(abi=UNISWAP_V3_ABI)
+
+    def _calldata(self, name: str, args: list) -> bytes:
+        return bytes.fromhex(self.uniswap_v3_contract.encode_abi(name, args=args)[2:])
 
     async def fetch_metadata_initialization(
             self,
@@ -186,8 +191,8 @@ class UniswapV3(Ethereum):
 
         multicall_inputs: list[tuple[ChecksumAddress, bytes]] = []
 
-        tick_spacing_call_data = bytes.fromhex(self.uniswap_v3_contract.encode_abi(abi_element_identifier="tickSpacing")[2:])
-        fee_rate_call_data = bytes.fromhex(self.uniswap_v3_contract.encode_abi(abi_element_identifier="fee")[2:])
+        tick_spacing_call_data = self._calldata("tickSpacing", [])
+        fee_rate_call_data = self._calldata("fee", [])
 
         for pool_id in pool_address:
             pool_id = self.w3.to_checksum_address(pool_id)
@@ -203,7 +208,7 @@ class UniswapV3(Ethereum):
                 _is_success_fee = fee_call_res[0]
 
                 if not _is_success_tick_spacing or not _is_success_fee:
-                    self.logger.error(f"Failed to fetch slot0 or fee for pool_id: {pool_id}")
+                    self.logger.error(f"Failed to fetch tick spacing or fee for pool_id: {pool_id}")
                     continue
 
                 tick_spacing = self.w3.codec.decode(TICK_SPACING, tick_spacing_call_res[1])
@@ -232,8 +237,8 @@ class UniswapV3(Ethereum):
 
         multicall_inputs: list[tuple[ChecksumAddress, bytes]] = []
 
-        slot0_call_data = bytes.fromhex(self.uniswap_v3_contract.encode_abi(abi_element_identifier="slot0")[2:])
-        liquidity_call_data = bytes.fromhex(self.uniswap_v3_contract.encode_abi(abi_element_identifier="liquidity")[2:])
+        slot0_call_data = self._calldata("slot0", [])
+        liquidity_call_data = self._calldata("liquidity", [])
 
         for pool_id in pool_addresses:
             pool_id = self.w3.to_checksum_address(pool_id)
@@ -262,6 +267,7 @@ class UniswapV3(Ethereum):
                     slot0_data = self.w3.codec.decode(SLOT0_TYPES_PANCAKESWAP, slot0_call_res[1])
                 else:
                     self.logger.error(f"Unsupported dex: {dex}")
+                    continue
 
                 liquidity = self.w3.codec.decode(LIQUIDITY_TYPES, liquidity_call_res[1])
 
@@ -280,10 +286,102 @@ class UniswapV3(Ethereum):
         return slot_state
 
 
+    def _create_payload_for_tick_range(
+            self,
+            address: str,
+            tick_current: int,
+            tick_spacing: int,
+    ) -> list[tuple[ChecksumAddress, bytes]]:
+        # Unlike in Rust, Python's "//" round towards negative infinity
+        current_tick_group = tick_current // tick_spacing
+
+        payload: list[tuple[ChecksumAddress, bytes]] = []
+
+        for offset in range(-self.fetching_range, self.fetching_range + 1):
+            payload.append(
+                (
+                    self.w3.to_checksum_address(address),
+                    self._calldata("ticks", [(current_tick_group + offset) * tick_spacing]),
+                )
+            )
+
+        return payload
+
+    def _decode_tick_range(
+            self,
+            tick_range_call_res: list[tuple[bool, bytes]],
+            tick_current: int,
+            tick_spacing: int,
+    ) -> dict[int, Tick]:
+        ticks: dict[int, Tick] = {}
+        current_tick_group = tick_current // tick_spacing
+
+        for i, (is_success, data) in enumerate(tick_range_call_res):
+            if not is_success:
+                continue
+
+            decoded = self.w3.codec.decode(TICKS_TYPES, data)
+
+            offset = i - self.fetching_range
+
+            ticks[(current_tick_group + offset) * tick_spacing] = {
+                "liquidityGross": decoded[0],
+                "liquidityNet": decoded[1],
+            }
+
+        return ticks
+
     async def fetch_ticks_liquidity(
             self,
             slot0_data: dict[str, SlotDict],
             metadata: dict[str, MetadataDict],
-            chunk_size: int = 100
-    ) -> dict[str, Tick]:
-        pass
+            chunk_size: int = 100,
+    ) -> dict[str, dict[int, Tick]]:
+
+        self.logger.info(f"Fetching ticks liquidity for {len(slot0_data)} pools...")
+
+        ticks_liquidity: dict[str, dict[int, Tick]] = {}
+
+        pool_ids = list(slot0_data.keys())
+
+        multicall_inputs: list[tuple[ChecksumAddress, bytes]] = []
+
+        valid_pool_ids: list[str] = []
+
+        for pool_id in pool_ids:
+            if pool_id.lower() not in metadata:
+                self.logger.error(f"Pool_id: {pool_id} not found in metadata for fetching ticks liquidity.")
+                continue
+
+            tick_current = slot0_data[pool_id.lower()]["tick_current"]
+            tick_spacing = metadata[pool_id.lower()]["tick_spacing"]
+
+            multicall_inputs.extend(
+                self._create_payload_for_tick_range(pool_id, tick_current, tick_spacing)
+            )
+
+            valid_pool_ids.append(pool_id.lower())
+
+        results = await self.multicall(multicall_inputs, chunk_size=chunk_size)
+
+        offset = self.fetching_range * 2 + 1
+
+        res_chunks = (results[i:i + offset] for i in range(0, len(results), offset))
+
+        for pool_id, tick_range_call_res in zip(valid_pool_ids, res_chunks, strict=True):
+            try:
+                tick_current = slot0_data[pool_id.lower()]["tick_current"]
+                tick_spacing = metadata[pool_id.lower()]["tick_spacing"]
+
+                ticks_liquidity[pool_id.lower()] = self._decode_tick_range(
+                    tick_range_call_res,
+                    tick_current,
+                    tick_spacing,
+                )
+
+            except Exception as e:
+                self.logger.error(f"Error processing pool_id: {pool_id}, error: {e}")
+
+        self.logger.info(f"Ticks liquidity fetched for {len(pool_ids)} pools.")
+
+        return ticks_liquidity

@@ -186,16 +186,17 @@ class CoingeckoEvmFetcher:
             self,
             metadata: dict,
             market: str,
-            version: str
+            version: str,
+            network: Network,
     ):
         if not metadata:
-            self.logger.warning(f"Skipping save for {market} {version}: empty metadata.")
+            self.logger.warning(f"Skipping save for {network} {market} {version}: empty metadata.")
             return
 
         try:
             self.logger.info(f"Saving metadata for {market} {version} to redis. "
                              f"Saving data length: {len(metadata)}.")
-            self.r.set(REDIS_METADATA_KEY % (market, version), json.dumps(metadata))
+            self.r.set(REDIS_METADATA_KEY % (network, market, version), json.dumps(metadata))
             self.logger.info(f"Metadata for {market} {version} saved.")
 
         except Exception as e:
@@ -452,7 +453,12 @@ class CoingeckoEvmFetcher:
 
                 for market, metadata in evm_metadata.items():
                     market_key = "_".join(market)
-                    self._save_metadata(metadata, MARKETS[market_key]["market"], MARKETS[market_key]["version"])
+                    self._save_metadata(
+                        metadata,
+                        MARKETS[market_key]["market"],
+                        MARKETS[market_key]["version"],
+                        MARKETS[market_key]["network"],
+                    )
 
             except Exception as e:
                 self.logger.error(f"Error in main loop: {e}")
