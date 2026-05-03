@@ -11,8 +11,9 @@ from src.settings.config import (EVM_NATIVE_TOKEN_ADDRESSES,
                                  MIN_TVL,
                                  REDIS_METADATA_KEY,
                                  DEX,
-                                 Network)
-from src.dex.evm.data_fetcher.metadata.metadata import MetadataDict
+                                 Network,
+                                 Version)
+from src.dex.evm.type_dict import MetadataDict
 from src.settings.config import get_config
 from src.dex.evm.uniswap.state.v3 import UniswapV3
 from src.dex.evm.uniswap.state.v4 import UniswapV4
@@ -186,20 +187,19 @@ class CoingeckoEvmFetcher:
             metadata: dict,
             market: str,
             version: str
-    ) -> bool:
+    ):
         if not metadata:
-            self.logger.error(f"No metadata found for {market} {version}.")
-            return False
+            self.logger.warning(f"Skipping save for {market} {version}: empty metadata.")
+            return
 
         try:
             self.logger.info(f"Saving metadata for {market} {version} to redis. "
                              f"Saving data length: {len(metadata)}.")
             self.r.set(REDIS_METADATA_KEY % (market, version), json.dumps(metadata))
             self.logger.info(f"Metadata for {market} {version} saved.")
-            return True
+
         except Exception as e:
             self.logger.error(f"Error saving metadata for {market} {version}: {e}")
-            return False
 
     def _normalize_included(
             self,
@@ -218,28 +218,14 @@ class CoingeckoEvmFetcher:
 
         return normalized_included
 
-    async def fetch_metadata(
+    async def _get_on_chain_metadata(
             self,
             network: Network,
             gecko_dex_id: str,
             dex: DEX,
-            version: str,
-    ) -> dict[str, MetadataDict]:
-
-        headers = {"x-cg-pro-api-key": _config.COINGECKO_API}
-        async def fetch_page(_page: int):
-            url = API_ENDPOINT % (network, gecko_dex_id, _page)
-
-            async with self.session.get(url=url, headers=headers) as response:
-                if response.status != 200:
-                    text = await response.text()
-                    raise Exception(
-                        f"Error fetching metadata for {gecko_dex_id} {network}. "
-                        f"Page: {_page}. Status: {response.status}. Body: {text[:500]}"
-                    )
-
-                return await response.json()
-
+            version: Version,
+            res,
+    ) -> dict:
         def get_all_pool_addresses(_res: list[dict]) -> list[str]:
             _pool_addresses: list[str] = []
 
@@ -262,31 +248,6 @@ class CoingeckoEvmFetcher:
 
             return _pool_addresses
 
-        try_counter = 0
-        while True:
-            tasks = [
-                asyncio.create_task(fetch_page(page))
-                for page in range(1, 11)
-            ]
-
-            try:
-                res = await asyncio.gather(*tasks)
-                break
-
-            except Exception as e:
-                try_counter += 1
-                for task in tasks:
-                    if not task.done():
-                        task.cancel()
-
-                await asyncio.gather(*tasks, return_exceptions=True)
-
-                self.logger.error(f"Error fetching metadata for {gecko_dex_id} {network}: {e}")
-                self.logger.info("Sleeping for 60 seconds.")
-                await asyncio.sleep(60)
-
-
-        market_metadata: dict[str, MetadataDict] = {}
 
         if version == "v2":
             if dex == "uniswap":
@@ -323,6 +284,66 @@ class CoingeckoEvmFetcher:
             raise Exception(f"Unknown version: {version}")
 
 
+        return on_chain_metadata
+
+    async def _fetch_pages(
+            self,
+            network: Network,
+            gecko_dex_id: str,
+    ):
+        headers = {"x-cg-pro-api-key": _config.COINGECKO_API}
+
+        async def fetch_page(_page: int):
+            url = API_ENDPOINT % (network, gecko_dex_id, _page)
+
+            async with self.session.get(url=url, headers=headers) as response:
+                if response.status != 200:
+                    text = await response.text()
+                    raise Exception(
+                        f"Error fetching metadata for {gecko_dex_id} {network}. "
+                        f"Page: {_page}. Status: {response.status}. Body: {text[:500]}"
+                    )
+
+                return await response.json()
+
+        while True:
+            tasks = [
+                asyncio.create_task(fetch_page(page))
+                for page in range(1, 11)
+            ]
+
+            try:
+                res = await asyncio.gather(*tasks)
+                break
+
+            except Exception as e:
+                for task in tasks:
+                    if not task.done():
+                        task.cancel()
+
+                await asyncio.gather(*tasks, return_exceptions=True)
+
+                self.logger.error(f"Error fetching metadata for {gecko_dex_id} {network}: {e}")
+                self.logger.info("Sleeping for 60 seconds.")
+                await asyncio.sleep(60)
+
+
+        return res
+
+    async def fetch_metadata(
+            self,
+            network: Network,
+            gecko_dex_id: str,
+            dex: DEX,
+            version: Version,
+    ) -> dict[str, MetadataDict]:
+        self.logger.info(f"Fetching metadata for {network} {dex} {version}...")
+
+        market_metadata: dict[str, MetadataDict] = {}
+
+        res = await self._fetch_pages(network, gecko_dex_id)
+
+        on_chain_metadata = await self._get_on_chain_metadata(network, gecko_dex_id, dex, version, res)
 
         for result in res:
             if not isinstance(result, dict):
@@ -422,8 +443,6 @@ class CoingeckoEvmFetcher:
 
                     gecko_dex_id = GECKO_DEX_IDS[network][dex][version]
 
-                    self.logger.info(f"Fetching metadata for {market}...")
-
                     metadata = await self.fetch_metadata(network, gecko_dex_id, dex, version)
 
                     evm_metadata.setdefault(parent_market, {}).update(metadata)
@@ -440,5 +459,5 @@ class CoingeckoEvmFetcher:
                 self.logger.info(f"Sleeping for 60 seconds.")
                 await asyncio.sleep(60)
 
-            self.logger.info(f"Sleeping for 1800 seconds.")
-            await asyncio.sleep(1800)
+            self.logger.info(f"Sleeping for {_config.METADATA_FETCH_INTERVAL} seconds.")
+            await asyncio.sleep(_config.METADATA_FETCH_INTERVAL)

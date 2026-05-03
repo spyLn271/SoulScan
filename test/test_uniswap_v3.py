@@ -11,6 +11,6 @@ pool_ids = list(metadata.keys())
 
 univ3 = UniswapV3(network="eth", dex="uniswap")
 
-res = asyncio.run(univ3.fetch_metadata_initialization(pool_ids))
+res = asyncio.run(univ3.fetch_slot0_data(metadata))
 
-print(res)
+print(json.dumps(res, indent=4))

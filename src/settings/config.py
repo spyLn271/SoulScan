@@ -30,6 +30,8 @@ class Config(BaseSettings):
     MIN_VOL24: int
     MIN_TVL: int
 
+    METADATA_FETCH_INTERVAL: int
+
     POOL_STATE_DECAY_TIME: int
 
     MINIMAL_PROFIT: int
@@ -158,26 +160,6 @@ EVM_NATIVE_TOKEN_ADDRESSES = {
     },
 }
 
-STATE_VIEW_ADDRESS = {
-    'base': '0xa3c0c9b65bad0b08107aa264b0f3db444b867a71',
-    'eth': '0x7ffe42c4a5deea5b0fec41c94c136cf115597227',
-    'arbitrum': '0x76fd297e2d437cd7f76d50f01afe6160f86e9990',
-    'avax': '0xc3c9e198c735a4b97e3e683f391ccbdd60b69286',
-    'bsc': '0xd13dd3d6e93f276fafc9db9e6bb47c1180aee0c4',
-    'polygon': '0x5ea1bd7974c8a611cbab0bdcafcb1d9cc9b3ba5a',
-    'optimism': '0xc18a3169788f4f75a170290584eca6395c75ecdb'
-}
-
-POOL_MANAGER_ADDRESSES = {
-    "base": "0x498581ff718922c3f8e6a244956af099b2652b2b",
-    "eth": "0x000000000004444c5dc75cB358380D2e3dE08A90",
-    "arbitrum": "0x360e68faccca8ca495c1b759fd9eee466db9fb32",
-    "avax": "0x06380c0e0912312b5150364b9dc4542ba0dbbc85",
-    "bsc": "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df",
-    "polygon": "0x67366782805870060151383f4bbff9dab53e5cd6",
-    "optimism": "0x9a13f98cb987694c9f086b1f5eb990eea8264ec3",
-}
-
 MARKETS = {
     # Solana
     "meteora_dlmm": {"market": "solana:meteora", "version": "dlmm"},
@@ -259,6 +241,7 @@ ACTIVE_MARKETS = [
 
 Network = Literal["eth", "base", "arbitrum", "bsc", "solana"]
 DEX = Literal["uniswap", "sushiswap", "pancakeswap"]
+Version = Literal["v2", "v3", "v4"]
 
 
 MIN_VOL24 = _config.MIN_VOL24

@@ -1,6 +1,9 @@
 from pydantic import BaseModel
 from typing import TypedDict
+from src.settings.config import Version, DEX, Network
 
+
+# metadata
 class Metadata(BaseModel):
     token0: str
     token1: str
@@ -12,8 +15,8 @@ class Metadata(BaseModel):
     tick_spacing: int
     volume24h: float
     tvl: float
-    dex: str
-    version: str
+    dex: DEX
+    version: Version
 
 class MetadataDict(TypedDict):
     token0: str
@@ -26,5 +29,17 @@ class MetadataDict(TypedDict):
     tick_spacing: int
     volume24h: float
     tvl: float
-    dex: str
-    version: str
+    dex: DEX
+    version: Version
+
+
+# Uniswap V3 Slot
+class Slot(BaseModel):
+    sqrt_price_x96: int
+    tick_current: int
+    liquidity: int
+
+class SlotDict(TypedDict):
+    sqrt_price_x96: int
+    tick_current: int
+    liquidity: int

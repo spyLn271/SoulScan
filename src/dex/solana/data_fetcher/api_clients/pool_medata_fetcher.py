@@ -6,12 +6,13 @@ import pydantic
 
 ####################################
 from src.settings import config
+from src.settings.config import get_config
 from src.logger_handler.logger import get_logger, setup_logger
 ####################################
 
 class PoolMetadataConfigScheme(pydantic.BaseModel):
     error_sleep_time: int = 10
-    fetching_sleep_time: int = 3 * 60 * 60
+    fetching_sleep_time: int = get_config().METADATA_FETCH_INTERVAL
     market: str
     version: str
     logger_name: str = "PMF"

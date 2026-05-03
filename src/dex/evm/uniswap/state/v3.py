@@ -6,6 +6,8 @@ from web3 import Web3
 from src.dex.tools.rpc.ethereum import Ethereum
 from src.settings.config import get_config, DEX, Network
 from src.logger_handler.logger import get_logger, setup_logger
+from src.dex.evm.type_dict import MetadataDict, SlotDict
+from src.settings.basic_schemes import Tick
 ####################################
 
 UNISWAP_V3_ABI = [
@@ -154,6 +156,8 @@ FEE_TYPES = ['uint24']
 
 TICK_SPACING = ['int24']
 
+LIQUIDITY_TYPES = ['uint128']
+
 class UniswapV3(Ethereum):
     def __init__(
             self,
@@ -172,8 +176,6 @@ class UniswapV3(Ethereum):
         super().__init__(logger=self.logger, network=network, dex=dex)
 
         self.uniswap_v3_contract = self.w3.eth.contract(abi=UNISWAP_V3_ABI)
-
-
 
     async def fetch_metadata_initialization(
             self,
@@ -196,20 +198,92 @@ class UniswapV3(Ethereum):
         results = await self.multicall(multicall_inputs, chunk_size=chunk_size)
 
         for pool_id, tick_spacing_call_res, fee_call_res in zip(pool_address, results[0::2], results[1::2]):
-            _is_success_tick_spacing = tick_spacing_call_res[0]
-            _is_success_fee = fee_call_res[0]
+            try:
+                _is_success_tick_spacing = tick_spacing_call_res[0]
+                _is_success_fee = fee_call_res[0]
 
-            if not _is_success_tick_spacing or not _is_success_fee:
-                self.logger.error(f"Failed to fetch slot0 or fee for pool_id: {pool_id}")
+                if not _is_success_tick_spacing or not _is_success_fee:
+                    self.logger.error(f"Failed to fetch slot0 or fee for pool_id: {pool_id}")
+                    continue
+
+                tick_spacing = self.w3.codec.decode(TICK_SPACING, tick_spacing_call_res[1])
+                fee_rate = self.w3.codec.decode(FEE_TYPES, fee_call_res[1])
+
+                return_data[pool_id.lower()] = {
+                    "tick_spacing": tick_spacing[0],
+                    "fee_rate": fee_rate[0]
+                }
+            except Exception as e:
+                self.logger.error(f"Error processing pool_id: {pool_id}, error: {e}")
                 continue
 
-            tick_spacing = self.w3.codec.decode(TICK_SPACING, tick_spacing_call_res[1])
-            fee_rate = self.w3.codec.decode(FEE_TYPES, fee_call_res[1])
-
-            return_data[pool_id.lower()] = {
-              "tick_spacing": tick_spacing[0],
-              "fee_rate": fee_rate[0]
-            }
-
-
         return return_data
+
+    async def fetch_slot0_data(
+            self,
+            metadata: dict[str, MetadataDict],
+            chunk_size: int = 100
+    ) -> dict[str, SlotDict]:
+        slot_state: dict[str, SlotDict] = {}
+
+        pool_addresses = list(metadata.keys())
+
+        self.logger.info(f"Fetching slot0 data for {len(pool_addresses)} pools...")
+
+        multicall_inputs: list[tuple[ChecksumAddress, bytes]] = []
+
+        slot0_call_data = bytes.fromhex(self.uniswap_v3_contract.encode_abi(abi_element_identifier="slot0")[2:])
+        liquidity_call_data = bytes.fromhex(self.uniswap_v3_contract.encode_abi(abi_element_identifier="liquidity")[2:])
+
+        for pool_id in pool_addresses:
+            pool_id = self.w3.to_checksum_address(pool_id)
+
+            multicall_inputs.extend([(pool_id, slot0_call_data)])
+            multicall_inputs.extend([(pool_id, liquidity_call_data)])
+
+
+        results = await self.multicall(multicall_inputs, chunk_size=chunk_size)
+
+        for pool_id, slot0_call_res, liquidity_call_res in zip(pool_addresses, results[0::2], results[1::2]):
+            try:
+                _is_success_slot0 = slot0_call_res[0]
+                _is_success_liquidity = liquidity_call_res[0]
+
+                if not _is_success_slot0 or not _is_success_liquidity:
+                    self.logger.error(f"Failed to fetch slot0 or liquidity for pool_id: {pool_id}")
+                    continue
+
+
+                dex = metadata[pool_id.lower()]["dex"]
+
+                if dex == "uniswap" or dex == "sushiswap":
+                    slot0_data = self.w3.codec.decode(SLOT0_TYPES_UNISWAP, slot0_call_res[1])
+                elif dex == "pancakeswap":
+                    slot0_data = self.w3.codec.decode(SLOT0_TYPES_PANCAKESWAP, slot0_call_res[1])
+                else:
+                    self.logger.error(f"Unsupported dex: {dex}")
+
+                liquidity = self.w3.codec.decode(LIQUIDITY_TYPES, liquidity_call_res[1])
+
+                slot_state[pool_id.lower()] = {
+                    "sqrt_price_x96": slot0_data[0],
+                    "tick_current": slot0_data[1],
+                    "liquidity": liquidity[0]
+                }
+
+            except Exception as e:
+                self.logger.error(f"Error processing pool_id: {pool_id}, error: {e}")
+                continue
+
+        self.logger.info(f"Slot0 data fetched for {len(pool_addresses)} pools.")
+
+        return slot_state
+
+
+    async def fetch_ticks_liquidity(
+            self,
+            slot0_data: dict[str, SlotDict],
+            metadata: dict[str, MetadataDict],
+            chunk_size: int = 100
+    ) -> dict[str, Tick]:
+        pass
