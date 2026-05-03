@@ -76,6 +76,12 @@ class Ethereum:
             address=Web3.to_checksum_address('0xcA11bde05977b3631167028862bE2a173976CA11')
         )
 
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.w3.provider.disconnect()
+
     @staticmethod
     def chunks(items, size):
         for i in range(0, len(items), size):

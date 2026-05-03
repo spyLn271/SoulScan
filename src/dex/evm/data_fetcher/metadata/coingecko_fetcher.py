@@ -270,16 +270,16 @@ class CoingeckoEvmFetcher:
                 raise Exception(f"Unknown dex: {dex}")
 
         elif version == "v3":
-            uniV3 = UniswapV3(network=network, dex=dex)
             all_pool_addresses = get_all_pool_addresses(res)
 
-            on_chain_metadata = await uniV3.fetch_metadata_initialization(all_pool_addresses)
+            async with UniswapV3(network=network, dex=dex) as uniV3:
+                on_chain_metadata = await uniV3.fetch_metadata_initialization(all_pool_addresses)
 
         elif version == "v4":
-            uniV4 = UniswapV4(network=network, dex=dex)
             all_pool_addresses = get_all_pool_addresses(res)
 
-            on_chain_metadata = await uniV4.fetch_initialize_events(all_pool_addresses)
+            async with UniswapV4(network=network, dex=dex) as uniV4:
+                on_chain_metadata = await uniV4.fetch_initialize_events(all_pool_addresses)
 
         else:
             raise Exception(f"Unknown version: {version}")
