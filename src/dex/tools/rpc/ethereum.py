@@ -2,6 +2,7 @@ from web3.eth.eth import ChecksumAddress
 from web3 import AsyncWeb3, Web3
 import logging
 import asyncio
+import time
 
 ####################################
 from src.settings.config import get_config, EVM_RPC_ENDPOINT, DEX, Network
@@ -76,11 +77,14 @@ class Ethereum:
             address=Web3.to_checksum_address('0xcA11bde05977b3631167028862bE2a173976CA11')
         )
 
+        self.logger.info(f"Ethereum init: network={network} dex={dex} rpc={EVM_RPC_ENDPOINT[network]}")
+
     async def __aenter__(self):
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.w3.provider.disconnect()
+        self.logger.info("provider disconnected")
 
     @staticmethod
     def chunks(items, size):
@@ -95,6 +99,16 @@ class Ethereum:
     ) -> list[tuple[bool, bytes]]:
         return_data: list[tuple[bool, bytes]] = []
 
+        n_inputs = len(inputs)
+        if n_inputs == 0:
+            self.logger.debug("multicall called with empty inputs; skipping")
+            return return_data
+
+        n_chunks = (n_inputs + chunk_size - 1) // chunk_size
+        self.logger.info(f"multicall start: {n_inputs} calls in {n_chunks} chunks (size={chunk_size})")
+
+        t0 = time.perf_counter()
+
         tasks = [
             self.multicall_contract
             .functions
@@ -108,9 +122,18 @@ class Ethereum:
 
         for chunk_input, result in zip(list(self.chunks(inputs, chunk_size)), results):
             if isinstance(result, Exception):
-                self.logger.error(f"Multi Call failed: {result}")
+                self.logger.error(f"Multi Call failed: {result}", exc_info=result)
                 return_data.extend([(False, b'')] * len(chunk_input))
             else:
                 return_data.extend(result)
+
+        elapsed = time.perf_counter() - t0
+        n_failed_chunks = sum(1 for r in results if isinstance(r, Exception))
+        n_failed_calls = sum(1 for s, _ in return_data if not s)
+        self.logger.info(
+            f"multicall done in {elapsed:.2f}s: "
+            f"{n_inputs - n_failed_calls}/{n_inputs} ok, "
+            f"{n_failed_chunks}/{n_chunks} chunks failed"
+        )
 
         return return_data

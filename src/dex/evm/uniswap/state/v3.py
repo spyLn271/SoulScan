@@ -165,13 +165,13 @@ class UniswapV3(Ethereum):
             dex: DEX
     ):
         setup_logger(
-            logger_name="Uniswap_v3_state",
-            log_file=f"{get_config().DATA_FETCHER_LOG_FOLDER}/uniswap_v3_state.log"
+            logger_name=f"Uniswap_v3_state_{network}_{dex}",
+            log_file=f"{get_config().DATA_FETCHER_LOG_FOLDER}/Uniswap_v3_state_{network}_{dex}.log"
         )
 
         self.fetching_range: int = get_config().EVM_TICKS_FETCH_RANGE
 
-        self.logger = get_logger("Uniswap_v3_state")
+        self.logger = get_logger(f"Uniswap_v3_state_{network}_{dex}")
         self.network = network
         self.dex = dex
 
@@ -187,6 +187,8 @@ class UniswapV3(Ethereum):
             pool_address: list[str],
             chunk_size: int = 100
     ) -> dict[str, dict[str, int]]:
+        self.logger.info(f"fetch_metadata_initialization start: {len(pool_address)} pools")
+
         return_data: dict[str, dict[str, int]] = {}
 
         multicall_inputs: list[tuple[ChecksumAddress, bytes]] = []
@@ -219,8 +221,10 @@ class UniswapV3(Ethereum):
                     "fee_rate": fee_rate[0]
                 }
             except Exception as e:
-                self.logger.error(f"Error processing pool_id: {pool_id}, error: {e}")
+                self.logger.error(f"Error processing pool_id: {pool_id}, error: {e}", exc_info=True)
                 continue
+
+        self.logger.info(f"fetch_metadata_initialization done: {len(return_data)}/{len(pool_address)} ok")
 
         return return_data
 
@@ -233,7 +237,7 @@ class UniswapV3(Ethereum):
 
         pool_addresses = list(metadata.keys())
 
-        self.logger.info(f"Fetching slot0 data for {len(pool_addresses)} pools...")
+        self.logger.info(f"fetch_slot0_data start: {len(pool_addresses)} pools")
 
         multicall_inputs: list[tuple[ChecksumAddress, bytes]] = []
 
@@ -266,7 +270,7 @@ class UniswapV3(Ethereum):
                 elif dex == "pancakeswap":
                     slot0_data = self.w3.codec.decode(SLOT0_TYPES_PANCAKESWAP, slot0_call_res[1])
                 else:
-                    self.logger.error(f"Unsupported dex: {dex}")
+                    self.logger.error(f"Unsupported dex: {dex} for pool_id: {pool_id}")
                     continue
 
                 liquidity = self.w3.codec.decode(LIQUIDITY_TYPES, liquidity_call_res[1])
@@ -278,10 +282,10 @@ class UniswapV3(Ethereum):
                 }
 
             except Exception as e:
-                self.logger.error(f"Error processing pool_id: {pool_id}, error: {e}")
+                self.logger.error(f"Error processing pool_id: {pool_id}, error: {e}", exc_info=True)
                 continue
 
-        self.logger.info(f"Slot0 data fetched for {len(pool_addresses)} pools.")
+        self.logger.info(f"fetch_slot0_data done: {len(slot_state)}/{len(pool_addresses)} ok")
 
         return slot_state
 
@@ -338,7 +342,9 @@ class UniswapV3(Ethereum):
             chunk_size: int = 100,
     ) -> dict[str, dict[int, Tick]]:
 
-        self.logger.info(f"Fetching ticks liquidity for {len(slot0_data)} pools...")
+        self.logger.info(
+            f"fetch_ticks_liquidity start: {len(slot0_data)} pools, range=±{self.fetching_range}"
+        )
 
         ticks_liquidity: dict[str, dict[int, Tick]] = {}
 
@@ -380,8 +386,12 @@ class UniswapV3(Ethereum):
                 )
 
             except Exception as e:
-                self.logger.error(f"Error processing pool_id: {pool_id}, error: {e}")
+                self.logger.error(f"Error processing pool_id: {pool_id}, error: {e}", exc_info=True)
 
-        self.logger.info(f"Ticks liquidity fetched for {len(pool_ids)} pools.")
+        n_ticks = sum(len(t) for t in ticks_liquidity.values())
+        self.logger.info(
+            f"fetch_ticks_liquidity done: {len(ticks_liquidity)}/{len(pool_ids)} pools, "
+            f"{n_ticks} ticks decoded"
+        )
 
         return ticks_liquidity

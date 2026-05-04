@@ -128,11 +128,11 @@ class UniswapV4(Ethereum):
             dex: DEX
     ):
         setup_logger(
-            logger_name="Uniswap_v4_state",
-            log_file=f"{get_config().DATA_FETCHER_LOG_FOLDER}/uniswap_v4_state.log"
+            logger_name=f"Uniswap_v4_state_{network}_{dex}",
+            log_file=f"{get_config().DATA_FETCHER_LOG_FOLDER}/Uniswap_v4_state_{network}_{dex}.log"
         )
 
-        self.logger = get_logger("Uniswap_v4_state")
+        self.logger = get_logger(f"Uniswap_v4_state_{network}_{dex}")
         self.network = network
         self.dex = dex
 
@@ -173,6 +173,10 @@ class UniswapV4(Ethereum):
             pool_ids: list[str],
             chunk_size: int = 100
     ) -> dict[str, dict[str, int]]:
+        n_inputs = len(pool_ids)
+        n_chunks = (n_inputs + chunk_size - 1) // chunk_size if n_inputs else 0
+        self.logger.info(f"fetch_initialize_events start: {n_inputs} pool_ids in {n_chunks} chunks")
+
         results: dict[str, dict[str, int]] = {}
 
         tasks = [
@@ -193,9 +197,11 @@ class UniswapV4(Ethereum):
 
         res = await asyncio.gather(*tasks, return_exceptions=True)
 
+        n_fallback = 0
+
         for logs in res:
             if isinstance(logs, Exception):
-                self.logger.error(f"Error fetching logs: {logs}")
+                self.logger.error(f"Error fetching logs: {logs}", exc_info=logs)
                 continue
 
             for log in logs:
@@ -211,11 +217,23 @@ class UniswapV4(Ethereum):
 
                 if hooks != "0x0000000000000000000000000000000000000000" and fee_rate == 0:
                     fee_rate = 500
+                    n_fallback += 1
 
                 results[pool_id] = {
                     "fee_rate": fee_rate,
                     "tick_spacing": tickSpacing,
                 }
+
+        if n_fallback > 0:
+            self.logger.info(
+                f"applied dynamic-fee fallback (fee_rate=500) to {n_fallback} hooked pools"
+            )
+
+        missing = set(p.lower() for p in pool_ids) - set(results.keys())
+        if missing:
+            self.logger.warning(f"no Initialize event found for {len(missing)} pool_ids")
+
+        self.logger.info(f"fetch_initialize_events done: {len(results)}/{n_inputs} ok")
 
         return results
 
@@ -228,7 +246,7 @@ class UniswapV4(Ethereum):
 
         pool_addresses = list(metadata.keys())
 
-        self.logger.info(f"Fetching slot0 data for {len(pool_addresses)} pools...")
+        self.logger.info(f"fetch_slot0_data start: {len(pool_addresses)} pools")
 
         multicall_inputs: list[tuple[ChecksumAddress, bytes]] = []
 
@@ -266,8 +284,10 @@ class UniswapV4(Ethereum):
                 }
 
             except Exception as e:
-                self.logger.error(f"Error processing pool_id: {pool_id}, error: {e}")
+                self.logger.error(f"Error processing pool_id: {pool_id}, error: {e}", exc_info=True)
                 continue
+
+        self.logger.info(f"fetch_slot0_data done: {len(slot_state)}/{len(pool_addresses)} ok")
 
         return slot_state
 
@@ -323,7 +343,9 @@ class UniswapV4(Ethereum):
             metadata: dict[str, MetadataDict],
             chunk_size: int = 100,
     ) -> dict[str, dict[int, Tick]]:
-        self.logger.info(f"Fetching ticks liquidity for {len(slot0_data)} pools...")
+        self.logger.info(
+            f"fetch_ticks_liquidity start: {len(slot0_data)} pools, range=±{self.fetching_range}"
+        )
 
         ticks_liquidity: dict[str, dict[int, Tick]] = {}
 
@@ -365,9 +387,13 @@ class UniswapV4(Ethereum):
                 )
 
             except Exception as e:
-                self.logger.error(f"Error processing pool_id: {pool_id}, error: {e}")
+                self.logger.error(f"Error processing pool_id: {pool_id}, error: {e}", exc_info=True)
 
-        self.logger.info(f"Ticks liquidity fetched for {len(pool_ids)} pools.")
+        n_ticks = sum(len(t) for t in ticks_liquidity.values())
+        self.logger.info(
+            f"fetch_ticks_liquidity done: {len(ticks_liquidity)}/{len(pool_ids)} pools, "
+            f"{n_ticks} ticks decoded"
+        )
 
         return ticks_liquidity
 
