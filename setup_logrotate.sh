@@ -32,7 +32,7 @@ echo "Writing $CONFIG_FILE..."
 cat > "$CONFIG_FILE" <<EOF
 $LOG_ROOT/data-fetcher/*.log {
     hourly
-    size 100M
+    maxsize 100M
     rotate 168
     compress
     delaycompress
@@ -44,7 +44,7 @@ $LOG_ROOT/data-fetcher/*.log {
 
 $LOG_ROOT/supervisor/*.log {
     hourly
-    size 100M
+    maxsize 100M
     rotate 720
     compress
     delaycompress
@@ -56,7 +56,7 @@ $LOG_ROOT/supervisor/*.log {
 
 $LOG_ROOT/osr/*.log {
     hourly
-    size 100M
+    maxsize 100M
     rotate 168
     compress
     delaycompress
@@ -68,7 +68,7 @@ $LOG_ROOT/osr/*.log {
 
 $LOG_ROOT/cex/*.log {
     hourly
-    size 100M
+    maxsize 100M
     rotate 168
     compress
     delaycompress
@@ -80,7 +80,7 @@ $LOG_ROOT/cex/*.log {
 
 $LOG_ROOT/cex-market-data/*.log {
     hourly
-    size 100M
+    maxsize 100M
     rotate 168
     compress
     delaycompress
@@ -92,7 +92,7 @@ $LOG_ROOT/cex-market-data/*.log {
 
 $LOG_ROOT/cex-contracts/*.log {
     hourly
-    size 100M
+    maxsize 100M
     rotate 168
     compress
     delaycompress
