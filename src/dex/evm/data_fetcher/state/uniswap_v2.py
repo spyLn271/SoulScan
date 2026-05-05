@@ -35,6 +35,10 @@ def save_pool_state(
 ):
     logger.info(f"Saving pool state for {network} {dex} {version}...")
 
+    if not pool_state["pool_state"]:
+        logger.info(f"No pool states to save for {network} {dex} {version}")
+        return
+
     try:
         redis_con.set(POOLS_STATE_DICT_REDIS_KEY % (network, dex, version), json.dumps(pool_state))
         logger.info(f"Saved {len(pool_state['pool_state'])} pool states for {network} {dex} {version}")

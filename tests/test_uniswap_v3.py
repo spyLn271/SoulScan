@@ -31,5 +31,20 @@ async def test():
 
         print("ok")
 
+
+async def test_redis_data():
+    raw = r.hget(name="snapshot:state:eth:uniswap:v3", key="slot")
+    slot = json.loads(raw)
+
+
+    with open("slot0.json", "w") as f:
+        f.write(json.dumps(slot, indent=4))
+
+    raw = r.hget(name="snapshot:state:eth:uniswap:v3", key="ticks")
+    ticks = json.loads(raw)
+
+    with open("liquidity.json", "w") as f:
+        f.write(json.dumps(ticks, indent=4))
+
 if __name__ == "__main__":
-    asyncio.run(test())
+    asyncio.run(test_redis_data())
