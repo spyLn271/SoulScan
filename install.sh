@@ -12,7 +12,7 @@ echo "Venv directory: $VENV_DIR"
 # Check if venv exists
 if [ ! -d "$VENV_DIR" ]; then
     echo "Creating Python virtual environment..."
-    python3.14 -m venv "$VENV_DIR"
+    python3.12 -m venv "$VENV_DIR"
 fi
 
 # Install/update dependencies
