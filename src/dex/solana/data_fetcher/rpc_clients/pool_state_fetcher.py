@@ -67,6 +67,11 @@ class PoolStateFetcher:
         try:
             self.logger.info(f"Saving state for {self.market} {self.version} to redis. "
                              f"Saving data length: {len(pool_state)}.")
+
+            if not pool_state:
+                self.logger.warning(f"Skipping save for {self.market} {self.version}: empty pool state.")
+                return True
+
             payload = {
                 "pool_state": pool_state,
                 "ts": int(time.time()),
