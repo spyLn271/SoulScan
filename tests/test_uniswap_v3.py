@@ -1,5 +1,4 @@
-from src.dex.evm.type_dict import SlotDict, MetadataDict
-from src.dex.evm.uniswap.state.v3 import UniswapV3
+from src.dex.evm.uniswap.v3 import UniswapV3
 import asyncio
 import redis
 import json

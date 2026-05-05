@@ -32,6 +32,8 @@ class Config(BaseSettings):
 
     METADATA_FETCH_INTERVAL: int
 
+    METADATA_DECAY_PERIOD: int
+
     EVM_TICKS_FETCH_RANGE: int
 
     POOL_STATE_DECAY_TIME: int
@@ -94,6 +96,9 @@ REDIS_METADATA_KEY = 'snapshot:metadata:%s:%s:%s'  # network, market and version
 POOLS_STATE_DICT_REDIS_KEY = 'snapshot:state:%s:%s:%s'  # network, market and version
 REDIS_KEY_COLD_PATH = "snapshot:cold_path"
 REDIS_SOLANA_DEX_MINTS = "snapshot:solana_dex_mints"
+
+ENV_CLMM_SLOT_KEY = "slot"
+ENV_CLMM_TICKS_KEY = "ticks"
 
 OSR_LOG_FOLDER = str(_config.OSR_LOG_FOLDER) + "/"
 SCANNER_LOG_FOLDER = str(_config.SCANNER_LOG_FOLDER) + "/"
@@ -240,6 +245,8 @@ ACTIVE_MARKETS = [
     # "avax_uniswap_v4",
 
 ]
+
+EVM_NETWORKS = ["eth", "base", "arbitrum", "bsc"]
 
 Network = Literal["eth", "base", "arbitrum", "bsc", "solana"]
 DEX = Literal["uniswap", "sushiswap", "pancakeswap"]

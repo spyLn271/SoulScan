@@ -1,6 +1,6 @@
-import asyncio
 import json
-from src.dex.evm.uniswap.state.v2 import UniswapV2
+from src.dex.evm.uniswap.v2 import UniswapV2
+from src.dex.evm.data_fetcher.state.uniswap_v2 import UniswapV2StateFetcher
 
 
 async def test():
@@ -13,6 +13,14 @@ async def test():
         print(json.dumps(reserves, indent=4))
 
 
+def test_state_fetcher():
+    uni = UniswapV2StateFetcher()
+
+    uni.main()
+
+
+
 
 if __name__ == "__main__":
-    asyncio.run(test())
+    # asyncio.run(test())
+    test_state_fetcher()

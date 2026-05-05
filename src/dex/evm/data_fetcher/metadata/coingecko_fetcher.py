@@ -15,8 +15,8 @@ from src.settings.config import (EVM_NATIVE_TOKEN_ADDRESSES,
                                  Version)
 from src.dex.evm.type_dict import MetadataDict
 from src.settings.config import get_config
-from src.dex.evm.uniswap.state.v3 import UniswapV3
-from src.dex.evm.uniswap.state.v4 import UniswapV4
+from src.dex.evm.uniswap.v3 import UniswapV3
+from src.dex.evm.uniswap.v4 import UniswapV4
 ##########################################
 
 _config = get_config()
