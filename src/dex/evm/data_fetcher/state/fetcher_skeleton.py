@@ -16,18 +16,9 @@ from src.settings.config import (
 ####################################
 
 
-NetworkFetcher = Callable[[Network], Awaitable[None]]
-
-
-def async_booster(network: Network, func: NetworkFetcher):
-    signal.signal(signal.SIGTERM, sigterm_handler)
-    asyncio.run(func(network))
-
-
-
 
 class FetcherSkeleton:
-    def __init__(self, logger: logging.Logger, dex: DEX, version: Version, func: NetworkFetcher):
+    def __init__(self, logger: logging.Logger, dex: DEX, version: Version, func: Callable[[Network], None]):
         self.logger = logger
         self.dex = dex
         self.version = version
@@ -42,8 +33,8 @@ class FetcherSkeleton:
         self.logger.info(f"Starting {self.dex} {self.version} state fetcher for {network}...")
 
         worker = multiprocessing.Process(
-            target=async_booster,
-            args=(network, self.func),
+            target=self.func,
+            args=(network, ),
             name=f"{self.dex}_{self.version}_{network}",
         )
         worker.start()
@@ -53,8 +44,12 @@ class FetcherSkeleton:
         return worker
 
     def _init_workers(self):
+        self.logger.info(
+            f"Initializing {self.dex} {self.version} workers for {len(EVM_NETWORKS)} networks: {EVM_NETWORKS}"
+        )
         for network in EVM_NETWORKS:
             self.workers[network] = self.start_worker(network)
+        self.logger.info(f"All {self.dex} {self.version} workers initialized: {len(self.workers)}")
 
     def _shutdown_workers(self):
         for name, worker in self.workers.items():
@@ -72,9 +67,11 @@ class FetcherSkeleton:
         self.logger.info("All workers stopped.")
 
     def main(self):
+        self.logger.info(f"Starting {self.dex} {self.version} supervisor (PID: {multiprocessing.current_process().pid})")
         signal.signal(signal.SIGTERM, sigterm_handler)
 
         self._init_workers()
+        self.logger.info(f"{self.dex} {self.version} supervisor entering main loop")
 
         while True:
             try:

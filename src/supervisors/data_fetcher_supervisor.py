@@ -7,6 +7,9 @@ from typing import Union, Type
 import signal
 
 ####################################
+from src.dex.evm.data_fetcher.state.uniswap_v2 import UniswapV2StateFetcher
+from src.dex.evm.data_fetcher.state.uniswap_v3 import UniswapV3StateFetcher
+from src.dex.evm.data_fetcher.state.uniswap_v4 import UniswapV4StateFetcher
 from src.dex.solana.data_fetcher import MeteoraDlmmState, RaydiumClmmState, RaydiumAmmState, OrcaClmmState
 from src.dex.solana.data_fetcher import MeteoraDlmmMetadata, RaydiumClmmMetadata, RaydiumHybridAmmMetadata, OrcaClmmMetadata
 from src.dex.evm.data_fetcher.metadata.coingecko_fetcher import CoingeckoEvmFetcher
@@ -20,6 +23,9 @@ STATE_CLASSES = (
     RaydiumClmmState,
     RaydiumAmmState,
     MeteoraDlmmState,
+    UniswapV2StateFetcher,
+    UniswapV3StateFetcher,
+    UniswapV4StateFetcher,
 )
 
 METADATA_CLASSES = (
@@ -35,6 +41,9 @@ ProviderClass = Union[
     Type[RaydiumClmmState],
     Type[RaydiumAmmState],
     Type[MeteoraDlmmState],
+    Type[UniswapV2StateFetcher],
+    Type[UniswapV3StateFetcher],
+    Type[UniswapV4StateFetcher],
     Type[MeteoraDlmmMetadata],
     Type[RaydiumClmmMetadata],
     Type[RaydiumHybridAmmMetadata],
@@ -43,26 +52,54 @@ ProviderClass = Union[
 ]
 
 
-async def start_data_fetcher_async(provider_cls: ProviderClass, logger: logging.Logger):
+async def _run_async_ctxmgr(provider_cls: ProviderClass, logger: logging.Logger):
     while True:
         try:
-            if issubclass(provider_cls, METADATA_CLASSES):
-                async with provider_cls() as provider_instance:
-                    await provider_instance.main()
-
-            elif issubclass(provider_cls, STATE_CLASSES):
-                provider_instance = provider_cls()
-                await provider_instance.main()
-
-            else:
-                raise TypeError(f"Provider class {provider_cls.__name__} is not recognized in STATE or METADATA lists.")
-
+            async with provider_cls() as instance:
+                await instance.main()
+        except (KeyboardInterrupt, TerminateSignal):
+            raise
         except Exception as e:
-            logger.error(f"[{provider_cls.__name__}] Soft Crash: {e}. Restarting logic in 5s...")
+            logger.error(
+                f"[{provider_cls.__name__}] Soft Crash: {e}. Restarting in 5s...",
+                exc_info=True,
+            )
             await asyncio.sleep(5)
 
 
+async def _run_async(provider_cls: ProviderClass, logger: logging.Logger):
+    while True:
+        try:
+            instance = provider_cls()
+            await instance.main()
+        except (KeyboardInterrupt, TerminateSignal):
+            raise
+        except Exception as e:
+            logger.error(
+                f"[{provider_cls.__name__}] Soft Crash: {e}. Restarting in 5s...",
+                exc_info=True,
+            )
+            await asyncio.sleep(5)
+
+
+def _run_sync(provider_cls: ProviderClass, logger: logging.Logger):
+    while True:
+        try:
+            instance = provider_cls()
+            instance.main()
+        except (KeyboardInterrupt, TerminateSignal):
+            raise
+        except Exception as e:
+            logger.error(
+                f"[{provider_cls.__name__}] Soft Crash: {e}. Restarting in 5s...",
+                exc_info=True,
+            )
+            time.sleep(5)
+
+
 def bootstrap_worker(provider_cls: ProviderClass):
+    signal.signal(signal.SIGTERM, sigterm_handler)
+
     worker_name = f"data_fetcher-{provider_cls.__name__}"
     log_file_path = os.path.join(config.SUPERVISOR_LOG_FOLDER, f"{worker_name}.log")
 
@@ -72,8 +109,18 @@ def bootstrap_worker(provider_cls: ProviderClass):
     local_logger.info(f"Worker process started. PID: {os.getpid()}")
 
     try:
-        asyncio.run(start_data_fetcher_async(provider_cls, local_logger))
-    except KeyboardInterrupt:
+        if issubclass(provider_cls, METADATA_CLASSES):
+            asyncio.run(_run_async_ctxmgr(provider_cls, local_logger))
+        elif issubclass(provider_cls, STATE_CLASSES):
+            if asyncio.iscoroutinefunction(provider_cls.main):
+                asyncio.run(_run_async(provider_cls, local_logger))
+            else:
+                _run_sync(provider_cls, local_logger)
+        else:
+            raise TypeError(
+                f"Provider class {provider_cls.__name__} is not recognized in STATE or METADATA lists."
+            )
+    except (KeyboardInterrupt, TerminateSignal):
         local_logger.info("Worker received stop signal.")
     except Exception as e:
         local_logger.critical(f"Critical Worker Failure: {e}", exc_info=True)
@@ -84,7 +131,6 @@ def start_worker_process(provider_cls: ProviderClass, logger: logging.Logger, se
         target=bootstrap_worker,
         args=(provider_cls,),
         name=f"{sector_name}-{worker_name}",
-        daemon=True
     )
     p.start()
     logger.info(f"Started {worker_name} (PID: {p.pid})")
@@ -105,6 +151,8 @@ def RUN_DATA_FETCHERS(targets: dict[str, ProviderClass], logger_name: str, logge
         return
 
     processes = {}
+    last_restart: dict[str, float] = {}
+    MIN_RESTART_INTERVAL = 5.0
 
     for name, cls in targets.items():
         p = start_worker_process(cls, logger=logger, sector_name=sector_name, worker_name=name)
@@ -116,6 +164,15 @@ def RUN_DATA_FETCHERS(targets: dict[str, ProviderClass], logger_name: str, logge
 
             for name, p in list(processes.items()):
                 if not p.is_alive():
+                    last = last_restart.get(name, 0.0)
+                    elapsed = time.time() - last
+                    if elapsed < MIN_RESTART_INTERVAL:
+                        wait = MIN_RESTART_INTERVAL - elapsed
+                        logger.warning(
+                            f"{name} crashed within {elapsed:.1f}s; backing off {wait:.1f}s"
+                        )
+                        time.sleep(wait)
+
                     logger.warning(f"ALERT: {name} (PID {p.pid}) died unexpectedly! Restarting...")
                     p.join()
                     new_p = start_worker_process(targets[name],
@@ -123,6 +180,7 @@ def RUN_DATA_FETCHERS(targets: dict[str, ProviderClass], logger_name: str, logge
                                                  sector_name=sector_name,
                                                  worker_name=name)
                     processes[name] = new_p
+                    last_restart[name] = time.time()
 
         except (KeyboardInterrupt, TerminateSignal):
             logger.info("Supervisor stopping... terminating workers.")
@@ -150,6 +208,9 @@ def RUN_STATE_FETCHERS():
         "OrcaCLMM_state_fetcher": OrcaClmmState,
         "RaydiumCLMM_state_fetcher": RaydiumClmmState,
         "RaydiumHybrid_state_fetcher": RaydiumAmmState,
+        "UniswapV2_state_fetcher": UniswapV2StateFetcher,
+        "UniswapV3_state_fetcher": UniswapV3StateFetcher,
+        "UniswapV4_state_fetcher": UniswapV4StateFetcher,
     }
     logger_name = "data_fetcher-State"
     logger_file = "data_fetcher-State.log"
