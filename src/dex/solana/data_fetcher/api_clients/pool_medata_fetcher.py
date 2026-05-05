@@ -6,7 +6,7 @@ import pydantic
 
 ####################################
 from src.settings import config
-from src.settings.config import get_config, Network
+from src.settings.config import get_config, Network, METADATA_LOG_FILE
 from src.logger_handler.logger import get_logger, setup_logger
 ####################################
 
@@ -31,9 +31,8 @@ class PoolMetadataFetcher:
         self.logger_file = conf.logger_file
         self.error_sleep_time = conf.error_sleep_time
         self.fetching_sleep_time = conf.fetching_sleep_time
-        log_name = f"{self.market}_{self.version}"
-        log_file = f"{config.DATA_FETCHER_LOG_FOLDER}{self.market}_{self.version}_{self.logger_file}"
-        setup_logger(logger_name=log_name, log_file=log_file)
+        log_name = f"{self.market}_{self.version}_metadata"
+        setup_logger(logger_name=log_name, log_file=METADATA_LOG_FILE)
 
 
         self.r = redis.Redis(host=config.REDIS_HOST, port=config.REDIS_PORT)

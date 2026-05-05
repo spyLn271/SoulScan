@@ -19,6 +19,8 @@ from src.settings.config import (
     DEX,
     Version,
     POOLS_STATE_DICT_REDIS_KEY,
+    EVM_FETCHER_LOG_FILE,
+    EVM_SKELETON_LOG_FILE,
 )
 ####################################
 
@@ -42,7 +44,7 @@ def save_pool_state(
 
 async def uniswap_v2_network_fetcher(network: Network):
     setup_logger(
-        log_file=f"{get_config().DATA_FETCHER_LOG_FOLDER}/uniswap_v2_{network}_fetcher.log",
+        log_file=EVM_FETCHER_LOG_FILE,
         logger_name=f"uniswap_v2_{network}_fetcher"
     )
 
@@ -117,7 +119,7 @@ def uniswap_v3_bootstrap_worker(network: Network):
 class UniswapV2StateFetcher(FetcherSkeleton):
     def __init__(self):
         setup_logger(
-            log_file=f"{get_config().DATA_FETCHER_LOG_FOLDER}/uniswap_v2_state_fetcher.log",
+            log_file=EVM_SKELETON_LOG_FILE,
             logger_name="uniswap_v2_state_fetcher"
         )
 

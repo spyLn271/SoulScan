@@ -12,7 +12,8 @@ from src.settings.config import (EVM_NATIVE_TOKEN_ADDRESSES,
                                  REDIS_METADATA_KEY,
                                  DEX,
                                  Network,
-                                 Version)
+                                 Version,
+                                 METADATA_LOG_FILE)
 from src.dex.evm.type_dict import MetadataDict
 from src.settings.config import get_config
 from src.dex.evm.uniswap.v3 import UniswapV3
@@ -151,7 +152,7 @@ GECKO_DEX_IDS = {
 class CoingeckoEvmFetcher:
     def __init__(self):
         setup_logger(
-            log_file=f"{_config.DATA_FETCHER_LOG_FOLDER}/coingecko_evm_fetcher.log",
+            log_file=METADATA_LOG_FILE,
             logger_name="coingecko_evm_fetcher"
         )
 

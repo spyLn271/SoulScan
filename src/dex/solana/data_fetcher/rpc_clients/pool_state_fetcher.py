@@ -9,6 +9,7 @@ from typing import Union, Type, TYPE_CHECKING
 
 ####################################
 from src.settings import config
+from src.settings.config import SOLANA_FETCHER_LOG_FILE
 from src.logger_handler.logger import get_logger, setup_logger
 from src.dex.solana.data_fetcher.rpc_clients import pfs_exception
 
@@ -50,9 +51,8 @@ class PoolStateFetcher:
         self.interval_sleep_time = conf.interval_sleep_time
         self.provider = conf.provider
         self.provider_kwargs = conf.provider_kwargs
-        log_name = f"{self.market}_{self.version}"
-        log_file = f"{config.DATA_FETCHER_LOG_FOLDER}{self.market}_{self.version}_{self.logger_file}"
-        setup_logger(logger_name=log_name, log_file=log_file)
+        log_name = f"{self.market}_{self.version}_state"
+        setup_logger(logger_name=log_name, log_file=SOLANA_FETCHER_LOG_FILE)
 
         self.r = redis.Redis(host=config.REDIS_HOST, port=config.REDIS_PORT, decode_responses=True)
         self.logger = get_logger(log_name)

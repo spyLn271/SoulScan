@@ -108,6 +108,12 @@ CEX_LOG_FOLDER = str(_config.CEX_LOG_FOLDER) + "/"
 CEX_MARKET_DATA_LOG_FOLDER = str(_config.CEX_MARKET_DATA_LOG_FOLDER) + "/"
 CEX_CONTRACTS_LOG_FOLDER = str(_config.CEX_CONTRACTS_LOG_FOLDER) + "/"
 
+# Consolidated data-fetcher log files (nginx-style: one per concern, not per worker).
+EVM_FETCHER_LOG_FILE      = DATA_FETCHER_LOG_FOLDER + "evm.fetcher.log"
+EVM_SKELETON_LOG_FILE     = DATA_FETCHER_LOG_FOLDER + "evm.skeleton.log"
+SOLANA_FETCHER_LOG_FILE   = DATA_FETCHER_LOG_FOLDER + "solana.fetcher.log"
+METADATA_LOG_FILE         = DATA_FETCHER_LOG_FOLDER + "metadata.log"
+
 ORCA_CLMM_PROGRAM_ID = 'whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc'
 METEORA_DLMM_PROGRAM_ID = 'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo'
 MAX_BIN_PER_ARRAY_DLMM = 70

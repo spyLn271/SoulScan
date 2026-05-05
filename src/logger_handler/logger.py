@@ -1,5 +1,4 @@
 import logging
-from logging.handlers import RotatingFileHandler
 
 def setup_logger(level=logging.INFO, log_file="app.log", logger_name=__name__):
     logger = logging.getLogger(logger_name)
@@ -10,10 +9,10 @@ def setup_logger(level=logging.INFO, log_file="app.log", logger_name=__name__):
     logger.propagate = False
 
     formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)'
+        '%(asctime)s | %(levelname)-7s | %(processName)s | %(name)s | %(message)s'
     )
 
-    file_handler = RotatingFileHandler(log_file, maxBytes=2 * 1024 * 1024, backupCount=10, encoding="utf-8")
+    file_handler = logging.FileHandler(log_file, mode='a', encoding="utf-8")
     file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)

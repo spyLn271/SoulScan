@@ -2,6 +2,7 @@ import os
 
 ####################################
 from src.settings import config
+from src.settings.config import SOLANA_FETCHER_LOG_FILE
 from src.dex.tools.rpc.solana import Solana
 from src.dex.tools.helpers.solana.translater import Translater
 from src.logger_handler.logger import setup_logger, get_logger
@@ -69,8 +70,7 @@ class MeteoraDAMMv2(Solana):
                  logger_file="MeteoraDAMMv2.log"):
         super().__init__(SOLANA_RPC_ENDPOINT)
 
-        setup_logger(logger_name=logger_name,
-                     log_file=os.path.join(config.DATA_FETCHER_LOG_FOLDER, logger_file))
+        setup_logger(logger_name=logger_name, log_file=SOLANA_FETCHER_LOG_FILE)
         self.translater = MeteoraDAMMv2Translater(logger=self.logger)
         self.logger = get_logger(logger_name)
 

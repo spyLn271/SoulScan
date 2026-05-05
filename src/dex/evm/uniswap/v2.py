@@ -3,7 +3,7 @@ from typing import TypedDict
 
 ####################################
 from src.dex.tools.rpc.ethereum import Ethereum
-from src.settings.config import get_config, DEX, Network
+from src.settings.config import get_config, DEX, Network, EVM_FETCHER_LOG_FILE
 from src.logger_handler.logger import get_logger, setup_logger
 ####################################
 
@@ -50,11 +50,11 @@ class UniswapV2(Ethereum):
             dex: DEX
     ):
         setup_logger(
-            logger_name=f"Uniswap_v2_state_{network}_{dex}",
-            log_file=f"{get_config().DATA_FETCHER_LOG_FOLDER}/Uniswap_v2_state_{network}_{dex}.log"
+            logger_name=f"uniswap_v2_rpc_{network}_{dex}",
+            log_file=EVM_FETCHER_LOG_FILE,
         )
 
-        self.logger = get_logger(f"Uniswap_v2_state_{network}_{dex}")
+        self.logger = get_logger(f"uniswap_v2_rpc_{network}_{dex}")
 
         super().__init__(network=network, dex=dex, logger=self.logger)
 

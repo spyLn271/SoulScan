@@ -2,7 +2,7 @@ from web3.eth.eth import ChecksumAddress
 
 ####################################
 from src.dex.tools.rpc.ethereum import Ethereum
-from src.settings.config import get_config, DEX, Network
+from src.settings.config import get_config, DEX, Network, EVM_FETCHER_LOG_FILE
 from src.logger_handler.logger import get_logger, setup_logger
 from src.dex.evm.type_dict import MetadataDict, SlotDict
 from src.settings.basic_schemes import Tick
@@ -165,13 +165,13 @@ class UniswapV3(Ethereum):
             dex: DEX
     ):
         setup_logger(
-            logger_name=f"Uniswap_v3_state_{network}_{dex}",
-            log_file=f"{get_config().DATA_FETCHER_LOG_FOLDER}/Uniswap_v3_state_{network}_{dex}.log"
+            logger_name=f"uniswap_v3_rpc_{network}_{dex}",
+            log_file=EVM_FETCHER_LOG_FILE,
         )
 
         self.fetching_range: int = get_config().EVM_TICKS_FETCH_RANGE
 
-        self.logger = get_logger(f"Uniswap_v3_state_{network}_{dex}")
+        self.logger = get_logger(f"uniswap_v3_rpc_{network}_{dex}")
         self.network = network
         self.dex = dex
 

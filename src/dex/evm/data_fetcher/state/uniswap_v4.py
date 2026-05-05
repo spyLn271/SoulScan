@@ -22,6 +22,8 @@ from src.settings.config import (
     DEX,
     Version,
     POOLS_STATE_DICT_REDIS_KEY,
+    EVM_FETCHER_LOG_FILE,
+    EVM_SKELETON_LOG_FILE,
 )
 ####################################
 
@@ -71,7 +73,7 @@ async def uniswap_v4_slot_fetcher(network: Network):
     _config = get_config()
 
     setup_logger(
-        log_file=f"{get_config().DATA_FETCHER_LOG_FOLDER}/uniswap_v4_{network}_fetcher.log",
+        log_file=EVM_FETCHER_LOG_FILE,
         logger_name=f"uniswap_v4_{network}_fetcher",
     )
 
@@ -139,7 +141,7 @@ async def uniswap_v4_tick_fetcher(network: Network):
     _config = get_config()
 
     setup_logger(
-        log_file=f"{get_config().DATA_FETCHER_LOG_FOLDER}/uniswap_v4_{network}_fetcher.log",
+        log_file=EVM_FETCHER_LOG_FILE,
         logger_name=f"uniswap_v4_{network}_fetcher",
     )
 
@@ -211,7 +213,7 @@ def uniswap_v4_fetcher(network: Network):
     signal.signal(signal.SIGTERM, sigterm_handler)
 
     setup_logger(
-        log_file=f"{get_config().DATA_FETCHER_LOG_FOLDER}/uniswap_v4_{network}_fetcher.log",
+        log_file=EVM_FETCHER_LOG_FILE,
         logger_name=f"uniswap_v4_{network}_fetcher",
     )
     logger = get_logger(f"uniswap_v4_{network}_fetcher")
@@ -236,7 +238,7 @@ def uniswap_v4_fetcher(network: Network):
 class UniswapV4StateFetcher(FetcherSkeleton):
     def __init__(self):
         setup_logger(
-            log_file=f"{get_config().DATA_FETCHER_LOG_FOLDER}/uniswap_v4_state_fetcher.log",
+            log_file=EVM_SKELETON_LOG_FILE,
             logger_name="uniswap_v4_state_fetcher"
         )
 
