@@ -3,7 +3,6 @@ from decimal import Decimal
 
 ####################################
 from src.dex.swap_python import swap_manager
-from src.settings import config
 ####################################
 
 class SwapParamsTD(TypedDict):
@@ -45,7 +44,3 @@ class Swap:
             return self.uniswap_v2.uniswap_v2_swap(uniswap_v2_swap_params)
         else:
             raise Exception(f"Market {dex}_{version} is not supported.")
-
-    @staticmethod
-    def get_active_market():
-        return config.ACTIVE_MARKETS

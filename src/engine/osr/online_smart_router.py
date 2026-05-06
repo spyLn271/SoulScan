@@ -4,7 +4,6 @@ import networkx as nx
 import pydantic
 import multiprocessing
 import time
-import os
 import logging
 from decimal import Decimal
 from typing import Literal
@@ -12,11 +11,13 @@ import math
 import signal
 
 ####################################
-from src.settings import config, bases
+from src.settings import config
+from src.settings.bases import Bases, SecondBases, ExcludeBases, AMOUNT_PROBE, SUPPORTED_QUOTES
+from src.settings.config import Network
 from src.logger_handler.logger import get_logger, setup_logger
 from src.engine.osr.math_smart_router import MathSmartRouter
 from src.settings.graceful_shut_down import TerminateSignal, sigterm_handler
-from src.engine.osr.osr_helper import get_active_metadata, get_active_state, create_graph
+from src.engine.osr.osr_helper import get_network_active_metadata, get_network_active_state, create_graph
 ####################################
 
 class OnlineSmartRouterEngineV1:
@@ -26,11 +27,13 @@ class OnlineSmartRouterEngineV1:
     MIN_CANDIDATES_LENGTH_REQUIREMENTS = 10
     LEVEL_DEPTH = 3
 
-    def __init__(self, logger: logging.Logger, math_smart_router: MathSmartRouter, network: str):
+    def __init__(self, logger: logging.Logger, math_smart_router: MathSmartRouter, network: Network):
         self.logger = logger
         self.math_smart_router = math_smart_router
         self.network = network
 
+
+    # Filter candidates by brute force
     def _filter_candidates_v1(
             self,
             unfiltered_candidates: list[list[str]],
@@ -49,16 +52,16 @@ class OnlineSmartRouterEngineV1:
         pool_meta = metadata.get(sample_pool)
 
         if pool_meta:
-            if (pool_meta.get('mint0') == mint_in) or (pool_meta.get('addr0') == mint_in):
+            if pool_meta.get('mint0') == mint_in:
                 decimals = pool_meta['decimals0']
-            elif (pool_meta.get('mint1') == mint_in) or (pool_meta.get('addr1') == mint_in):
+            elif pool_meta.get('mint1') == mint_in:
                 decimals = pool_meta['decimals1']
             else:
                 raise Exception(f"Mint {mint_in} not found in pool {sample_pool}")
         else:
             raise Exception(f"Pool {sample_pool} not found in metadata")
 
-        for human_amount in bases.AMOUNT_PROBE:
+        for human_amount in AMOUNT_PROBE:
             atomic_amount = human_amount * (Decimal(10) ** decimals)
 
             current_probe_candidates = {}
@@ -98,6 +101,8 @@ class OnlineSmartRouterEngineV1:
 
         return best_candidates
 
+
+    # Get candidates whose intermediate tokens are in Bases
     @staticmethod
     def _get_candidates_path(
             all_paths,
@@ -112,7 +117,9 @@ class OnlineSmartRouterEngineV1:
 
         return filtered_paths
 
-    def _find_candidates_v1(
+
+    # Find candidates for a given pair token_in/token_out
+    def _find_candidates_for_pair_v1(
             self,
             G: nx.Graph,
             token_in: str,
@@ -123,10 +130,10 @@ class OnlineSmartRouterEngineV1:
             self.logger.warning(f"No paths found between {token_in} and {token_out}")
             return []
 
-        filtered_paths = self._get_candidates_path(all_paths, bases.Bases.get(self.network))
+        filtered_paths = self._get_candidates_path(all_paths, Bases.get(self.network))
 
         if not filtered_paths:
-            filtered_paths = self._get_candidates_path(all_paths, bases.SecondBases.get(self.network))
+            filtered_paths = self._get_candidates_path(all_paths, SecondBases.get(self.network))
 
         if not filtered_paths:
             self.logger.warning(f"Paths between {token_in} and {token_out} don't contain any of the Bases. Returning empty list.")
@@ -152,7 +159,7 @@ class OnlineSmartRouterEngineV1:
             self,
             G: nx.Graph,
             target_bases: list[str],
-            quotes: list
+            quotes: list[str]
     ) -> dict:
         all_paths = {}
 
@@ -160,10 +167,10 @@ class OnlineSmartRouterEngineV1:
             for base in target_bases:
                 if quote == base:
                     continue
-                elif base in bases.ExcludeBases.get(self.network):
+                elif base in ExcludeBases.get(self.network):
                     continue
 
-                candidates = self._find_candidates_v1(G, base, quote)
+                candidates = self._find_candidates_for_pair_v1(G, base, quote)
                 all_paths[f"{base}/{quote}"] = candidates
 
         return all_paths
@@ -178,6 +185,7 @@ class OnlineSmartRouterEngineV1:
     ) -> dict[str, list[list[str]]]:
         all_candidates = self._get_all_candidates_v1(G, target_bases, quotes)
         best_candidates = {}
+
         for pair, candidates in all_candidates.items():
             try:
                 mint_in, mint_out = pair.split('/')
@@ -192,13 +200,13 @@ class OnlineSmartRouterEngineV1:
 
 
 class OnlineSmartRouterConfigScheme(pydantic.BaseModel):
-    logger_name: str = 'OnlineSmartRouter'
-    log_file: str = 'OnlineSmartRouter.log'
-    network: str = 'solana'
+    network: Network
     worker_number: int = 25
     Graph_update_time: int = 60
     version: Literal['v1'] = 'v1'
-    quote: list[str] = pydantic.Field(default_factory=lambda: bases.SUPPORTED_QUOTES_SOLANA)
+    quote: dict[str, list] = pydantic.Field(default_factory=lambda: SUPPORTED_QUOTES)
+
+
 class OnlineSmartRouter:
     Engine = {
         'v1': OnlineSmartRouterEngineV1
@@ -206,10 +214,18 @@ class OnlineSmartRouter:
 
     def __init__(self, conf: OnlineSmartRouterConfigScheme):
         self.conf = conf
-        logger_name = conf.logger_name
-        log_file = conf.log_file
-        setup_logger(logger_name=logger_name, log_file=os.path.join(config.OSR_LOG_FOLDER, log_file))
+
+        self.network = conf.network
+
+        self.quotes = conf.quote[self.network]
+
+        logger_name = f"osr.{self.network}.{conf.version}"
+        log_file = config.OSR_LOG_FILES[self.network]
+
+
+        setup_logger(logger_name=logger_name, log_file=log_file)
         self.logger = get_logger(logger_name)
+
         self.r = redis.Redis(port=config.REDIS_PORT, host=config.REDIS_HOST, decode_responses=True)
 
         math_smart_router = MathSmartRouter(logger=self.logger)
@@ -234,20 +250,27 @@ class OnlineSmartRouter:
     def __setstate__(self, state):
         self.__dict__.update(state)
         self.r = redis.Redis(port=config.REDIS_PORT, host=config.REDIS_HOST, decode_responses=True)
-        logger_name = 'OSR_worker_%s' % multiprocessing.current_process().name
-        log_file = 'OSR_worker_%s.log' % multiprocessing.current_process().name
-        setup_logger(logger_name=logger_name, log_file=os.path.join(config.OSR_LOG_FOLDER, log_file))
+
+        logger_name = f"osr.{self.network}.{self.conf.version}"
+        log_file = config.OSR_LOG_FILES[self.network]
+
+        setup_logger(logger_name=logger_name, log_file=log_file)
         self.logger = get_logger(logger_name)
+
         math_smart_router = MathSmartRouter(logger=self.logger)
-        self.engine = OnlineSmartRouter.Engine[state['conf'].version](logger=self.logger, math_smart_router=math_smart_router)
+        self.engine = OnlineSmartRouter.Engine[state['conf'].version](
+            logger=self.logger,
+            math_smart_router=math_smart_router,
+            network=state['conf'].network
+        )
 
     @staticmethod
     def save_candidates_to_redis(candidates: dict, redis_connection: redis.Redis):
         """
             candidates format:
             {
-                "SOL/USDC": [ ...list of routes... ],
-                "RAY/USDT": [ ...list of routes... ]
+                "0x…/0x…": [ ...list of routes... ],
+                "base58/base58": [ ...list of routes... ]
             }
         """
 
@@ -265,25 +288,35 @@ class OnlineSmartRouter:
         if mapped_candidates:
             redis_connection.hset(config.REDIS_KEY_COLD_PATH, mapping=mapped_candidates)
 
-    @staticmethod
-    def save_dex_mints(mints: list, redis_connection: redis.Redis):
+    def save_dex_mints(self, mints: list, redis_connection: redis.Redis):
         if not mints: return
 
-        redis_connection.set(config.REDIS_SOLANA_DEX_MINTS, json.dumps({"mints": mints}))
+        redis_connection.set(config.REDIS_DEX_MINTS % (self.network, ), json.dumps({"tokens": mints}))
 
     def _worker(self):
         while True:
             try:
                 target_bases = self.queue.get()
                 self.logger.info(f"Worker {multiprocessing.current_process().name} started for {target_bases}")
-                metadata = get_active_metadata(self.r)
-                state = get_active_state(self.r, logger=self.logger)
+
+                metadata = get_network_active_metadata(
+                    redis_connection=self.r,
+                    network=self.network,
+                    logger=self.logger
+                )
+                state = get_network_active_state(
+                    redis_connection=self.r,
+                    network=self.network,
+                    logger=self.logger
+                )
+
                 G = create_graph(metadata, state)
                 candidates = self.engine.get_the_best_candidates(G=G,
                                                                  target_bases=target_bases,
-                                                                 quotes=self.conf.quote,
+                                                                 quotes=self.conf.quote[self.conf.network],
                                                                  state=state,
                                                                  metadata=metadata)
+
                 self.save_candidates_to_redis(candidates, self.r)
                 self.logger.info(f"Worker {multiprocessing.current_process().name} finished task.")
 
@@ -374,8 +407,17 @@ class OnlineSmartRouter:
             self.logger.critical("Critical Fail: Could not start any workers.")
             raise Exception("Critical Fail: Could not start any workers.")
 
-        metadata = get_active_metadata(self.r)
-        state = get_active_state(self.r, logger=self.logger)
+        metadata = get_network_active_metadata(
+            redis_connection=self.r,
+            network=self.network,
+            logger=self.logger
+        )
+        state = get_network_active_state(
+            redis_connection=self.r,
+            network=self.network,
+            logger=self.logger
+        )
+
         G = create_graph(metadata, state)
         last_graph_update = time.time()
         bases = list(G.nodes)
@@ -384,8 +426,18 @@ class OnlineSmartRouter:
         while True:
             try:
                 if time.time() - last_graph_update >= self.conf.Graph_update_time:
-                    metadata = get_active_metadata(self.r)
-                    state = get_active_state(self.r, logger=self.logger)
+                    metadata = get_network_active_metadata(
+                        redis_connection=self.r,
+                        network=self.network,
+                        logger=self.logger
+                    )
+
+                    state = get_network_active_state(
+                        redis_connection=self.r,
+                        network=self.network,
+                        logger=self.logger
+                    )
+
                     G = create_graph(metadata, state)
                     last_graph_update = time.time()
                     bases = list(G.nodes)

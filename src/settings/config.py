@@ -95,7 +95,7 @@ REDIS_PORT = _config.REDIS.PORT
 REDIS_METADATA_KEY = 'snapshot:metadata:%s:%s:%s'  # network, market and version
 POOLS_STATE_DICT_REDIS_KEY = 'snapshot:state:%s:%s:%s'  # network, market and version
 REDIS_KEY_COLD_PATH = "snapshot:cold_path"
-REDIS_SOLANA_DEX_MINTS = "snapshot:solana_dex_mints"
+REDIS_DEX_MINTS = "snapshot:addresses:%s" # network
 
 ENV_CLMM_SLOT_KEY = "slot"
 ENV_CLMM_TICKS_KEY = "ticks"
@@ -223,41 +223,14 @@ MARKETS = {
     "avax_uniswap_v3": {"market": "uniswap", "version": "v3", "network": "avax"},
     "avax_uniswap_v4": {"market": "uniswap", "version": "v4", "network": "avax"},
 }
-ACTIVE_MARKETS = [
-    'meteora_dlmm',
-    'orca_clmm',
-    'raydium_clmm',
-    'raydium_amm',
 
-    "eth_uniswap_v2",
-    "eth_uniswap_v3",
-    "eth_uniswap_v4",
-
-    "arbitrum_uniswap_v2",
-    "arbitrum_uniswap_v3",
-    "arbitrum_uniswap_v4",
-
-    # "optimism_uniswap_v2",
-    # "optimism_uniswap_v3",
-    # "optimism_uniswap_v4",
-
-    "base_uniswap_v2",
-    "base_uniswap_v3",
-    "base_uniswap_v4",
-
-    # "polygon_uniswap_v2",
-    # "polygon_uniswap_v3",
-    # "polygon_uniswap_v4",
-
-    "bsc_uniswap_v2",
-    "bsc_uniswap_v3",
-    "bsc_uniswap_v4",
-
-    # "avax_uniswap_v2",
-    # "avax_uniswap_v3",
-    # "avax_uniswap_v4",
-
-]
+ACTIVE_NETWORK_MARKETS = {
+    "solana": ['meteora_dlmm', 'orca_clmm', 'raydium_clmm', 'raydium_amm',],
+    "eth": ['eth_uniswap_v2', 'eth_uniswap_v3', 'eth_uniswap_v4',],
+    "arbitrum": ['arbitrum_uniswap_v2', 'arbitrum_uniswap_v3', 'arbitrum_uniswap_v4',],
+    "base": ['base_uniswap_v2', 'base_uniswap_v3', 'base_uniswap_v4',],
+    "bsc": ['bsc_uniswap_v2', 'bsc_uniswap_v3', 'bsc_uniswap_v4',],
+}
 
 EVM_NETWORKS = ["eth", "base", "arbitrum", "bsc"]
 

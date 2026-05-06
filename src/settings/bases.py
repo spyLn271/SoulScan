@@ -6,29 +6,107 @@ Bases = {
         'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So',
         'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
         'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
-        'cbbtcf3aa214zXHbiAZQwf4122FBYbraNdFqgw4iMij'
+        'cbbtcf3aa214zXHbiAZQwf4122FBYbraNdFqgw4iMij',
     ],
-    'ethereum': ['ETH', 'USDC', 'USDT', 'WBTC', 'DAI', 'UNI'],
-    'base': ['ETH', 'USDC', 'USDT', 'WBTC', 'DAI', 'UNI'],
-    'arbitrum': ['ETH', 'USDC', 'USDT', 'WBTC', 'DAI', 'UNI'],
-    'avalanche': ['AVAX', 'USDC', 'USDT', 'WBTC', 'DAI', 'UNI', 'WETH'],
-    'op_mainnet': ['ETH', 'USDC', 'USDT', 'WBTC', 'DAI', 'UNI'],
-    'polygon': ['POL', 'USDC', 'USDT', 'WBTC', 'DAI', 'UNI', 'WETH'],
-    'bsc': ['BNB', 'USDC', 'USDT', 'WBTC', 'DAI', 'UNI', 'WETH'],
-    'unichain': ['ETH', 'USDC', 'USDT', 'WBTC', 'DAI', 'UNI'],
+    'eth': [
+        '0x0000000000000000000000000000000000000000',
+        '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+        '0xdac17f958d2ee523a2206206994597c13d831ec7',
+        '0x2260fac5e5542a773aa44fbcfedf7c193bc2c599',
+        '0x6b175474e89094c44da98b954eedeac495271d0f',
+    ],
+    'base': [
+        '0x0000000000000000000000000000000000000000',
+        '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
+        '0xfde4c96c8593536e31f229ea8f37b2ada2699bb2',
+        '0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf',
+        '0x50c5725949a6f0c72e6c4a641f24049a917db0cb',
+    ],
+    'arbitrum': [
+        '0x0000000000000000000000000000000000000000',
+        '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
+        '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9',
+        '0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f',
+        '0xda10009cbd5d07dd0cecc66161fc93d7c9000da1',
+    ],
+    'bsc': [
+        '0x0000000000000000000000000000000000000000',
+        '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d',
+        '0x55d398326f99059ff775485246999027b3197955',
+        '0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c',
+        '0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3',
+        '0x2170ed0880ac9a755fd29b2688956bd959f933f8',
+    ],
 }
 
 SecondBases = {
-    "solana": ['USD1ttGY1N17NEEHLmELoaybftRBUSErhqYiQzvEmuB']
+    "solana": ['USD1ttGY1N17NEEHLmELoaybftRBUSErhqYiQzvEmuB'],
+    "eth": [],
+    "base": [],
+    "arbitrum": [],
+    "bsc": []
 }
 
 ExcludeBases = {
     "solana": [
-        'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-        'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
-        'USD1ttGY1N17NEEHLmELoaybftRBUSErhqYiQzvEmuB',
-        'CASHx9KJUStyftLFWGvEVf59SGeG9sh5FfcnZMVPCASH'
-    ]
+        'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',  # USDC
+        'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',  # USDT
+        'USD1ttGY1N17NEEHLmELoaybftRBUSErhqYiQzvEmuB',  # USD1
+        'CASHx9KJUStyftLFWGvEVf59SGeG9sh5FfcnZMVPCASH',  # CASH
+        '2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo',  # PYUSD
+        'USDSwr9ApdHk5bvJKMjzff41FfuX8bSxdKcR81vTwcA',  # USDS
+        'DEkqHyPN7GMRJ5cArtQFAWefqbZb33Hyf6s5iCwjEonT',  # USDe
+        '9zNQRsGLjNKwCUU5Gq5LR8beUCPzQMVMqKAi3SSZh54u',  # FDUSD
+        '2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH',  # USDG
+        'AUSD1jCcCyPLybk1YnvPWsHQSrZ46dxwoMniN4N2UEB9',  # AUSD
+        'A1KLoBrKBde8Ty9qtNQUtq3C2ortoC3u7twggz7sEto6',  # USDY
+        'susdabGDNbhrnCa6ncrYo81u4s9GM8ecK2UwMyZiq4X',  # sUSD
+    ],
+
+    "eth": [
+        '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',  # USDC
+        '0xdac17f958d2ee523a2206206994597c13d831ec7',  # USDT
+        '0x6b175474e89094c44da98b954eedeac495271d0f',  # DAI
+        '0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d',  # USD1
+        '0x6c3ea9036406852006290770bedfcaba0e23a0e8',  # PYUSD
+        '0xdc035d45d973e3ec169d2276ddab16f1e407384f',  # USDS
+        '0x4c9edd5852cd905f086c759e8383e09bff1e68b3',  # USDe
+        '0xc5f0f7b66764f6ec8c8dff7ba683102295e16409',  # FDUSD
+        '0xe343167631d89b6ffc58b88d6b7fb0228795491d',  # USDG
+        '0x00000000efe302beaa2b3e6e1b18d08d69a9012a',  # AUSD
+        '0x96f6ef951840721adbf46ac996b59e0235cb985c',  # USDY
+    ],
+
+    "base": [
+        '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',  # USDC
+        '0xfde4c96c8593536e31f229ea8f37b2ada2699bb2',  # USDT
+        '0x50c5725949a6f0c72e6c4a641f24049a917db0cb',  # DAI
+        '0x820c137fa70c8691f0e44dc420a5e53c168921dc',  # USDS
+        '0x5d3a1ff2b6bab83b63cd9ad0787074081a52ef34',  # USDe
+        '0x00000000efe302beaa2b3e6e1b18d08d69a9012a',  # AUSD
+    ],
+
+    "arbitrum": [
+        '0xaf88d065e77c8cc2239327c5edb3a432268e5831',  # USDC
+        '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9',  # USDT
+        '0xda10009cbd5d07dd0cecc66161fc93d7c9000da1',  # DAI
+        '0x46850ad61c2b7d64d08c9c754f45254596696984',  # PYUSD
+        '0x6491c05a82219b8d1479057361ff1654749b876b',  # USDS
+        '0x5d3a1ff2b6bab83b63cd9ad0787074081a52ef34',  # USDe
+        '0x93c9932e4afa59201f0b5e63f7d816516f1669fe',  # FDUSD
+        '0x00000000efe302beaa2b3e6e1b18d08d69a9012a',  # AUSD
+        '0x35e050d3c0ec2d29d269a8ecea763a183bdf9a9d',  # USDY
+    ],
+
+    "bsc": [
+        '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d',  # USDC
+        '0x55d398326f99059ff775485246999027b3197955',  # USDT
+        '0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3',  # DAI
+        '0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d',  # USD1
+        '0x5d3a1ff2b6bab83b63cd9ad0787074081a52ef34',  # USDe
+        '0xc5f0f7b66764f6ec8c8dff7ba683102295e16409',  # FDUSD
+        '0x00000000efe302beaa2b3e6e1b18d08d69a9012a',  # AUSD
+    ],
 }
 
 AMOUNT_PROBE = [
@@ -45,12 +123,13 @@ AMOUNT_PROBE = [
     Decimal("1"),
     Decimal("0.1")
 ]
-SUPPORTED_QUOTES_SOLANA = [
-    'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',  # USDC
-    'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',  # USDT
-]
 
-SUPPORTED_QUOTES_EVM = {
+
+SUPPORTED_QUOTES = {
+    'solana': [
+        'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+        'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
+    ],
     'ethereum': {
         'USDC': '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
         'USDT': '0xdac17f958d2ee523a2206206994597c13d831ec7'
@@ -59,28 +138,12 @@ SUPPORTED_QUOTES_EVM = {
         'USDC': '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
         'USDT': '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9'
     },
-    'avalanche': {
-        'USDC': '0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e',
-        'USDT': '0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7'
-    },
     'base': {
         'USDC': '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
         'USDT': '0xfde4c96c8593536e31f229ea8f37b2ada2699bb2'
-    },
-    'op_mainnet': {
-        'USDC': '0x0b2c639c533813f4aa9d7837caf62653d097ff85',
-        'USDT': '0x94b008aa00579c1307b0ef2c499ad98a8ce58e58'
-    },
-    'polygon': {
-        'USDC': '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359',
-        'USDT': '0xc2132d05d31c914a87c6611c10748aeb04b58e8f'
     },
     'bsc': {
         'USDC': '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d',
         'USDT': '0x55d398326f99059ff775485246999027b3197955'
     },
-    'unichain': {
-        'USDC': '0x078d782b760474a361dda0af3839290b0ef57ad6',
-        'USDT': '0x588ce4f028d8e7b53b687865d6a67b3a54c75518'
-    }
 }
