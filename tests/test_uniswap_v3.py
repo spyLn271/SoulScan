@@ -5,7 +5,7 @@ import json
 
 
 r = redis.Redis(decode_responses=True)
-metadata = json.loads(r.get("snapshot:metadata:bsc:uniswap:v3"))
+metadata = json.loads(r.get("snapshot:metadata:base:uniswap:v4"))
 
 pool_ids = list(metadata.keys())
 
@@ -46,5 +46,39 @@ async def test_redis_data():
     with open("liquidity.json", "w") as f:
         f.write(json.dumps(ticks, indent=4))
 
+
+def test_uniswap_v3_swap():
+    from src.dex.swap_python.swap import Swap, SwapParamsTD
+    from decimal import Decimal
+
+    raw = r.hget(name="snapshot:state:base:uniswap:v4", key="slot")
+    slots = json.loads(raw)["pool_state"]
+
+    raw = r.hget(name="snapshot:state:base:uniswap:v4", key="ticks")
+    ticks = json.loads(raw)["pool_state"]
+
+    pool = "0xe070797535b13431808f8fc81fdbe7b41362960ed0b55bc2b6117c49c51b7eb9"
+
+    pool_slot = slots[pool]
+    pool_tick = ticks[pool]
+
+    swap = Swap()
+
+    params = SwapParamsTD(
+        pool_state={
+            "slot": pool_slot,
+            "ticks": pool_tick,
+        },
+        metadata=metadata[pool],
+        delta_amount=Decimal(str(1000 * 10 ** 18)),
+        x_to_y=True,
+        amount_specified_is_input=True,
+    )
+
+    print(swap.swap(params=params, dex="uniswap", version="v4"))
+
+
+
 if __name__ == "__main__":
-    asyncio.run(test_redis_data())
+    # asyncio.run(test_redis_data())
+    test_uniswap_v3_swap()

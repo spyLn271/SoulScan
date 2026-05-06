@@ -20,6 +20,8 @@ class Swap:
     raydium_clmm = swap_manager.RayClmmSwap()
     raydium_amm = swap_manager.RayAmmSwap()
     meteora_dlmm = swap_manager.MeteoraDlmmSwap()
+    uniswap_v3 = swap_manager.UniV3Swap()
+    uniswap_v2 = swap_manager.UniV2Swap()
 
 
     def swap(self, dex: str, version: str, params: SwapParamsTD) -> swap_manager.PoolSwap:
@@ -35,6 +37,12 @@ class Swap:
         elif dex.lower() == 'meteora' and version.lower() == 'dlmm':
             meteora_dlmm_params = swap_manager.MeteoraDlmmSwapTD(**params)
             return self.meteora_dlmm.meteora_dlmm_swap(meteora_dlmm_params)
+        elif dex.lower() == 'uniswap' and (version.lower() == 'v3' or version.lower() == 'v4'):
+            uniswap_v3_swap_params = swap_manager.UniV3SwapTD(**params)
+            return self.uniswap_v3.uniswap_v3_swap(uniswap_v3_swap_params)
+        elif dex.lower() == 'uniswap' and version.lower() == 'v2':
+            uniswap_v2_swap_params = swap_manager.UniV2SwapTD(**params)
+            return self.uniswap_v2.uniswap_v2_swap(uniswap_v2_swap_params)
         else:
             raise Exception(f"Market {dex}_{version} is not supported.")
 
