@@ -125,25 +125,25 @@ AMOUNT_PROBE = [
 ]
 
 
-SUPPORTED_QUOTES = {
+SUPPORTED_QUOTES: dict[str, list] = {
     'solana': [
         'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
         'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
     ],
-    'ethereum': {
-        'USDC': '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
-        'USDT': '0xdac17f958d2ee523a2206206994597c13d831ec7'
-    },
-    'arbitrum': {
-        'USDC': '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
-        'USDT': '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9'
-    },
-    'base': {
-        'USDC': '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
-        'USDT': '0xfde4c96c8593536e31f229ea8f37b2ada2699bb2'
-    },
-    'bsc': {
-        'USDC': '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d',
-        'USDT': '0x55d398326f99059ff775485246999027b3197955'
-    },
+    'eth': [
+        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "0xdac17f958d2ee523a2206206994597c13d831ec7"
+    ],
+    'arbitrum':[
+        "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+        "0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9"
+    ],
+    'base': [
+        '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
+        '0xfde4c96c8593536e31f229ea8f37b2ada2699bb2'
+    ],
+    'bsc': [
+        '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d',
+        '0x55d398326f99059ff775485246999027b3197955'
+    ],
 }
