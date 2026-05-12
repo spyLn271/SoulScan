@@ -1,22 +1,11 @@
-pub const MARKET_METADATA_KEYS: [&str; 4] = [
-    "snapshot:metadata:solana:meteora:dlmm",
-    "snapshot:metadata:solana:orca:clmm",
-    "snapshot:metadata:solana:raydium:clmm",
-    "snapshot:metadata:solana:raydium:amm"
-];
-
-pub const MARKET_STATE_KEYS: [&str; 4] = [
-    "snapshot:state:solana:meteora:dlmm",
-    "snapshot:state:solana:orca:clmm",
-    "snapshot:state:solana:raydium:clmm",
-    "snapshot:state:solana:raydium:amm"
-];
-
-pub const SWAP_SUPPORTED_MARKETS: [(&str, &str); 4] = [
+pub const SWAP_SUPPORTED_MARKETS: [(&str, &str); 7] = [
     ("meteora", "dlmm"),
     ("orca", "clmm"),
     ("raydium", "clmm"),
     ("raydium", "amm"),
+    ("uniswap", "v2"),
+    ("uniswap", "v3"),
+    ("uniswap", "v4"),
 ];
 
 pub const COLD_PATH_KEY: &str = "snapshot:cold_path";
