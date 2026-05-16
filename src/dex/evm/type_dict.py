@@ -40,6 +40,6 @@ class Slot(BaseModel):
     liquidity: int
 
 class SlotDict(TypedDict):
-    sqrt_price_x96: int
+    sqrt_price_x96: str
     tick_current: int
     liquidity: int

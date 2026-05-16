@@ -276,7 +276,7 @@ class UniswapV3(Ethereum):
                 liquidity = self.w3.codec.decode(LIQUIDITY_TYPES, liquidity_call_res[1])
 
                 slot_state[pool_id.lower()] = {
-                    "sqrt_price_x96": slot0_data[0],
+                    "sqrt_price_x96": bin(slot0_data[0])[2:],
                     "tick_current": slot0_data[1],
                     "liquidity": liquidity[0]
                 }

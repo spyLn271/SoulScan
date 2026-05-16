@@ -215,9 +215,8 @@ class UniswapV4(Ethereum):
                 tickSpacing = int(args["tickSpacing"])
                 fee_rate = int(args["fee"])
 
-                if hooks != "0x0000000000000000000000000000000000000000" and fee_rate == 0:
-                    fee_rate = 500
-                    n_fallback += 1
+                if hooks != "0x0000000000000000000000000000000000000000":
+                    continue
 
                 results[pool_id] = {
                     "fee_rate": fee_rate,
@@ -278,7 +277,7 @@ class UniswapV4(Ethereum):
                 liquidity = self.w3.codec.decode(LIQUIDITY_TYPES, liquidity_call_res[1])
 
                 slot_state[pool_id.lower()] = {
-                    "sqrt_price_x96": slot0_data[0],
+                    "sqrt_price_x96": bin(slot0_data[0])[2:],
                     "tick_current": slot0_data[1],
                     "liquidity": liquidity[0]
                 }
