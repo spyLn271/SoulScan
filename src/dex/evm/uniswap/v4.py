@@ -216,6 +216,7 @@ class UniswapV4(Ethereum):
                 fee_rate = int(args["fee"])
 
                 if hooks != "0x0000000000000000000000000000000000000000":
+                    self.logger.warning(f"hooked pool_id: {pool_id}. So skipping it.")
                     continue
 
                 results[pool_id] = {
