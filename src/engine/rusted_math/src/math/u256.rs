@@ -1,3 +1,4 @@
+use std::fmt;
 use crate::math::errors::SoulMathError;
 
 
@@ -40,6 +41,10 @@ pub struct U256 {
 }
 
 impl U256 {
+    pub const MAX: Self = U256 { items: [u64::MAX; NUM_WORDS] };
+    pub const MIN: Self = U256 { items: [0; NUM_WORDS] };
+    pub const ONE: Self = U256 { items: [1, 0, 0, 0] };
+
     pub fn new(h: u128, l: u128) -> Self {
         U256 {
             items: [l.lo(), l.hi(), h.lo(), h.hi()]
@@ -64,6 +69,21 @@ impl U256 {
         }
 
         0
+    }
+
+    pub fn leading_zeros(&self) -> u32 {
+        let mut result: u32 = 0;
+
+        for i in (0..self.items.len()).rev() {
+            if self.items[i] == 0 {
+                result += 64;
+            } else {
+                result += self.items[i].leading_zeros();
+                break
+            }
+        }
+
+        result
     }
 
     fn get_word(&self, index: usize) -> u64 {
@@ -237,6 +257,21 @@ impl U256 {
         Ok(result)
     }
 
+    pub fn wrapping_add(&self, other: &Self) -> Self {
+        let mut result = Self::new(0, 0);
+        let mut carry: bool = false;
+
+        for i in 0..NUM_WORDS {
+            let (partial_sum, carry1) = self.items[i].overflowing_add(other.items[i]);
+            let (sum, carry2) = partial_sum.overflowing_add(carry as u64);
+
+            result.items[i] = sum;
+            carry = carry1 | carry2;
+        }
+
+        result
+    }
+
     pub fn sub(&self, other: &Self) -> Result<Self, SoulMathError> {
         let mut result = Self::new(0, 0);
         let mut borrow: bool = false;
@@ -254,6 +289,21 @@ impl U256 {
         }
 
         Ok(result)
+    }
+
+    pub fn wrapping_sub(&self, other: &Self) -> Self {
+        let mut result = Self::new(0, 0);
+        let mut borrow: bool = false;
+
+        for i in 0..NUM_WORDS {
+            let (partial_diff, borrow1) = self.items[i].overflowing_sub(borrow as u64);
+            let (diff, borrow2) = partial_diff.overflowing_sub(other.items[i]);
+
+            result.items[i] = diff;
+            borrow = borrow1 | borrow2;
+        }
+
+        result
     }
 
     pub fn mul(&self, other: &Self) -> Result<Self, SoulMathError> {
@@ -298,6 +348,50 @@ impl U256 {
         }
 
         Ok(result)
+    }
+
+    pub fn wrapping_mul(&self, other: &Self) -> Self {
+        let mut result = Self::new(0, 0);
+
+        let n = self.size_of();
+        let m = other.size_of();
+
+
+        for i in 0..n {
+            let mut carry: u128 = 0;
+
+            for j in 0..m {
+                let position = i + j;
+
+                if position >= NUM_WORDS {
+                    break
+                }
+
+                let a = self.get_word_u128(i);
+                let b = other.get_word_u128(j);
+                let sum  = a * b + result.get_word_u128(position) + carry;
+
+                result.update_word(position, sum.lo());
+                carry = sum.hi_u128();
+            }
+
+            if carry != 0 {
+                let mut carry_pos = i + m;
+
+                while carry != 0 {
+                    if carry_pos >= NUM_WORDS {
+                        break
+                    }
+
+                    let sum = result.get_word_u128(carry_pos) + carry;
+                    result.update_word(carry_pos, sum.lo());
+                    carry = sum.hi_u128();
+                    carry_pos += 1;
+                }
+            }
+        }
+
+        result
     }
 
     pub fn div(&self, other: &Self) -> Result<(Self, Self), SoulMathError> {
@@ -467,14 +561,17 @@ fn remainder_normalization(remainder: &mut U256, dividend: [u64; NUM_WORDS + 1],
 
 }
 
-fn size_of_dividend(operand: &[u64; NUM_WORDS + 1]) -> usize {
-    // This function is only for internal use and not supposed to be used outside u256_math.rs
-    // It is supposed that words are in little endian order and being used in U256::div func
-    for i in (0..NUM_WORDS + 1).rev() {
-        if operand[i] != 0 {
-            return i + 1;
-        }
+impl fmt::Binary for U256 {
+
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{:064b}_{:064b}_{:064b}_{:064b}",
+            self.items[3],
+            self.items[2],
+            self.items[1],
+            self.items[0],
+        )
     }
 
-    0
 }

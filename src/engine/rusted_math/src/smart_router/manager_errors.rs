@@ -16,5 +16,8 @@ pub enum SoulManagerError {
     LiquidityUnderflow,
 
     #[error("Amount overflow")]
-    AmountOverflow
+    AmountOverflow,
+
+    #[error("Insufficient Data In Metadata")]
+    InsufficientDataInMetadata
 }

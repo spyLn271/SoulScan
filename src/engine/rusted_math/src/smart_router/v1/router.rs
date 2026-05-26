@@ -1,3 +1,5 @@
+// V1 Smart Router doesn't support Uniswap
+
 use crate::smart_router::v1::manager::orca::clmm::swap_manager::swap_manager as orca_clmm_swap;
 use crate::smart_router::v1::manager::meteora::dlmm::swap_manager::swap_manager as meteora_dlmm_swap;
 use crate::smart_router::v1::manager::raydium::clmm::swap_manager::swap_manager as raydium_clmm_swap;

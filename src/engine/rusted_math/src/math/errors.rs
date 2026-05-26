@@ -11,6 +11,9 @@ pub enum SoulMathError {
     #[error("Multiplication overflow")]
     MulOverflow,
 
+    #[error("Division Overflow in singed integer")]
+    DivisionOverflow,
+
     #[error("Cant be divided by zero")]
     CantBeDividedByZero,
 
@@ -18,5 +21,11 @@ pub enum SoulMathError {
     NumberDownCastError,
 
     #[error("Insufficient Liquidity")]
-    InsufficientLiquidity
+    InsufficientLiquidity,
+
+    #[error("tick is more than or less than required amount")]
+    TickIsNotInRange,
+
+    #[error("Price is more than or less than required amount")]
+    PriceIsNotInRange,
 }

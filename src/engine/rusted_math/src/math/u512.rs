@@ -1,3 +1,4 @@
+use std::fmt;
 use crate::math::errors::SoulMathError;
 use crate::math::u256::{LoHi, hi_lo, U256};
 
@@ -15,6 +16,11 @@ pub struct U512 {
 
 
 impl U512 {
+
+    pub const MAX: Self = U512 { items: [u64::MAX; NUM_WORDS] };
+    pub const MIN: Self = U512 { items: [0; NUM_WORDS] };
+    pub const ONE: Self = U512 { items: [1, 0, 0, 0, 0, 0, 0, 0] };
+
     pub fn new(
         hh: u128, hl: u128, lh: u128, ll: u128
     ) -> Self {
@@ -43,6 +49,21 @@ impl U512 {
         }
 
         0
+    }
+
+    pub fn leading_zeros(&self) -> u32 {
+        let mut result: u32 = 0;
+
+        for i in (0..self.items.len()).rev() {
+            if self.items[i] == 0 {
+                result += 64;
+            } else {
+                result += self.items[i].leading_zeros();
+                break
+            }
+        }
+
+        result
     }
 
     fn get_word(&self, index: usize) -> u64 {
@@ -211,6 +232,18 @@ impl U512 {
         )
     }
 
+    pub fn from_u128(x: u128) -> Self {
+        Self {
+            items: [x.lo(), x.hi(), 0, 0, 0, 0, 0, 0]
+        }
+    }
+
+    pub fn from_u256(x: &U256) -> Self {
+        Self {
+            items: [x.items[0], x.items[1], x.items[2], x.items[3], 0, 0, 0, 0]
+        }
+    }
+
     pub fn add(&self, other: &Self) -> Result<Self, SoulMathError> {
         let mut result: U512 = U512::new(0, 0, 0, 0);
         let mut carry: bool = false;
@@ -233,6 +266,24 @@ impl U512 {
         Ok(result)
     }
 
+    pub fn wrapping_add(&self, other: &Self) -> Self {
+        let mut result: U512 = U512::new(0, 0, 0, 0);
+        let mut carry: bool = false;
+
+        for i in 0..NUM_WORDS {
+            let (partial_sum, carry1) = self.get_word(i)
+                .overflowing_add(other.get_word(i));
+
+            let (sum, carry2) = partial_sum
+                .overflowing_add(carry as u64);
+
+            result.update_word(i, sum);
+            carry = carry1 | carry2;
+        }
+
+        result
+    }
+
     pub fn sub(&self, other: &Self) -> Result<Self, SoulMathError> {
         let mut result: U512 = U512::new(0, 0, 0, 0);
         let mut borrow: bool = false;
@@ -253,6 +304,24 @@ impl U512 {
         }
 
         Ok(result)
+    }
+
+    pub fn wrapping_sub(&self, other: &Self) -> Self {
+        let mut result: U512 = U512::new(0, 0, 0, 0);
+        let mut borrow: bool = false;
+
+        for i in 0..NUM_WORDS {
+            let (partial_diff, borrow1) = self.get_word(i)
+                .overflowing_sub(other.get_word(i));
+
+            let (diff, borrow2) = partial_diff
+                .overflowing_sub(borrow as u64);
+
+            result.update_word(i, diff);
+            borrow = borrow1 | borrow2;
+        }
+
+        result
     }
 
     pub fn mul(&self, other: &Self) -> Result<Self, SoulMathError> {
@@ -300,6 +369,53 @@ impl U512 {
         }
 
         Ok(result)
+    }
+
+    pub fn wrapping_mul(&self, other: &Self) -> Self {
+        let mut result = U512::new(
+            0, 0, 0, 0
+        );
+
+        let n = self.size_of();
+        let m = other.size_of();
+
+        for i in 0..n {
+            let mut  carry: u128 = 0;
+
+            for j in 0..m {
+                let position = i + j;
+
+                if position >= NUM_WORDS {
+                    break
+                }
+
+                let a = self.get_word_u128(i);
+                let b = other.get_word_u128(j);
+                let product = a * b + result.get_word_u128(position) + carry;
+
+                result.update_word(position, product.lo());
+                carry = product.hi_u128();
+            }
+
+            if carry != 0 {
+                let mut carry_pos = i + m;
+
+                while carry != 0 {
+                    if carry_pos >= NUM_WORDS {
+                        break
+                    }
+
+                    let sum = result.get_word_u128(carry_pos) + carry;
+
+                    result.update_word(carry_pos, sum.lo());
+                    carry = sum.hi_u128();
+
+                    carry_pos += 1;
+                }
+            }
+        }
+
+        result
     }
 
     pub fn div(&self, other: &Self) -> Result<(Self, Self), SoulMathError> {
@@ -432,6 +548,26 @@ fn remainder_normalization(
 
     for i in 0..NUM_WORDS {
         remainder.update_word(i, normalized_dividend[i]);
+    }
+
+}
+
+
+impl fmt::Binary for U512 {
+
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{:064b}_{:064b}_{:064b}_{:064b}_{:064b}_{:064b}_{:064b}_{:064b}",
+            self.items[7],
+            self.items[6],
+            self.items[5],
+            self.items[4],
+            self.items[3],
+            self.items[2],
+            self.items[1],
+            self.items[0],
+        )
     }
 
 }

@@ -7,14 +7,23 @@ use rusted_soul_dex::dex::metadata::{ColdPath, Metadata};
 use rusted_soul_dex::dex::meteora::MeteoraDlmmPool;
 use rusted_soul_dex::dex::orca::Whirlpool;
 use rusted_soul_dex::dex::raydium::{RayAmmPool, RayClmmPool};
+use rusted_soul_dex::dex::uniswap::{Slot0, TickData, UniswapAmm, UniswapClmmPools};
 use rusted_soul_dex::smart_router::v1::router::{PoolStateV1, SmartRouterV1};
 use rusted_soul_dex::smart_router::v2::router;
 use rusted_soul_dex::smart_router::v2::router::SmartRouterV2;
+use std::hash::Hash;
 
 #[derive(Deserialize, Debug)]
 struct PoolStateFor<T> {
     pool_state: HashMap<String, T>,
     ts: u64
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(bound(deserialize = "K: Deserialize<'de> + Eq + Hash, V: Deserialize<'de>"))]
+struct PoolFormat<K, V> {
+    pub pool_state: HashMap<K, V>,
+    pub ts: u64,
 }
 
 fn get_pool_state<T>(
@@ -30,6 +39,66 @@ where
     let pool_state: PoolStateFor<T> = serde_json::from_str(&raw_data).unwrap();
 
     pool_state.pool_state
+}
+
+fn get_state_amm(
+    redis_pool_con: &Pool<RedisConnectionManager>,
+    network: &String,
+    market: &String,
+) -> HashMap<String, UniswapAmm> {
+    let mut redis_con = redis_pool_con.get().unwrap();
+
+    let raw_json: String = redis_con.get(
+        format!("snapshot:state:{}:{}:v2", network, market)
+    ).unwrap();
+
+    let pool_form: PoolFormat<String, UniswapAmm> = serde_json::from_str(&raw_json).unwrap();
+
+    let state_amm: HashMap<String, UniswapAmm> = pool_form.pool_state;
+
+    state_amm
+}
+
+fn get_state_slot0s(
+    redis_pool_con: &Pool<RedisConnectionManager>,
+    network: &String,
+    market: &String,
+    version: &String
+) -> HashMap<String, Slot0> {
+    let mut redis_con = redis_pool_con.get().unwrap();
+
+    let raw_json: String = redis_con.hget(
+        format!("snapshot:state:{}:{}:{}", network, market, version),
+        "slot"
+    ).unwrap();
+
+    let pool_form: PoolFormat<String, Slot0> = serde_json::from_str(&raw_json)
+        .unwrap();
+
+    let slot0s = pool_form.pool_state;
+
+    slot0s
+}
+
+fn get_ticks(
+    redis_pool_con: &Pool<RedisConnectionManager>,
+    network: &String,
+    market: &String,
+    version: &String
+) -> HashMap<String, HashMap<i32, TickData>> {
+
+    let mut redis_con = redis_pool_con.get().unwrap();
+
+    let raw_json: String = redis_con.hget(
+        format!("snapshot:state:{}:{}:{}", network, market, version),
+        "ticks"
+    ).unwrap();
+
+    let pool_form: PoolFormat<String, HashMap<i32, TickData>> = serde_json::from_str(&raw_json).unwrap();
+
+    let ticks = pool_form.pool_state;
+
+    ticks
 }
 
 fn get_cold_path(pair: &str, pool: &Pool<RedisConnectionManager>) -> ColdPath {
@@ -49,10 +118,12 @@ fn get_metadata(pool: &Pool<RedisConnectionManager>) -> HashMap<String, Metadata
 
 
     let market_metadata_keys = [
-        "snapshot:metadata:meteora:dlmm",
-        "snapshot:metadata:orca:clmm",
-        "snapshot:metadata:raydium:clmm",
-        "snapshot:metadata:raydium:amm"
+        "snapshot:metadata:solana:meteora:dlmm",
+        "snapshot:metadata:solana:orca:clmm",
+        "snapshot:metadata:solana:raydium:clmm",
+        "snapshot:metadata:solana:raydium:amm",
+        "snapshot:metadata:eth:uniswap:v3",
+        "snapshot:metadata:eth:uniswap:v4",
     ];
 
     let mut metadata: HashMap<String, Metadata> = HashMap::new();
@@ -86,16 +157,60 @@ fn test_smart_router() {
         .build(client)
         .unwrap();
 
-    let whirlpool: HashMap<String, Whirlpool> = get_pool_state(&con_pool, "snapshot:state:orca:clmm");
-    let ray_clmm: HashMap<String, RayClmmPool> = get_pool_state(&con_pool, "snapshot:state:raydium:clmm");
-    let ray_amm: HashMap<String, RayAmmPool> = get_pool_state(&con_pool, "snapshot:state:raydium:amm");
-    let met_dlmm: HashMap<String, MeteoraDlmmPool> = get_pool_state(&con_pool, "snapshot:state:meteora:dlmm");
+    let whirlpool: HashMap<String, Whirlpool> = get_pool_state(&con_pool, "snapshot:state:solana:orca:clmm");
+    let ray_clmm: HashMap<String, RayClmmPool> = get_pool_state(&con_pool, "snapshot:state:solana:raydium:clmm");
+    let ray_amm: HashMap<String, RayAmmPool> = get_pool_state(&con_pool, "snapshot:state:solana:raydium:amm");
+    let met_dlmm: HashMap<String, MeteoraDlmmPool> = get_pool_state(&con_pool, "snapshot:state:solana:meteora:dlmm");
+    let uni_amm: HashMap<String, UniswapAmm> = get_pool_state(&con_pool, "snapshot:state:eth:uniswap:v2");
+
+    let uni_clmm_slot_v3 = get_state_slot0s(
+        &con_pool,
+        &"eth".to_string(),
+        &"uniswap".to_string(),
+        &"v3".to_string()
+    );
+    let uni_clmm_slot_v4 = get_state_slot0s(
+        &con_pool,
+        &"eth".to_string(),
+        &"uniswap".to_string(),
+        &"v4".to_string()
+    );
+
+    let uni_clmm_tick_v3 = get_ticks(
+        &con_pool,
+        &"eth".to_string(),
+        &"uniswap".to_string(),
+        &"v3".to_string()
+    );
+
+    let uni_clmm_tick_v4 = get_ticks(
+        &con_pool,
+        &"eth".to_string(),
+        &"uniswap".to_string(),
+        &"v4".to_string()
+    );
+
+    let mut slot0s = uni_clmm_slot_v3;
+    slot0s.extend(uni_clmm_slot_v4);
+
+    let mut ticks = uni_clmm_tick_v3;
+    ticks.extend(uni_clmm_tick_v4);
+
+
+    let uni_clmm = UniswapClmmPools {
+        slot0s,
+        ticks
+    };
+
+
 
     let pools_state = router::PoolStateV2 {
         whirlpool: &whirlpool,
         ray_amm_pool: &ray_amm,
         ray_clmm_pool: &ray_clmm,
-        meteora_dlmm_pool: &met_dlmm
+        meteora_dlmm_pool: &met_dlmm,
+        uni_clmm_pool: &uni_clmm,
+        uni_amm_pool: &uni_amm
     };
 
     let pool_state = PoolStateV1 {

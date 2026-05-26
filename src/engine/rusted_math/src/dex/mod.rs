@@ -3,3 +3,4 @@ pub mod meteora;
 pub mod raydium;
 pub mod metadata;
 pub mod pools;
+pub mod uniswap;

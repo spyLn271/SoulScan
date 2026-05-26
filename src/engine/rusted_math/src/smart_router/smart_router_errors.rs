@@ -1,10 +1,14 @@
 use crate::smart_router::manager_errors::SoulManagerError;
+use crate::math::errors::SoulMathError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum SoulSmartRouterError {
     #[error("error in Manager {0}")]
     ManagerError(#[from] SoulManagerError),
+
+    #[error("error in Math {0}")]
+    MathError(#[from] SoulMathError),
 
     #[error("no metadata was found")]
     NoMetadataForPool,
@@ -44,6 +48,9 @@ pub enum SoulSmartRouterError {
 
     #[error("Failed to get fee rate")]
     FailedToGetFeeRate,
+
+    #[error("Failed to get fee rate")]
+    FailedToGetTickSpacing,
 
     #[error("While iterating through IA5, one chunk couldnt be processed and find the best result")]
     CouldntFindTheBestResultForChunkAmount,

@@ -35,7 +35,7 @@ class MetadataDict(TypedDict):
 
 # Uniswap V3 Slot
 class Slot(BaseModel):
-    sqrt_price_x96: int
+    sqrt_price_x96: str
     tick_current: int
     liquidity: int
 

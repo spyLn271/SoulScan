@@ -10,6 +10,8 @@ use crate::smart_router::v2::manager::meteora::dlmm::swap_dynamic::DynamicMeteor
 use crate::smart_router::v2::manager::orca::clmm::swap_dynamic::DynamicOrcaResult;
 use crate::smart_router::v2::manager::raydium::clmm::swap_dynamic::DynamicRayClmmResult;
 use crate::smart_router::v2::manager::raydium::amm::swap_dynamic::DynamicRayAmmResult;
+use crate::smart_router::v2::manager::uniswap::amm::swap_dynamic::DynamicUniAmmResult;
+use crate::smart_router::v2::manager::uniswap::clmm::swap_dynamic::DynamicUniClmmResult;
 use crate::smart_router::v2::manager::dynamic_results::DynamicResult;
 
 use crate::smart_router::smart_router_errors::SoulSmartRouterError;
@@ -17,21 +19,25 @@ use crate::smart_router::smart_router_errors::SoulSmartRouterError;
 use crate::dex::orca::Whirlpool;
 use crate::dex::raydium::{RayClmmPool, RayAmmPool};
 use crate::dex::meteora::MeteoraDlmmPool;
+use crate::dex::uniswap::{UniswapAmm, UniswapClmm, UniswapClmmPools};
 use crate::dex::pools::Pool;
 
 use crate::dex::metadata::{ColdPath, Path, Metadata};
 
 use crate::math::orca::clmm::tick_index_from_sqrt_price;
+use crate::math::uniswap::clmm::tick_index_from_sqrt_price as uni_tick_index_from_sqrt_price;
 
 use crate::smart_router::v2::manager::orca::clmm::swap_dynamic::swap_manager as orca_swap_manager;
 use crate::smart_router::v2::manager::raydium::amm::swap_dynamic::swap_manager as raydium_amm_swap_manager;
 use crate::smart_router::v2::manager::raydium::clmm::swap_dynamic::swap_manager as raydium_clmm_swap_manager;
 use crate::smart_router::v2::manager::meteora::dlmm::swap_dynamic::swap_manager as meteora_swap_manager;
+use crate::smart_router::v2::manager::uniswap::clmm::swap_dynamic::swap_manager as uni_clmm_swap_manager;
+use crate::smart_router::v2::manager::uniswap::amm::swap_dynamic::swap_manager as uni_amm_swap_manager;
 
 pub trait UpdatePool {
     type DynamicSwapResult;
 
-    fn update(&mut self, swap_res: Self::DynamicSwapResult);
+    fn update(&mut self, swap_res: Self::DynamicSwapResult) -> Result<(), SoulSmartRouterError>;
 }
 
 type AmountIn = u128;
@@ -41,40 +47,71 @@ type DynamicSwapResults = HashMap<String, DynamicResult>;
 impl UpdatePool for Whirlpool {
     type DynamicSwapResult = DynamicOrcaResult;
 
-    fn update(&mut self, swap_res: DynamicOrcaResult) {
+    fn update(&mut self, swap_res: DynamicOrcaResult) -> Result<(), SoulSmartRouterError> {
         self.base_info.liquidity = swap_res.new_liquidity;
         self.base_info.crossed_tick_groups = swap_res.crossed_tick_groups;
         self.base_info.sqrt_price = swap_res.new_sqrt_price;
         self.base_info.tick_current_index = tick_index_from_sqrt_price(&swap_res.new_sqrt_price);
+
+        Ok(())
     }
 }
 
 impl UpdatePool for RayClmmPool {
     type DynamicSwapResult = DynamicRayClmmResult;
 
-    fn update(&mut self, swap_res: DynamicRayClmmResult) {
+    fn update(&mut self, swap_res: DynamicRayClmmResult) -> Result<(), SoulSmartRouterError> {
         self.pool_state.liquidity = swap_res.new_liquidity;
         self.pool_state.sqrt_price_x64 = swap_res.new_sqrt_price;
         self.pool_state.tick_current = tick_index_from_sqrt_price(&swap_res.new_sqrt_price);
+
+        Ok(())
     }
 }
 
 impl UpdatePool for RayAmmPool {
     type DynamicSwapResult = DynamicRayAmmResult;
 
-    fn update(&mut self, swap_res: DynamicRayAmmResult) {
+    fn update(&mut self, swap_res: DynamicRayAmmResult) -> Result<(), SoulSmartRouterError> {
         self.base_vault.amount = swap_res.new_x_reserves;
         self.quote_vault.amount = swap_res.new_y_reserves;
+
+        Ok(())
     }
 }
 
 impl UpdatePool for MeteoraDlmmPool {
     type DynamicSwapResult = DynamicMeteoraResult;
 
-    fn update(&mut self, swap_res: DynamicMeteoraResult) {
+    fn update(&mut self, swap_res: DynamicMeteoraResult) -> Result<(), SoulSmartRouterError> {
         self.lb_pair.active_id = swap_res.new_bin_id;
         self.lb_pair.v_parameters.crossed_bins = swap_res.crossed_bins;
         self.bins.extend(swap_res.touched_bins);
+
+        Ok(())
+    }
+}
+
+impl UpdatePool for UniswapClmm {
+    type DynamicSwapResult = DynamicUniClmmResult;
+
+    fn update(&mut self, swap_res: Self::DynamicSwapResult) -> Result<(), SoulSmartRouterError> {
+        self.slot0.sqrt_price_x96 = swap_res.new_sqrt_price_x96;
+        self.slot0.liquidity = swap_res.new_liquidity;
+        self.slot0.tick_current = uni_tick_index_from_sqrt_price(&swap_res.new_sqrt_price_x96)?;
+
+        Ok(())
+    }
+}
+
+impl UpdatePool for UniswapAmm {
+    type DynamicSwapResult = DynamicUniAmmResult;
+
+    fn update(&mut self, swap_res: Self::DynamicSwapResult) -> Result<(), SoulSmartRouterError> {
+        self.reserve0 = swap_res.new_x_reserves;
+        self.reserve1 = swap_res.new_y_reserves;
+
+        Ok(())
     }
 }
 
@@ -85,6 +122,8 @@ pub struct PoolStateV2<'a> {
     pub meteora_dlmm_pool: &'a HashMap<String, MeteoraDlmmPool>,
     pub ray_amm_pool: &'a HashMap<String, RayAmmPool>,
     pub ray_clmm_pool: &'a HashMap<String, RayClmmPool>,
+    pub uni_clmm_pool: &'a UniswapClmmPools,
+    pub uni_amm_pool: &'a HashMap<String, UniswapAmm>
 }
 
 impl<'a> PoolStateV2<'a> {
@@ -125,11 +164,29 @@ impl<'a> PoolStateV2<'a> {
                                 unique_pools.insert(pool.clone(), Pool::MeteoraDlmmPool(state.clone()));
                             }
                         }
+                        ("uniswap", "v3") | ("uniswap", "v4") => {
+                            if let Some(slot0) = self.uni_clmm_pool.slot0s.get(pool) {
+                                if let Some(tick) = self.uni_clmm_pool.ticks.get(pool) {
+                                    unique_pools.insert(
+                                        pool.clone(),
+                                        Pool::UniswapClmmPool(
+                                            UniswapClmm {
+                                                slot0: slot0.clone(),
+                                                tick: tick.clone(),
+                                            }
+                                        )
+                                    );
+                                }
+                            }
+                        }
+                        ("uniswap", "v2") => {
+                            if let Some(state) = self.uni_amm_pool.get(pool) {
+                                unique_pools.insert(pool.clone(), Pool::UniswapAmmPool(state.clone()));
+                            }
+                        }
                         _ => continue
                     }
                 }
-
-
             }
         }
 
@@ -403,6 +460,57 @@ impl<'a> SmartRouterV2<'a> {
                         DynamicResult::DynamicMeteoraResult(swap_result)
                     );
                 },
+                Pool::UniswapClmmPool(uni_clmm_pool) => {
+                    // Uniswap fee is already in needed format 400, 500, etc.
+                    let fee_rate = pool_metadata.fee_rate
+                        .ok_or(SoulSmartRouterError::FailedToGetFeeRate)? as u32;
+                    let tick_spacing = pool_metadata.tick_spacing
+                        .ok_or(SoulSmartRouterError::FailedToGetTickSpacing)?;
+
+                    let swap_result = uni_clmm_swap_manager(
+                        x_to_y,
+                        amount_specified_is_in,
+                        processing_amount,
+                        fee_rate,
+                        tick_spacing as i32,
+                        &uni_clmm_pool
+                    )?;
+
+                    processing_amount = if amount_specified_is_in {
+                        swap_result.total_amount_out
+                    } else {
+                        swap_result.total_amount_in
+                    };
+
+                    result.touched_pools.insert(
+                        pool.clone(),
+                        DynamicResult::DynamicUniClmmResult(swap_result)
+                    );
+                },
+                Pool::UniswapAmmPool(uni_amm_pool) => {
+                    // Uniswap fee is already in needed format 400, 500, etc.
+                    let fee_rate = pool_metadata.fee_rate
+                        .ok_or(SoulSmartRouterError::FailedToGetFeeRate)? as u32;
+
+                    let swap_result = uni_amm_swap_manager(
+                        x_to_y,
+                        amount_specified_is_in,
+                        processing_amount,
+                        fee_rate,
+                        &uni_amm_pool
+                    )?;
+
+                    processing_amount = if amount_specified_is_in {
+                        swap_result.total_amount_out
+                    } else {
+                        swap_result.total_amount_in
+                    };
+
+                    result.touched_pools.insert(
+                        pool.clone(),
+                        DynamicResult::DynamicUniAmmResult(swap_result)
+                    );
+                }
             };
 
             processing_mint = next_mint;
@@ -481,10 +589,12 @@ impl<'a> SmartRouterV2<'a> {
         for (pool_key, dynamic_result) in best_touched_pools {
             if let Some(pool) = unique_pools.get_mut(&pool_key) {
                 match (pool, dynamic_result) {
-                    (Pool::Whirlpool(wp), DynamicResult::DynamicOrcaResult(res)) => wp.update(res),
-                    (Pool::RayClmmPool(rp), DynamicResult::DynamicRayClmmResult(res)) => rp.update(res),
-                    (Pool::RayAmmPool(rp), DynamicResult::DynamicRayAmmResult(res)) => rp.update(res),
-                    (Pool::MeteoraDlmmPool(mp), DynamicResult::DynamicMeteoraResult(res)) => mp.update(res),
+                    (Pool::Whirlpool(wp), DynamicResult::DynamicOrcaResult(res)) => wp.update(res)?,
+                    (Pool::RayClmmPool(rp), DynamicResult::DynamicRayClmmResult(res)) => rp.update(res)?,
+                    (Pool::RayAmmPool(rp), DynamicResult::DynamicRayAmmResult(res)) => rp.update(res)?,
+                    (Pool::MeteoraDlmmPool(mp), DynamicResult::DynamicMeteoraResult(res)) => mp.update(res)?,
+                    (Pool::UniswapClmmPool(uni), DynamicResult::DynamicUniClmmResult(res)) => uni.update(res)?,
+                    (Pool::UniswapAmmPool(uni), DynamicResult::DynamicUniAmmResult(res)) => uni.update(res)?,
                     _ => return Err(SoulSmartRouterError::UnexpectedUpdateError)
                 }
             }
