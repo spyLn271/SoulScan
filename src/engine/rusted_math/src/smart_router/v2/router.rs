@@ -587,17 +587,20 @@ impl<'a> SmartRouterV2<'a> {
         best_touched_pools: DynamicSwapResults
     ) -> Result<(), SoulSmartRouterError> {
         for (pool_key, dynamic_result) in best_touched_pools {
-            if let Some(pool) = unique_pools.get_mut(&pool_key) {
-                match (pool, dynamic_result) {
-                    (Pool::Whirlpool(wp), DynamicResult::DynamicOrcaResult(res)) => wp.update(res)?,
-                    (Pool::RayClmmPool(rp), DynamicResult::DynamicRayClmmResult(res)) => rp.update(res)?,
-                    (Pool::RayAmmPool(rp), DynamicResult::DynamicRayAmmResult(res)) => rp.update(res)?,
-                    (Pool::MeteoraDlmmPool(mp), DynamicResult::DynamicMeteoraResult(res)) => mp.update(res)?,
-                    (Pool::UniswapClmmPool(uni), DynamicResult::DynamicUniClmmResult(res)) => uni.update(res)?,
-                    (Pool::UniswapAmmPool(uni), DynamicResult::DynamicUniAmmResult(res)) => uni.update(res)?,
-                    _ => return Err(SoulSmartRouterError::UnexpectedUpdateError)
-                }
+            let pool = unique_pools
+                .get_mut(&pool_key)
+                .ok_or(SoulSmartRouterError::PoolIsNotInUniquePools)?;
+
+            match (pool, dynamic_result) {
+                (Pool::Whirlpool(wp), DynamicResult::DynamicOrcaResult(res)) => wp.update(res)?,
+                (Pool::RayClmmPool(rp), DynamicResult::DynamicRayClmmResult(res)) => rp.update(res)?,
+                (Pool::RayAmmPool(rp), DynamicResult::DynamicRayAmmResult(res)) => rp.update(res)?,
+                (Pool::MeteoraDlmmPool(mp), DynamicResult::DynamicMeteoraResult(res)) => mp.update(res)?,
+                (Pool::UniswapClmmPool(uni), DynamicResult::DynamicUniClmmResult(res)) => uni.update(res)?,
+                (Pool::UniswapAmmPool(uni), DynamicResult::DynamicUniAmmResult(res)) => uni.update(res)?,
+                _ => return Err(SoulSmartRouterError::UnexpectedUpdateError)
             }
+            
         }
 
         Ok(())

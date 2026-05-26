@@ -12,13 +12,15 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::Shr;
 use rusted_soul_dex::dex::metadata::Metadata;
-use rusted_soul_dex::dex::uniswap::{Slot0, TickData, UniswapAmm};
+use rusted_soul_dex::dex::uniswap::{Slot0, TickData, UniswapAmm, UniswapClmm};
 use rusted_soul_dex::math::uniswap::clmm;
 
 use serde::Deserialize;
 use rusted_soul_dex::math::i256::I256;
 use rusted_soul_dex::math::u256::U256;
 use rusted_soul_dex::math::u512::U512;
+
+use rusted_soul_dex::smart_router::v2::manager::uniswap::clmm::swap_dynamic;
 
 #[derive(Deserialize, Debug)]
 #[serde(bound(deserialize = "K: Deserialize<'de> + Eq + Hash, V: Deserialize<'de>"))]
@@ -197,6 +199,58 @@ fn test_data() {
 
 }
 
+fn test_manager() {
+    let redis_client = RedisConnectionManager::new("redis://127.0.0.1:6379/0")
+        .unwrap();
+
+    let redis_pool_con = Pool::builder()
+        .max_size(10)
+        .build(redis_client)
+        .unwrap();
+
+    let network = "eth".to_string();
+    let market = "uniswap".to_string();
+    let version = "v3".to_string();
+
+    let metadata = get_metadata(
+        &redis_pool_con,
+        &network,
+        &market,
+        &version
+    );
+
+    let slot0s = get_state_slot0s(
+        &redis_pool_con,
+        &network,
+        &market,
+        &version
+    );
+
+    let ticks = get_ticks(
+        &redis_pool_con,
+        &network,
+        &market,
+        &version
+    );
+
+    let pool1_slot0 = slot0s.get("0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640").unwrap();
+    let pool1_tick = ticks.get("0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640").unwrap();
+
+    let res_1 = swap_dynamic::swap_manager(
+        true,
+        false,
+        2044382913026368485478,
+        500,
+        10,
+        &UniswapClmm {
+            slot0: pool1_slot0.clone(),
+            tick: pool1_tick.clone()
+        }
+    );
+
+    println!("{res_1:?}");
+}
+
 fn test_sqrt_price_from_tick_index(tick: i32) {
     let sqrt_price = clmm::sqrt_price_from_tick_index(tick).unwrap();
 
@@ -206,5 +260,5 @@ fn test_sqrt_price_from_tick_index(tick: i32) {
 
 #[test]
 fn main_test() {
-    test_data()
+    test_manager()
 }

@@ -47,10 +47,10 @@ fn get_metadata() -> HashMap<String, Metadata> {
 
 
     let market_metadata_keys = [
-        "snapshot:metadata:meteora:dlmm",
-        "snapshot:metadata:orca:clmm",
-        "snapshot:metadata:raydium:clmm",
-        "snapshot:metadata:raydium:amm"
+        "snapshot:metadata:solana:meteora:dlmm",
+        "snapshot:metadata:solana:orca:clmm",
+        "snapshot:metadata:solana:raydium:clmm",
+        "snapshot:metadata:solana:raydium:amm"
     ];
 
     let mut metadata: HashMap<String, Metadata> = HashMap::new();

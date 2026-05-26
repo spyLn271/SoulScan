@@ -61,6 +61,9 @@ pub enum SoulSmartRouterError {
     #[error("Unexpected Update Error")]
     UnexpectedUpdateError,
 
+    #[error("Error while updating unique pool data for smart router IA5")]
+    PoolIsNotInUniquePools,
+
     #[error("error")]
     Error,
 }
