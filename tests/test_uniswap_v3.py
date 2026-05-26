@@ -5,7 +5,7 @@ import json
 
 
 r = redis.Redis(decode_responses=True)
-metadata = json.loads(r.get("snapshot:metadata:base:uniswap:v4"))
+metadata = json.loads(r.get("snapshot:metadata:eth:uniswap:v3"))
 
 pool_ids = list(metadata.keys())
 
@@ -51,16 +51,19 @@ def test_uniswap_v3_swap():
     from src.dex.swap_python.swap import Swap, SwapParamsTD
     from decimal import Decimal
 
-    raw = r.hget(name="snapshot:state:base:uniswap:v4", key="slot")
+    raw = r.hget(name="snapshot:state:eth:uniswap:v3", key="slot")
     slots = json.loads(raw)["pool_state"]
 
-    raw = r.hget(name="snapshot:state:base:uniswap:v4", key="ticks")
+    raw = r.hget(name="snapshot:state:eth:uniswap:v3", key="ticks")
     ticks = json.loads(raw)["pool_state"]
 
-    pool = "0xe070797535b13431808f8fc81fdbe7b41362960ed0b55bc2b6117c49c51b7eb9"
+    pool = "0x11b815efb8f581194ae79006d24e0d814b7697f6"
 
     pool_slot = slots[pool]
     pool_tick = ticks[pool]
+
+    print(json.dumps(pool_slot, indent=4))
+    print(json.dumps(pool_tick, indent=4))
 
     swap = Swap()
 
@@ -70,12 +73,12 @@ def test_uniswap_v3_swap():
             "ticks": pool_tick,
         },
         metadata=metadata[pool],
-        delta_amount=Decimal(str(1000 * 10 ** 18)),
+        delta_amount=Decimal(str(1 * 10 ** 18)),
         x_to_y=True,
         amount_specified_is_input=True,
     )
 
-    print(swap.swap(params=params, dex="uniswap", version="v4"))
+    print(swap.swap(params=params, dex="uniswap", version="v3"))
 
 
 

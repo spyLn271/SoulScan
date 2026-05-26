@@ -273,3 +273,20 @@ fn test_smart_router() {
 
     println!("{res_2_v2:?}");
 }
+
+#[test]
+fn test_cold_path() {
+    let client = RedisConnectionManager::new("redis://127.0.0.1:6379/0").unwrap();
+    let con_pool = Pool::builder()
+        .max_size(20)
+        .build(client)
+        .unwrap();
+
+
+    let cold_path = get_cold_path(
+        "0x0000000000000000000000000000000000000000/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        &con_pool
+    );
+
+    println!("{:?}", cold_path);
+}

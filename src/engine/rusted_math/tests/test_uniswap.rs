@@ -260,5 +260,5 @@ fn test_sqrt_price_from_tick_index(tick: i32) {
 
 #[test]
 fn main_test() {
-    test_manager()
+    test_data()
 }

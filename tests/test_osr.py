@@ -70,6 +70,7 @@ def test_get_all_cold_path():
             total_empty += 1
 
             if addr0.startswith("0x") and addr1.startswith("0x"):
+                print(f"EVM empty cold path: {pair}")
                 evm_empty += 1
             else:
                 solana_empty += 1
@@ -103,7 +104,7 @@ def test_brute_for_pair():
     from src.settings.bases import AMOUNT_PROBE
 
     NETWORK = "eth"
-    BASE = "0x1003ffc452d2797c555d89317534cdd215aa2560"
+    BASE = "0x0000000000000000000000000000000000000000"
     QUOTE = "0xdac17f958d2ee523a2206206994597c13d831ec7"  # USDT on ETH
 
     logging.basicConfig(level=logging.WARNING)
@@ -206,6 +207,95 @@ def test_brute_for_pair():
     else:
         print(f"  state: {bad_state}")
 
+def test_graph():
+    import logging
+    from collections import Counter
+    from decimal import Decimal
+    from src.engine.osr.osr_helper import create_graph
+    from src.engine.osr.online_smart_router import OnlineSmartRouterEngineV1
+    from src.engine.osr.math_smart_router import MathSmartRouter
+    from src.settings.bases import AMOUNT_PROBE
+
+    NETWORK = "eth"
+    BASE = "0x0000000000000000000000000000000000000000"
+    QUOTE = "0xdac17f958d2ee523a2206206994597c13d831ec7"  # USDT on ETH
+
+    logging.basicConfig(level=logging.WARNING)
+    logger = logging.getLogger("brute_test")
+
+    metadata = get_network_active_metadata(network=NETWORK, redis_connection=redis_con)
+    state = get_network_active_state(network=NETWORK, redis_connection=redis_con)
+    print(f"\nmetadata={len(metadata)} pools, state={len(state)} pools")
+
+    engine = OnlineSmartRouterEngineV1(
+        logger=logger,
+        math_smart_router=MathSmartRouter(logger=logger),
+        network=NETWORK,
+    )
+
+    all_paths = engine._get_all_candidates_v1(
+        G=create_graph(metadata, state),
+        target_bases=[BASE],
+        quotes=[QUOTE]
+    )
+
+    print(json.dumps(all_paths, indent=4))
+
+
+def test_engine():
+    """
+    Simulates _find_candidates_for_pair_v1 + _filter_candidates_v1 for ONE
+    base/quote pair on a given network. Prints per-route failure reasons so
+    you can see why empty cold paths happen.
+
+    Edit the constants below and run:
+        python3.12 -m tests.test_osr
+    """
+    import logging
+    from collections import Counter
+    from decimal import Decimal
+    from src.engine.osr.osr_helper import create_graph
+    from src.engine.osr.online_smart_router import OnlineSmartRouterEngineV1
+    from src.engine.osr.math_smart_router import MathSmartRouter
+    from src.settings.bases import AMOUNT_PROBE
+
+    NETWORK = "eth"
+    BASE = "0x0000000000000000000000000000000000000000"
+    QUOTE = "0xdac17f958d2ee523a2206206994597c13d831ec7"  # USDT on ETH
+
+    logging.basicConfig(level=logging.WARNING)
+    logger = logging.getLogger("brute_test")
+
+    metadata = get_network_active_metadata(network=NETWORK, redis_connection=redis_con)
+    state = get_network_active_state(network=NETWORK, redis_connection=redis_con)
+    print(f"\nmetadata={len(metadata)} pools, state={len(state)} pools")
+
+    G = create_graph(metadata, state)
+    print(f"graph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
+    print(f"base in graph: {BASE in G.nodes}, quote in graph: {QUOTE in G.nodes}")
+    if BASE not in G.nodes or QUOTE not in G.nodes:
+        print("base or quote missing from graph; nothing to simulate.")
+        return
+
+    engine = OnlineSmartRouterEngineV1(
+        logger=logger,
+        math_smart_router=MathSmartRouter(logger=logger),
+        network=NETWORK,
+    )
+
+    result = engine.get_the_best_candidates(
+        G=G,
+        target_bases=[BASE],
+        quotes=[QUOTE],
+        state=state,
+        metadata=metadata
+    )
+
+    print(json.dumps(result, indent=4))
+
+
+
+
 
 if __name__ == "__main__":
-    test_brute_for_pair()
+    test_engine()

@@ -49,7 +49,7 @@ class UniV3Swap(UltimateUniswapV3Swap):
             amount_remaining=delta_amount,
             current_tick=Decimal(str(state["slot"]["tick_current"])),
             tick_spacing=Decimal(str(metadata["tick_spacing"])),
-            unnormalized_sqrt_P_start=Decimal(str(state["slot"]["sqrt_price_x96"])),
+            unnormalized_sqrt_P_start=Decimal(str(int(state["slot"]["sqrt_price_x96"], 2))),
             factor=Decimal("96"),
             L=Decimal(str(state["slot"]["liquidity"])),
             x_to_y=x_to_y,
