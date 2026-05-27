@@ -6,7 +6,7 @@ use crate::smart_router::v1::manager::raydium::clmm::swap_manager::swap_manager 
 use crate::smart_router::v1::manager::raydium::amm::swap_manager::swap_manager as raydium_amm_swap;
 use crate::smart_router::smart_router_errors::SoulSmartRouterError;
 use crate::config::{DECAY_PERIOD_COLD_PATH, COLD_PATH_KEY};
-use crate::dex::metadata::{Metadata, ColdPath, Path};
+use crate::dex::metadata::{Metadata, ColdPath, Path, MarketKind};
 use crate::dex::orca::Whirlpool;
 use crate::dex::raydium::{RayClmmPool, RayAmmPool};
 use crate::dex::meteora::MeteoraDlmmPool;
@@ -149,11 +149,11 @@ impl<'a> SmartRouterV1<'a> {
                 return Err(SoulSmartRouterError::NoMatchWithMint);
             };
 
-            let (dex, version) = (pool_metadata.dex.as_str(), pool_metadata.version.as_str());
+            let kind = pool_metadata.kind;
 
             // All these markets are in config::SWAP_SUPPORTED_MARKETS
-            let pool_swap_result = match (dex, version) {
-                ("orca", "clmm") => {
+            let pool_swap_result = match kind {
+                MarketKind::OrcaClmm => {
                     let pool_data = self.pool_state.whirlpool
                         .get(pool)
                         .ok_or(SoulSmartRouterError::NoPoolInPoolState(pool.clone()))?;
@@ -161,18 +161,18 @@ impl<'a> SmartRouterV1<'a> {
                     orca_clmm_swap( x_to_y, amount_specified_is_in, processing_amount, timestamp, pool_data)
 
                 },
-                ("raydium", "clmm") | ("raydium", "amm") => {
+                MarketKind::RaydiumClmm | MarketKind::RaydiumAmm => {
                     let fee_rate = (pool_metadata.fee_rate
                         .ok_or(SoulSmartRouterError::FailedToGetFeeRate)? * 1_000_000f64) as u32;
 
-                    match version {
-                        "clmm" => {
+                    match kind {
+                        MarketKind::RaydiumClmm => {
                             let pool_data = self.pool_state.ray_clmm_pool
                                 .get(pool)
                                 .ok_or(SoulSmartRouterError::NoPoolInPoolState(pool.clone()))?;
                             raydium_clmm_swap(x_to_y, amount_specified_is_in, processing_amount, fee_rate, pool_data)
                         },
-                        "amm" => {
+                        MarketKind::RaydiumAmm => {
                             let pool_data = self.pool_state.ray_amm_pool
                                 .get(pool)
                                 .ok_or(SoulSmartRouterError::NoPoolInPoolState(pool.clone()))?;
@@ -181,7 +181,7 @@ impl<'a> SmartRouterV1<'a> {
                         _ => unreachable!(),
                     }
                 },
-                ("meteora", "dlmm") => {
+                MarketKind::MeteoraDlmm => {
                     let pool_data = self.pool_state.meteora_dlmm_pool
                         .get(pool)
                         .ok_or(SoulSmartRouterError::NoPoolInPoolState(pool.clone()))?;

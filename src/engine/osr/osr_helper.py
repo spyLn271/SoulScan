@@ -71,7 +71,7 @@ def get_network_active_state(
 
             market, version, _network = MARKETS.get(market).values()
 
-            if market == "uniswap" and (version == "v3" or version == "v4"):
+            if (market == "uniswap" or market == "pancakeswap" or market == "sushiswap") and (version == "v3" or version == "v4"):
                 raw_slot = redis_connection.hget(
                     name=config.POOLS_STATE_DICT_REDIS_KEY % (network, market, version),
                     key=config.ENV_CLMM_SLOT_KEY

@@ -272,6 +272,16 @@ fn test_smart_router() {
     );
 
     println!("{res_2_v2:?}");
+
+    let res_eth_v2 = smart_router_v2.smart_router(
+        "0x0000000000000000000000000000000000000000",
+        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        100000000000000000000,
+        true,
+        true
+    );
+
+    println!("{res_eth_v2:?}");
 }
 
 #[test]

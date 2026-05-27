@@ -22,7 +22,7 @@ use crate::dex::meteora::MeteoraDlmmPool;
 use crate::dex::uniswap::{UniswapAmm, UniswapClmm, UniswapClmmPools};
 use crate::dex::pools::Pool;
 
-use crate::dex::metadata::{ColdPath, Path, Metadata};
+use crate::dex::metadata::{ColdPath, Path, Metadata, MarketKind};
 
 use crate::math::orca::clmm::tick_index_from_sqrt_price;
 use crate::math::uniswap::clmm::tick_index_from_sqrt_price as uni_tick_index_from_sqrt_price;
@@ -141,30 +141,30 @@ impl<'a> PoolStateV2<'a> {
                 }
 
                 if let Some(pool_metadata) = metadata.get(pool) {
-                    let (dex, version) = (pool_metadata.dex.as_str(), pool_metadata.version.as_str());
+                    let kind = pool_metadata.kind;
 
-                    match (dex, version) {
-                        ("orca", "clmm") => {
+                    match kind {
+                        MarketKind::OrcaClmm => {
                             if let Some(state) = self.whirlpool.get(pool) {
                                 unique_pools.insert(pool.clone(), Pool::Whirlpool(state.clone()));
                             }
                         }
-                        ("raydium", "clmm") => {
+                        MarketKind::RaydiumClmm => {
                             if let Some(state) = self.ray_clmm_pool.get(pool) {
                                 unique_pools.insert(pool.clone(), Pool::RayClmmPool(state.clone()));
                             }
                         }
-                        ("raydium", "amm") => {
+                        MarketKind::RaydiumAmm => {
                             if let Some(state) = self.ray_amm_pool.get(pool) {
                                 unique_pools.insert(pool.clone(), Pool::RayAmmPool(state.clone()));
                             }
                         }
-                        ("meteora", "dlmm") => {
+                        MarketKind::MeteoraDlmm => {
                             if let Some(state) = self.meteora_dlmm_pool.get(pool) {
                                 unique_pools.insert(pool.clone(), Pool::MeteoraDlmmPool(state.clone()));
                             }
                         }
-                        ("uniswap", "v3") | ("uniswap", "v4") => {
+                        MarketKind::UniswapV3 | MarketKind::UniswapV4 => {
                             if let Some(slot0) = self.uni_clmm_pool.slot0s.get(pool) {
                                 if let Some(tick) = self.uni_clmm_pool.ticks.get(pool) {
                                     unique_pools.insert(
@@ -179,12 +179,11 @@ impl<'a> PoolStateV2<'a> {
                                 }
                             }
                         }
-                        ("uniswap", "v2") => {
+                        MarketKind::UniswapV2 => {
                             if let Some(state) = self.uni_amm_pool.get(pool) {
                                 unique_pools.insert(pool.clone(), Pool::UniswapAmmPool(state.clone()));
                             }
                         }
-                        _ => continue
                     }
                 }
             }

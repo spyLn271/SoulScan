@@ -295,7 +295,16 @@ def test_engine():
 
 
 
+def test_state():
+    NETWORK = "eth"
+
+    metadata = get_network_active_metadata(network=NETWORK, redis_connection=redis_con)
+    state = get_network_active_state(network=NETWORK, redis_connection=redis_con)
+
+    with open(f"{NETWORK}_state.json", "w") as f:
+        f.write(json.dumps(state, indent=4))
+
 
 
 if __name__ == "__main__":
-    test_engine()
+    test_state()
