@@ -79,6 +79,8 @@ class OnlineSmartRouterEngineV1:
 
                 if swap_result['is_success'] and swap_result['result'] > Decimal(0):
                     current_probe_candidates[i] = swap_result['result']
+                elif not swap_result['is_success']:
+                    self.logger.warning(f"Swap failed for {candidate}. Result: {swap_result}")
 
             sorted_results = sorted(
                 current_probe_candidates.items(),
