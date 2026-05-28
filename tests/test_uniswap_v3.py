@@ -83,5 +83,5 @@ def test_uniswap_v3_swap():
 
 
 if __name__ == "__main__":
-    # asyncio.run(test_redis_data())
-    test_uniswap_v3_swap()
+    asyncio.run(test_redis_data())
+    # test_uniswap_v3_swap()

@@ -13,7 +13,7 @@ import signal
 ####################################
 from src.settings import config
 from src.settings.bases import Bases, SecondBases, ExcludeBases, AMOUNT_PROBE, SUPPORTED_QUOTES
-from src.settings.config import Network
+from src.settings.config import Network, get_config
 from src.logger_handler.logger import get_logger, setup_logger
 from src.engine.osr.math_smart_router import MathSmartRouter
 from src.settings.graceful_shut_down import TerminateSignal, sigterm_handler
@@ -25,7 +25,7 @@ class OnlineSmartRouterEngineV1:
     This version provides the top 40 (and less) best routes for any token pair by brute forcing through unfiltered routes.
     """
     MIN_CANDIDATES_LENGTH_REQUIREMENTS = 10
-    LEVEL_DEPTH = 3
+    LEVEL_DEPTH = get_config().OSR_V1_LEVEL_DEPTH
 
     def __init__(self, logger: logging.Logger, math_smart_router: MathSmartRouter, network: Network):
         self.logger = logger

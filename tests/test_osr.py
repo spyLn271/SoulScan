@@ -17,7 +17,7 @@ redis_con = Redis(
 )
 
 def test_metadata_fetching():
-    network = "bsc"
+    network = "eth"
 
     metadata = get_network_active_metadata(network=network, redis_connection=redis_con)
     with open(f"{network}_metadata.json", "w") as f:
@@ -307,4 +307,4 @@ def test_state():
 
 
 if __name__ == "__main__":
-    test_state()
+    test_metadata_fetching()

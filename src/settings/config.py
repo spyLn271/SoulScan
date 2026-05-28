@@ -41,6 +41,8 @@ class Config(BaseSettings):
     MINIMAL_PROFIT: int
     SWAPPER_FEE: float
 
+    OSR_V1_LEVEL_DEPTH: int
+
     LOG_MAIN_FOLDER: Path = Path("./LogFolder")
     OSR_LOG_FOLDER: Path = Path("osr")
     SCANNER_LOG_FOLDER: Path = Path("scanner")

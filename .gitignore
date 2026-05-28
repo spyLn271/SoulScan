@@ -69,3 +69,5 @@ error_log/
 
 # Rust
 target/
+
+/SoulDec

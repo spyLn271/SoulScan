@@ -3,8 +3,8 @@ pub const SWAP_SUPPORTED_MARKETS: [(&str, &str); 7] = [
     ("orca", "clmm"),
     ("raydium", "clmm"),
     ("raydium", "amm"),
-    ("uniswap", "v2"),
-    ("uniswap", "v3"),
+    ("uniswap", "v2"), // and his forks pancakeswap and sushiswap
+    ("uniswap", "v3"), // and his forks pancakeswap and sushiswap
     ("uniswap", "v4"),
 ];
 

@@ -124,6 +124,7 @@ fn get_metadata(pool: &Pool<RedisConnectionManager>) -> HashMap<String, Metadata
         "snapshot:metadata:solana:raydium:amm",
         "snapshot:metadata:eth:uniswap:v3",
         "snapshot:metadata:eth:uniswap:v4",
+        "snapshot:metadata:eth:uniswap:v2",
     ];
 
     let mut metadata: HashMap<String, Metadata> = HashMap::new();
@@ -236,8 +237,8 @@ fn test_smart_router() {
 
     let res_v2 = smart_router_v2.smart_router(
         "So11111111111111111111111111111111111111112",
-        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-        124_186_887_459,
+        "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+        10000000000000,
         true,
         true
     );
@@ -274,14 +275,15 @@ fn test_smart_router() {
     println!("{res_2_v2:?}");
 
     let res_eth_v2 = smart_router_v2.smart_router(
-        "0x0000000000000000000000000000000000000000",
+        "0xf19304e6bfe0a18d2a0171758aa433921f192897",
         "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
-        99900000000000000000,
+        1000000000000000000,
         true,
         true
     );
 
     println!("{res_eth_v2:?}");
+    println!("{:?}", metadata.get("0xab905aba2cf13128f1233f68800d85a275eddbcf"));
 }
 
 #[test]
@@ -294,7 +296,7 @@ fn test_cold_path() {
 
 
     let cold_path = get_cold_path(
-        "0x0000000000000000000000000000000000000000/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "0xf19304e6bfe0a18d2a0171758aa433921f192897/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
         &con_pool
     );
 
