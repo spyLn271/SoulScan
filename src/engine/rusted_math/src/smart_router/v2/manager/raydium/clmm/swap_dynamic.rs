@@ -40,7 +40,7 @@ pub fn swap_manager(
     let tick_spacing = pool_state.tick_spacing as i32;
     let mut current_sqrt_price = pool_state.sqrt_price_x64;
     let mut boundary_tick = if x_to_y {
-        get_lower_tick(current_tick_index, tick_spacing)
+        get_lower_tick(current_tick_index, tick_spacing, &current_sqrt_price)
     } else {
         get_upper_tick(current_tick_index, tick_spacing)
     };

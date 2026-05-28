@@ -244,15 +244,21 @@ pub fn get_upper_tick(current_tick: i32, tick_spacing: i32) -> i32 {
 
 }
 
-pub fn get_lower_tick(current_tick: i32, tick_spacing: i32) -> i32 {
+pub fn get_lower_tick(current_tick: i32, tick_spacing: i32, sqrt_price_x64: &u128) -> i32 {
     let quotient = current_tick / tick_spacing;
     let remainder = current_tick % tick_spacing;
 
-    if current_tick < 0 && remainder != 0 {
+    let mut lower_tick = if current_tick < 0 && remainder != 0 {
         (quotient - 1) * tick_spacing
     } else {
         quotient * tick_spacing
+    };
+
+    if sqrt_price_from_tick_index(lower_tick) == *sqrt_price_x64 {
+        lower_tick -= tick_spacing;
     }
+
+    lower_tick
 }
 
 pub fn find_tick_group_index(current_tick_index: i32, tick_group_size: u16) -> Result<i32, SoulMathError> {
@@ -299,9 +305,13 @@ pub fn get_amount_y(sqrt_price0: u128, sqrt_price1: u128, liquidity: u128, round
     amount_y
 }
 
-pub fn get_sqrt_price_from_x(sqrt_price_start: u128, liquidity: u128, delta_x: u128,
-                             amount_specified_is_in: bool,
-                             round_up: bool) -> Result<u128, SoulMathError> {
+pub fn get_sqrt_price_from_x(
+    sqrt_price_start: u128,
+    liquidity: u128,
+    delta_x: u128,
+    amount_specified_is_in: bool,
+    round_up: bool
+) -> Result<u128, SoulMathError> {
     let scaled_liquidity = U256::new(0, liquidity).shift_left(64);
     let x_part_of_denominator = mul_q64x64(delta_x, sqrt_price_start);
 
@@ -326,9 +336,13 @@ pub fn get_sqrt_price_from_x(sqrt_price_start: u128, liquidity: u128, delta_x: u
     Ok(sqrt_price)
 }
 
-pub fn get_sqrt_price_from_y(sqrt_price_start: u128, liquidity: u128, delta_y: u128,
-                             amount_specified_is_in: bool,
-                             round_up: bool) -> Result<u128, SoulMathError> {
+pub fn get_sqrt_price_from_y(
+    sqrt_price_start: u128,
+    liquidity: u128,
+    delta_y: u128,
+    amount_specified_is_in: bool,
+    round_up: bool
+) -> Result<u128, SoulMathError> {
     let scaled_delta_y = U256::new(0, delta_y).shift_left(64);
     let liquidity_part_numerator = mul_q64x64(liquidity, sqrt_price_start);
 
@@ -363,9 +377,15 @@ pub struct SwapStepResult {
     pub next_sqrt_price: u128,
 }
 
-pub fn calculate_swap(sqrt_price: u128, boundary_tick: i32, liquidity: u128,
-                      delta_amount: u128, fee_rate: u32, x_to_y: bool,
-                      amount_specified_is_in: bool) -> Result<SwapStepResult, SoulMathError> {
+pub fn calculate_swap(
+    sqrt_price: u128,
+    boundary_tick: i32,
+    liquidity: u128,
+    delta_amount: u128,
+    fee_rate: u32,
+    x_to_y: bool,
+    amount_specified_is_in: bool
+) -> Result<SwapStepResult, SoulMathError> {
     let mut result = SwapStepResult {
         is_max: false,
         amount_in: 0,
@@ -510,13 +530,13 @@ fn increase_order(a: u128, b: u128) -> (u128, u128) {
     }
 }
 
-fn calculate_amount_with_fee(delta_amount: u128, fee_rate: u32, with_fee: bool) -> Result<u128, SoulMathError> {
+fn calculate_amount_with_fee(delta_amount: u128, fee_rate: u32, strip_fee: bool) -> Result<u128, SoulMathError> {
     let fee_rate_u256 = {
         let fee_rate_scaled = FEE_RATE_MUL_VALUE - fee_rate as u128;
         U256::new(0, fee_rate_scaled)
     };
 
-    if with_fee {
+    if strip_fee {
         let numerator = U256::new(0, delta_amount).mul(&fee_rate_u256)?;
         let denominator = U256::new(0, FEE_RATE_MUL_VALUE);
         let normalized_amount = numerator.div(&denominator)?.0.try_into_u128()?;

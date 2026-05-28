@@ -211,15 +211,25 @@ pub fn get_upper_tick(current_tick: i32, tick_spacing: i32) -> i32 {
 
 }
 
-pub fn get_lower_tick(current_tick: i32, tick_spacing: i32) -> i32 {
+pub fn get_lower_tick(
+    current_tick: i32, 
+    tick_spacing: i32,
+    sqrt_price_x96: &U512
+) -> Result<i32, SoulMathError> {
     let quotient = current_tick / tick_spacing;
     let remainder = current_tick % tick_spacing;
 
-    if current_tick < 0 && remainder != 0 {
+    let mut lower_tick = if current_tick < 0 && remainder != 0 {
         (quotient - 1) * tick_spacing
     } else {
         quotient * tick_spacing
+    };
+    
+    if sqrt_price_from_tick_index(lower_tick)?.eq(sqrt_price_x96) {
+        lower_tick -= tick_spacing;
     }
+    
+    Ok(lower_tick)
 }
 
 pub fn get_amount_x(

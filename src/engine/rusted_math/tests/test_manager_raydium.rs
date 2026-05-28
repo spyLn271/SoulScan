@@ -61,7 +61,7 @@ fn test_raydium_manager() {
     let liquidity: u128 = 72164963466389;
     let sqrt_price: u128 = 5665152880145517355;
     let current_tick = -23613;
-    let boundary_tick_lower = get_lower_tick(current_tick, 1);
+    let boundary_tick_lower = get_lower_tick(current_tick, 1, &sqrt_price);
     let delta_amount= 10_000_000_000;
     let fee_rate = 100;
 

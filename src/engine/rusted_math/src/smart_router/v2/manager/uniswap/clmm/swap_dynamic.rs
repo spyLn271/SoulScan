@@ -37,7 +37,7 @@ pub fn swap_manager(
 
 
     let mut boundary_tick = if x_to_y {
-        get_lower_tick(current_tick_index, tick_spacing)
+        get_lower_tick(current_tick_index, tick_spacing, &current_sqrt_price_x96)?
     } else {
         get_upper_tick(current_tick_index, tick_spacing)
     };

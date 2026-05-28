@@ -10,6 +10,8 @@ use rusted_soul_dex::smart_router::manager_errors::SoulManagerError;
 use rusted_soul_dex::math::uniswap::clmm::{
     calculate_swap,
     sqrt_price_from_tick_index,
+    tick_index_from_sqrt_price,
+    get_amount_x,
     get_lower_tick, get_upper_tick,
 };
 use rusted_soul_dex::math::u256::U256;
@@ -108,7 +110,7 @@ pub fn manual_drive_clmm(
     let tick_current = slot0.tick_current;
 
     let mut boundary_tick = if x_to_y {
-        get_lower_tick(tick_current, tick_spacing)
+        get_lower_tick(tick_current, tick_spacing, &current_sqrt)?
     } else {
         get_upper_tick(tick_current, tick_spacing)
     };
@@ -371,29 +373,36 @@ mod clmm_crossing {
     }
 
     #[test]
-    fn boundary_at_current_tick_still_applies_liquidity_net() {
-        // tick_current=0 exactly on a spacing multiple. First boundary = 0 (current).
-        // First iter is no-op but still crosses tick 0, applying its liquidity_net.
+    fn boundary_at_current_tick_is_skipped_no_double_cross() {
+        // tick_current=0 with sqrt_price exactly at sqrt_price(0). This state arises after
+        // a prior x_to_y crossing of tick 0 — the crossing was applied to liquidity inside
+        // that prior swap, and the post-swap state is then re-derived as tick_current=0.
+        // The next swap going further x_to_y must NOT re-apply tick 0's liquidity_net:
+        // get_lower_tick now detects sqrt(boundary) == current_sqrt and advances past tick 0
+        // to the next real boundary (-60).
         let pool = synthetic_clmm(
             0,
             1_000_000_000_000_000_000u128,
             60,
             (-600, 600),
-            &[(0, 50_000_000_000_000_000i128)], // 5e16 at the current tick
+            &[(0, 50_000_000_000_000_000i128)], // 5e16 — would be wrongly re-subtracted if buggy
         );
 
         let result = clmm_swap_manager(true, true, 1_000_000u128, 3000, 60, &pool).expect("ok");
 
-        // After crossing tick 0 (immediately, since boundary == current):
-        // liquidity = 1e18 - 5e16 = 9.5e17.
-        // Then small swap continues with this liquidity (final liquidity stays 9.5e17).
-        let expected = u128_to_u512(950_000_000_000_000_000u128);
+        // Small swap stays inside (-60, 0). No tick crossed → liquidity unchanged.
+        let expected = u128_to_u512(1_000_000_000_000_000_000u128);
         assert!(
             result.new_liquidity.eq(&expected),
-            "boundary at current_tick should still cross and apply liquidity_net"
+            "boundary at current_tick must be skipped, liquidity must not change. \
+             got={:?}, expected={:?}",
+            result.new_liquidity, expected,
         );
-        // Should have small price movement.
-        assert!(result.new_sqrt_price_x96.lt(&pool.slot0.sqrt_price_x96));
+        // Price still moved down (we did swap), but stays above sqrt_price(-60).
+        assert!(
+            result.new_sqrt_price_x96.lt(&pool.slot0.sqrt_price_x96),
+            "price should have moved down",
+        );
     }
 }
 
@@ -627,23 +636,25 @@ mod clmm_edge_cases {
 
     #[test]
     fn liquidity_underflow_at_crossing_errors_cleanly() {
-        // initial_tick=0 means first boundary == current_tick, so the FIRST iteration
-        // immediately crosses tick 0 (no-op swap math, then liquidity update).
-        // x_to_y subtracts liquidity_net at tick 0 (+2e18) from L=1e18 → underflow.
+        // initial_tick=30 — first boundary is tick 0 (not at current sqrt_price).
+        // Tick 0 holds liquidity_net = 2e18 > L = 1e18. When the swap reaches sqrt(0)
+        // and applies the crossing (subtract for x_to_y), liquidity underflows.
         let pool = synthetic_clmm(
-            0,
+            30,
             1_000_000_000_000_000_000u128,
             60,
             (-600, 600),
             &[(0, 2_000_000_000_000_000_000i128)],
         );
-        let result = clmm_swap_manager(true, true, 1_000u128, 3000, 60, &pool);
+        // delta=1e16 is well past the ~1.5e15 needed to walk from tick 30 to tick 0,
+        // guaranteeing we reach the boundary and trigger the crossing.
+        let result = clmm_swap_manager(true, true, 10_000_000_000_000_000u128, 3000, 60, &pool);
         assert!(
             matches!(
                 result,
                 Err(SoulManagerError::MathError(SoulMathError::SubUnderflow))
             ),
-            "expected SubUnderflow, got {result:?}"
+            "expected SubUnderflow on tick crossing, got {result:?}"
         );
     }
 
@@ -894,5 +905,136 @@ mod amm_edge_cases {
         // amount_in is the net (after 99.9% fee) — should be tiny, fee_amount should dominate.
         assert!(m.total_fee_amount > m.total_amount_in - m.total_fee_amount);
         assert_eq!(m.total_amount_in, 1_000_000u128);
+    }
+}
+
+
+// ============== Chunk-boundary regression (router multi-chunk path) ==============
+//
+// Scenario: the IA5 router runs N chunks. After each chunk it applies
+// UniswapClmm::update, which writes back the post-swap slot0 and recomputes
+// tick_current from sqrt_price via tick_index_from_sqrt_price.
+//
+// Suspected bug: if a chunk ends EXACTLY at a tick boundary (is_max fires and
+// amount_remaining hits 0 in the same iteration), then:
+//   - new_sqrt_price_x96 = sqrt_price_from_tick_index(crossed_tick)
+//   - new_liquidity      = already-crossed liquidity   (correct)
+//   - tick_current       = tick_index_from_sqrt_price(boundary) = crossed_tick
+//
+// The Uniswap V3 contract uses tick = tickNext - 1 here (for zeroForOne).
+// Because this code recomputes from sqrt_price, the convention is dropped.
+// The next chunk then sees current_tick == crossed_tick, computes
+// boundary_tick = get_lower_tick(crossed_tick, spacing) == crossed_tick,
+// runs a zero-distance calculate_swap that returns is_max=true with all
+// amounts = 0, and re-applies liquidity_net for the SAME tick. Double-cross.
+
+mod chunk_boundary_regression {
+    use super::*;
+
+    fn mimic_router_update_uniswap_clmm(pool: &mut UniswapClmm, swap_res: &DynamicUniClmmResult) {
+        // Mirrors router.rs::impl UpdatePool for UniswapClmm.
+        pool.slot0.sqrt_price_x96 = swap_res.new_sqrt_price_x96;
+        pool.slot0.liquidity = swap_res.new_liquidity;
+        pool.slot0.tick_current =
+            tick_index_from_sqrt_price(&swap_res.new_sqrt_price_x96).expect("tick from sqrt");
+    }
+
+    #[test]
+    fn chunk_ending_on_boundary_does_not_double_cross_liquidity_net() {
+        let tick_spacing = 60i32;
+        let fee_rate = 3000u32;
+        let initial_tick = 30i32;
+        let initial_liquidity = 1_000_000_000_000_000_000u128; // 1e18
+        let liquidity_net_at_0: i128 = 100_000_000_000_000_000i128; // 1e17
+
+        // Pool with tick 0 carrying positive liquidity_net.
+        // x_to_y crossing tick 0 must SUBTRACT this net.
+        let pool = synthetic_clmm(
+            initial_tick,
+            initial_liquidity,
+            tick_spacing,
+            (-600, 600),
+            &[(0, liquidity_net_at_0)],
+        );
+
+        // --- compute the exact gross-in needed to drive price from sqrt(30) to sqrt(0) ---
+        let sqrt_start = sqrt_price_from_tick_index(initial_tick).unwrap();
+        let sqrt_boundary = sqrt_price_from_tick_index(0).unwrap();
+        let liq = u128_to_u512(initial_liquidity);
+
+        // is_max branch uses get_amount_x(...round_up=true); fee is calculate_amount_with_fee(..,false)
+        let amount_in_pure = get_amount_x(&sqrt_start, &sqrt_boundary, &liq, true).unwrap();
+        let fee = expected_fee_from_amount_in(amount_in_pure, fee_rate);
+        let exact_amount = amount_in_pure + fee;
+
+        // ===== Chunk 1: lands exactly on the boundary =====
+        let swap1 = clmm_swap_manager(true, true, exact_amount, fee_rate, tick_spacing, &pool)
+            .expect("swap1 ok");
+
+        // sanity: we really did stop at tick 0
+        assert!(
+            swap1.new_sqrt_price_x96.eq(&sqrt_boundary),
+            "swap1 did not end at sqrt_price(0). new={:?}, expected={:?}",
+            swap1.new_sqrt_price_x96, sqrt_boundary,
+        );
+        // liquidity decreased by liquidity_net (the crossing was applied inside swap_manager)
+        let expected_post_liq = u128_to_u512(initial_liquidity)
+            .sub(&u128_to_u512(liquidity_net_at_0 as u128))
+            .unwrap();
+        assert!(
+            swap1.new_liquidity.eq(&expected_post_liq),
+            "swap1 didn't subtract liquidity_net at tick 0",
+        );
+
+        // ===== Apply router update (this is where the convention is dropped) =====
+        let mut updated_pool = pool.clone();
+        mimic_router_update_uniswap_clmm(&mut updated_pool, &swap1);
+
+        // The recomputed tick_current is 0 (NOT -1 as V3's convention would dictate)
+        assert_eq!(
+            updated_pool.slot0.tick_current, 0,
+            "precondition: router recomputes tick_current as 0 at the boundary",
+        );
+
+        // ===== Chunk 2: small extra amount, same direction =====
+        let small_extra: u128 = 1_000_000_000_000u128; // 1e12, well within next tick range
+        let swap2_buggy = clmm_swap_manager(
+            true, true, small_extra, fee_rate, tick_spacing, &updated_pool,
+        ).expect("swap2 buggy ok");
+
+        // ===== Control: same chunk-2 swap but using V3's tick convention =====
+        // (post-crossing pool with tick_current = -1, i.e. "we're in [-60, 0)")
+        let mut clean_pool = pool.clone();
+        clean_pool.slot0.sqrt_price_x96 = sqrt_boundary;
+        clean_pool.slot0.liquidity = swap1.new_liquidity;
+        clean_pool.slot0.tick_current = -1; // V3: tickNext - 1 after x_to_y crossing of tick 0
+        let swap2_correct = clmm_swap_manager(
+            true, true, small_extra, fee_rate, tick_spacing, &clean_pool,
+        ).expect("swap2 correct ok");
+
+        // ===== Assertions: buggy must equal correct =====
+        // If the bug exists, swap2_buggy will UNDER-deliver because liquidity_net at
+        // tick 0 was applied a second time, dropping liquidity by another 1e17.
+        assert_eq!(
+            swap2_buggy.total_amount_out, swap2_correct.total_amount_out,
+            "CHUNK-BOUNDARY BUG: amount_out diverges. \
+             buggy={}, correct={}, diff={}, \
+             buggy_new_liq={:?}, correct_new_liq={:?}",
+            swap2_buggy.total_amount_out,
+            swap2_correct.total_amount_out,
+            (swap2_correct.total_amount_out as i128) - (swap2_buggy.total_amount_out as i128),
+            swap2_buggy.new_liquidity,
+            swap2_correct.new_liquidity,
+        );
+        assert!(
+            swap2_buggy.new_liquidity.eq(&swap2_correct.new_liquidity),
+            "CHUNK-BOUNDARY BUG: post-swap liquidity diverges. \
+             buggy={:?}, correct={:?}",
+            swap2_buggy.new_liquidity, swap2_correct.new_liquidity,
+        );
+        assert_eq!(
+            swap2_buggy.total_amount_in, swap2_correct.total_amount_in,
+            "amount_in should match (both consume the same small_extra)",
+        );
     }
 }

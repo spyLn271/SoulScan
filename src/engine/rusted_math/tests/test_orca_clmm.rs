@@ -3037,7 +3037,8 @@ mod test_tick {
         // [2560, 2624)
         let current_tick = 2560;
         let tick_spacing = 64;
-        let upper_tick = get_lower_tick(current_tick, tick_spacing);
+        let probe: u128 = 0; // sentinel: never equals any real sqrt(tick); exercises pure formula
+        let upper_tick = get_lower_tick(current_tick, tick_spacing, &probe);
         assert_eq!(upper_tick, 2560)
     }
 
@@ -3046,7 +3047,8 @@ mod test_tick {
         // [2560, 2624)
         let current_tick = 2584;
         let tick_spacing = 64;
-        let upper_tick = get_lower_tick(current_tick, tick_spacing);
+        let probe: u128 = 0; // sentinel: never equals any real sqrt(tick); exercises pure formula
+        let upper_tick = get_lower_tick(current_tick, tick_spacing, &probe);
         assert_eq!(upper_tick, 2560)
     }
 
@@ -3055,7 +3057,8 @@ mod test_tick {
         // [2624, 2688)
         let current_tick = 2624;
         let tick_spacing = 64;
-        let upper_tick = get_lower_tick(current_tick, tick_spacing);
+        let probe: u128 = 0; // sentinel: never equals any real sqrt(tick); exercises pure formula
+        let upper_tick = get_lower_tick(current_tick, tick_spacing, &probe);
         assert_eq!(upper_tick, 2624)
     }
 
@@ -3064,7 +3067,8 @@ mod test_tick {
         // [-6208, -6208)
         let current_tick = -6208;
         let tick_spacing = 64;
-        let upper_tick = get_lower_tick(current_tick, tick_spacing);
+        let probe: u128 = 0; // sentinel: never equals any real sqrt(tick); exercises pure formula
+        let upper_tick = get_lower_tick(current_tick, tick_spacing, &probe);
         assert_eq!(upper_tick, -6208)
     }
 
@@ -3073,7 +3077,8 @@ mod test_tick {
         // [-6208, -6208)
         let current_tick = -6186;
         let tick_spacing = 64;
-        let upper_tick = get_lower_tick(current_tick, tick_spacing);
+        let probe: u128 = 0; // sentinel: never equals any real sqrt(tick); exercises pure formula
+        let upper_tick = get_lower_tick(current_tick, tick_spacing, &probe);
         assert_eq!(upper_tick, -6208)
     }
 
@@ -3082,7 +3087,8 @@ mod test_tick {
         // [-6208, -6144)
         let current_tick = -6208;
         let tick_spacing = 64;
-        let upper_tick = get_lower_tick(current_tick, tick_spacing);
+        let probe: u128 = 0; // sentinel: never equals any real sqrt(tick); exercises pure formula
+        let upper_tick = get_lower_tick(current_tick, tick_spacing, &probe);
         assert_eq!(upper_tick, -6208)
     }
 }
@@ -3091,7 +3097,7 @@ mod test_tick {
 fn test_swap() {
     let sqrt_price: u128 = 6613869971137543661;
     let current_tick: i32 = -20516;
-    let boundary_tick_lower = get_lower_tick(current_tick, 4);
+    let boundary_tick_lower = get_lower_tick(current_tick, 4, &sqrt_price);
     let liquidity: u128 = 773859267452082;
     let fee_rate: u32 = 400;
 
