@@ -17,7 +17,10 @@ from src.settings.config import Network, get_config
 from src.logger_handler.logger import get_logger, setup_logger
 from src.engine.osr.math_smart_router import MathSmartRouter
 from src.settings.graceful_shut_down import TerminateSignal, sigterm_handler
-from src.engine.osr.osr_helper import get_network_active_metadata, get_network_active_state, create_graph
+from src.engine.osr.osr_helper import (get_network_active_metadata,
+                                       get_network_active_state,
+                                       create_graph,
+                                       get_all_tokens)
 ####################################
 
 class OnlineSmartRouterEngineV1:
@@ -290,10 +293,10 @@ class OnlineSmartRouter:
         if mapped_candidates:
             redis_connection.hset(config.REDIS_KEY_COLD_PATH, mapping=mapped_candidates)
 
-    def save_dex_mints(self, mints: list, redis_connection: redis.Redis):
+    def save_dex_mints(self, mints: dict[str, dict], redis_connection: redis.Redis):
         if not mints: return
 
-        redis_connection.set(config.REDIS_DEX_MINTS % (self.network, ), json.dumps({"tokens": mints}))
+        redis_connection.set(config.REDIS_DEX_MINTS % (self.network, ), json.dumps(mints))
 
     def _worker(self):
         while True:
@@ -423,7 +426,8 @@ class OnlineSmartRouter:
         G = create_graph(metadata, state)
         last_graph_update = time.time()
         bases = list(G.nodes)
-        self.save_dex_mints(bases, self.r)
+        all_tokens = get_all_tokens(metadata=metadata, state=state)
+        self.save_dex_mints(all_tokens, self.r)
 
         while True:
             try:
@@ -443,7 +447,8 @@ class OnlineSmartRouter:
                     G = create_graph(metadata, state)
                     last_graph_update = time.time()
                     bases = list(G.nodes)
-                    self.save_dex_mints(bases, self.r)
+                    all_tokens = get_all_tokens(metadata=metadata, state=state)
+                    self.save_dex_mints(all_tokens, self.r)
 
                 if not bases:
                     self.logger.warning("No bases found. Sleeping.")

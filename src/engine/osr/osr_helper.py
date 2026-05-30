@@ -28,6 +28,37 @@ def create_graph(
 
     return G
 
+def get_all_tokens(
+    metadata: dict,
+    state: dict
+) -> dict[str, dict]:
+    all_tokens = {}
+
+    for pool, data in state.items():
+        if pool not in metadata: continue
+
+        mint0 = metadata.get(pool, {}).get('mint0')
+        mint1 = metadata.get(pool, {}).get('mint1')
+
+        decimals0 = metadata.get(pool, {}).get('decimals0')
+        decimals1 = metadata.get(pool, {}).get('decimals1')
+
+        if not mint0 or not mint1 or not decimals0 or not decimals1: continue
+
+        if mint0 not in all_tokens:
+            all_tokens[mint0] = {
+                "decimals": decimals0,
+            }
+
+        if mint1 not in all_tokens:
+            all_tokens[mint1] = {
+                "decimals": decimals1,
+            }
+
+
+
+    return all_tokens
+
 def get_network_active_metadata(
         network: Network,
         redis_connection: redis.Redis,
