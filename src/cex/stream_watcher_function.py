@@ -28,7 +28,7 @@ SUPPORTED_EXCHANGES = {
 }
 
 
-from src.settings import config as _sscfg
+from src.settings import cex_config as _sscfg
 
 
 class StreamWatcher:

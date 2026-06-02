@@ -6,7 +6,7 @@ import asyncio
 from typing import Dict, List, Optional
 import aiohttp
 
-from .config import UPDATE_INTERVAL_SECONDS, FetchStrategy
+from .config import UPDATE_INTERVAL_SECONDS, FetchStrategy, validate_exchange_credentials
 from .exchanges import get_all_exchanges
 from .exchanges.base import BaseExchange, CoinEntry
 from .redis_client import RedisClient

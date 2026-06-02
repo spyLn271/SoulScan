@@ -9,7 +9,6 @@ Supports multiple proxy modes:
 """
 
 import asyncio
-import os
 import random
 import time
 import logging
@@ -460,8 +459,10 @@ class ProxyManager:
 
     async def _send_telegram_notification(self, message: str):
         """Send Telegram notification (non-blocking, for testing purposes only)"""
-        bot_token = os.getenv("CEX_TELEGRAM_BOT_TOKEN", "")
-        chat_id = os.getenv("CEX_TELEGRAM_CHAT_ID", "")
+        from src.settings.cex_config import get_cex_config
+        _cex = get_cex_config()
+        bot_token = _cex.CEX_TELEGRAM_BOT_TOKEN or ""
+        chat_id = _cex.CEX_TELEGRAM_CHAT_ID or ""
 
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:

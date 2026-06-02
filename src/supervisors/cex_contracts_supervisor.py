@@ -13,7 +13,7 @@ import os
 import signal
 import time
 
-from src.settings import config
+from src.settings import cex_config as config
 from src.settings.graceful_shut_down import TerminateSignal, sigterm_handler
 from src.logger_handler.logger import setup_logger, get_logger
 

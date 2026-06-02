@@ -11,7 +11,7 @@ import logging
 import os
 from typing import Optional
 
-from src.settings import config as sscfg
+from src.settings import cex_config as sscfg
 from src.logger_handler.logger import setup_logger, get_logger
 
 

@@ -3,9 +3,8 @@
 Configuration for Market Data Handlers
 """
 
-import os
 
-from src.settings import config as _sscfg
+from src.settings import cex_config as _sscfg
 
 # Redis connection — host/port sourced from the unified SoulScan config so a
 # single source-of-truth governs all services. Auth and DB index remain env-
@@ -13,8 +12,8 @@ from src.settings import config as _sscfg
 REDIS_CONFIG = {
     'host': _sscfg.REDIS_HOST,
     'port': _sscfg.REDIS_PORT,
-    'db': int(os.getenv('REDIS_DB', 0)),
-    'password': os.getenv('REDIS_PASSWORD'),
+    'db': _sscfg.REDIS_DB,
+    'password': _sscfg.REDIS_PASSWORD,
     'decode_responses': True,
 }
 

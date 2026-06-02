@@ -25,7 +25,7 @@ from datetime import datetime
 from typing import Dict, Any, List, Optional
 
 from src.cex.market_data.config import REDIS_CONFIG
-from src.settings import config as _sscfg
+from src.settings import cex_config as _sscfg
 from src.logger_handler.logger import setup_logger, get_logger
 
 

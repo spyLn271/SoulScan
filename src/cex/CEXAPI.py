@@ -8,7 +8,7 @@ from src.logger_handler.logger import get_logger
 
 logger = get_logger("cex-API")
 
-from src.settings import config as _sscfg
+from src.settings import cex_config as _sscfg
 
 
 class OrderbookAggregator:

@@ -1,11 +1,17 @@
 """
 Centralized configuration for all exchange-specific settings.
 API keys, rate limits, wait times, base URLs, etc.
+
+All environment-sourced values come from the typed `src.settings.cex_config`
+settings object (no scattered os.getenv here).
 """
-import os
 from dataclasses import dataclass
 from typing import Optional
 from enum import Enum
+
+from src.settings.cex_config import get_cex_config
+
+_cfg = get_cex_config()
 
 
 class FetchStrategy(Enum):
@@ -43,8 +49,8 @@ EXCHANGE_CONFIGS: dict[str, ExchangeConfig] = {
     "binance": ExchangeConfig(
         name="binance",
         base_url="https://api.binance.com",
-        api_key=os.getenv("BINANCE_API_KEY"),
-        secret_key=os.getenv("BINANCE_SECRET_KEY"),
+        api_key=_cfg.BINANCE_API_KEY,
+        secret_key=_cfg.BINANCE_SECRET_KEY,
         requires_auth=True,
         fetch_strategy=FetchStrategy.BULK,
     ),
@@ -52,8 +58,8 @@ EXCHANGE_CONFIGS: dict[str, ExchangeConfig] = {
     "bybit": ExchangeConfig(
         name="bybit",
         base_url="https://api.bybit.com",
-        api_key=os.getenv("BYBIT_API_KEY"),
-        secret_key=os.getenv("BYBIT_SECRET_KEY"),
+        api_key=_cfg.BYBIT_API_KEY,
+        secret_key=_cfg.BYBIT_SECRET_KEY,
         requires_auth=True,
         fetch_strategy=FetchStrategy.BULK,
     ),
@@ -61,9 +67,9 @@ EXCHANGE_CONFIGS: dict[str, ExchangeConfig] = {
     "okx": ExchangeConfig(
         name="okx",
         base_url="https://www.okx.com",
-        api_key=os.getenv("OKX_API_KEY"),
-        secret_key=os.getenv("OKX_SECRET_KEY"),
-        passphrase=os.getenv("OKX_PASSPHRASE"),
+        api_key=_cfg.OKX_API_KEY,
+        secret_key=_cfg.OKX_SECRET_KEY,
+        passphrase=_cfg.OKX_PASSPHRASE,
         requires_auth=True,
         fetch_strategy=FetchStrategy.SEQUENTIAL,
         request_delay=1.0,        # 1 second between requests
@@ -73,8 +79,8 @@ EXCHANGE_CONFIGS: dict[str, ExchangeConfig] = {
     "mexc": ExchangeConfig(
         name="mexc",
         base_url="https://api.mexc.com",
-        api_key=os.getenv("MEXC_API_KEY"),
-        secret_key=os.getenv("MEXC_SECRET_KEY"),
+        api_key=_cfg.MEXC_API_KEY,
+        secret_key=_cfg.MEXC_SECRET_KEY,
         requires_auth=True,
         fetch_strategy=FetchStrategy.BULK,
     ),
@@ -82,8 +88,8 @@ EXCHANGE_CONFIGS: dict[str, ExchangeConfig] = {
     "bingx": ExchangeConfig(
         name="bingx",
         base_url="https://open-api.bingx.com",
-        api_key=os.getenv("BINGX_API_KEY"),
-        secret_key=os.getenv("BINGX_SECRET_KEY"),
+        api_key=_cfg.BINGX_API_KEY,
+        secret_key=_cfg.BINGX_SECRET_KEY,
         requires_auth=True,
         fetch_strategy=FetchStrategy.BULK,
     ),
@@ -91,8 +97,8 @@ EXCHANGE_CONFIGS: dict[str, ExchangeConfig] = {
     "coinex": ExchangeConfig(
         name="coinex",
         base_url="https://api.coinex.com/v2",
-        api_key=os.getenv("COINEX_API_KEY"),
-        secret_key=os.getenv("COINEX_SECRET_KEY"),
+        api_key=_cfg.COINEX_API_KEY,
+        secret_key=_cfg.COINEX_SECRET_KEY,
         requires_auth=False,  # Public endpoint works
         fetch_strategy=FetchStrategy.BULK,
     ),
@@ -144,16 +150,16 @@ class RedisConfig:
     last_update_key: str = "cex:last_update:{exchange}"
 
     def __post_init__(self):
-        self.host = os.getenv("REDIS_HOST", self.host)
-        self.port = int(os.getenv("REDIS_PORT", self.port))
-        self.db = int(os.getenv("REDIS_DB", self.db))
-        self.password = os.getenv("REDIS_PASSWORD", self.password)
+        self.host = _cfg.REDIS.HOST
+        self.port = _cfg.REDIS.PORT
+        self.db = _cfg.REDIS_DB
+        self.password = _cfg.REDIS_PASSWORD
 
 
 REDIS_CONFIG = RedisConfig()
 
 # Update interval in seconds (20 minutes)
-UPDATE_INTERVAL_SECONDS = int(os.getenv("UPDATE_INTERVAL", 20 * 60))
+UPDATE_INTERVAL_SECONDS = _cfg.UPDATE_INTERVAL
 
 
 def validate_exchange_credentials() -> None:

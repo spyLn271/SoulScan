@@ -6,9 +6,8 @@ Supports plugin architecture with proxy management and per-exchange settings
 
 from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass
-import os
 
-from src.settings import config as _sscfg
+from src.settings import cex_config as _sscfg
 
 # --- Symbol Filtering ---
 ACCEPTABLE_QUOTE_ASSETS = ['USDT', 'USDC']
@@ -409,8 +408,8 @@ def get_redis_config() -> Dict[str, Any]:
     return {
         'host': _sscfg.REDIS_HOST,
         'port': _sscfg.REDIS_PORT,
-        'db': int(os.getenv('REDIS_DB', 0)),
-        'password': os.getenv('REDIS_PASSWORD'),
+        'db': _sscfg.REDIS_DB,
+        'password': _sscfg.REDIS_PASSWORD,
         'decode_responses': True,
     }
 
