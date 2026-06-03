@@ -140,6 +140,34 @@ def test_empty_rebuild_does_not_blank_index(rc):
     assert rc.client.exists(f"{REDIS_CONFIG.contract_index_key}:temp") == 0
 
 
+def test_htx_lowercase_market_data_resolves(rc):
+    # htx stores market-data symbols lowercase; orderbook streams are uppercase.
+    # The resolver must match case-insensitively and store the UPPERCASE base.
+    rc.client.hset("spot-market-data:htx", mapping={"acxusdt": "x"})
+    rc.rebuild_contract_index({
+        "htx": [CoinEntry(coin="ACX", network="ETH", contract_address="0x" + "a" * 40)],
+    })
+    assert rc.lookup_contract("eth", "0x" + "a" * 40) == {"htx": "ACX"}
+
+
+def test_blank_network_native_assigned_home_chain(rc):
+    # htx reports native assets with blank network + empty address.
+    _seed_market(rc, "htx", "ETHUSDT", "BNBUSDT", "SOLUSDT", "BTCUSDT")
+    rc.rebuild_contract_index({
+        "htx": [
+            CoinEntry(coin="ETH", network="", contract_address=""),
+            CoinEntry(coin="BNB", network="", contract_address=""),
+            CoinEntry(coin="SOL", network="", contract_address=""),
+            CoinEntry(coin="BTC", network="", contract_address=""),  # non-SoulScan -> x-btc
+        ],
+    })
+    assert rc.lookup_contract("eth", C.EVM_NATIVE_ADDRESS) == {"htx": "ETH"}
+    assert rc.lookup_contract("bsc", C.EVM_NATIVE_ADDRESS) == {"htx": "BNB"}
+    assert rc.lookup_contract("solana", C.WSOL_MINT) == {"htx": "SOL"}
+    # BTC kept under x-btc:native (not dropped, not on a SoulScan chain)
+    assert rc.client.hget(REDIS_CONFIG.contract_index_key, "x-btc:native") is not None
+
+
 def test_last_good_load_roundtrip(rc):
     entries = [CoinEntry(coin="BTC", network="ETH", contract_address="0x" + "b" * 40)]
     rc.store_exchange_data("bybit", entries)

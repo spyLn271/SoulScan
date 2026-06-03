@@ -162,6 +162,39 @@ def canonical_address(canonical_net: str, raw_address: str, coin: str = "") -> O
     return _normalize_evm_address(addr)
 
 
+# Some exchanges (verified: only htx) report chain-native assets with a BLANK
+# network AND empty address. Map the SoulScan-native coins to their home chain so
+# they aren't lost. Non-SoulScan natives (BTC/XRP/ADA/...) are kept under an
+# ``x-<coin>`` key with a ``native`` sentinel address instead of being dropped.
+NATIVE_COIN_HOME_CHAIN = {"ETH": "eth", "BNB": "bsc", "SOL": "solana"}
+
+
+def resolve_entry(raw_network: str, raw_address: str, coin: str):
+    """Resolve a raw exchange (network, address, coin) entry to a canonical
+    ``(network, address)`` pair for the index, or None to skip.
+
+    Handles the blank-network native case: when the exchange gives no network and
+    no address (so it's the base-chain asset), the coin determines the chain —
+    ETH/BNB/SOL map to eth/bsc/solana; any other such native is kept under
+    ``x-<coin>`` with a ``native`` address sentinel.
+    """
+    net = canonical_network(raw_network)
+    addr = (raw_address or "").strip()
+
+    # Blank network (-> x-unknown) with no address: treat the coin as a native.
+    if net == "x-unknown" and not addr and coin:
+        home = NATIVE_COIN_HOME_CHAIN.get(coin.upper())
+        if home:
+            net = home  # falls through to canonical_address -> chain native sentinel
+        else:
+            return (f"x-{_slug(coin)}", "native")  # non-SoulScan native, kept
+
+    ca = canonical_address(net, addr, coin)
+    if not ca:
+        return None
+    return (net, ca)
+
+
 def make_index_key(canonical_net: str, canonical_addr: str) -> str:
     """The cex:contract_index hash field: ``{network}:{address}``."""
     return f"{canonical_net}:{canonical_addr}"
@@ -176,10 +209,13 @@ def resolve_tradable_base(market_symbols: set, coin: str) -> Optional[str]:
     """Return the tradable BASE symbol for ``coin`` on an exchange, or None.
 
     ``market_symbols`` is the set of that exchange's tradable symbols (the FIELD
-    names of its ``spot-market-data:{exchange}`` hash, e.g. {"SOLUSDT","BTCUSDT"}).
-    A coin is tradable iff ``{coin}{quote}`` exists for some accepted quote. The
-    returned value is the orderbook base (== ``coin`` when a market exists), which
-    the engine appends a quote to when building the stream key.
+    names of its ``spot-market-data:{exchange}`` hash). A coin is tradable iff
+    ``{coin}{quote}`` exists for some accepted quote.
+
+    Case-insensitive: some exchanges store market-data symbols lowercase (htx) while
+    the order-book streams are uppercase; we match case-insensitively and always
+    return the canonical UPPERCASE base, which is what the order-book stream keys use
+    (``stream:orderbook:{ex}:spot:{BASE}{QUOTE}``).
 
     Why a plain set (not Redis here): keeps this helper pure/testable; the caller
     loads the hash keys once per exchange and passes the set in.
@@ -187,7 +223,8 @@ def resolve_tradable_base(market_symbols: set, coin: str) -> Optional[str]:
     if not coin:
         return None
     c = coin.upper()
+    upper_symbols = {s.upper() for s in market_symbols}
     for q in QUOTE_ASSETS:
-        if f"{c}{q}" in market_symbols:
+        if f"{c}{q}" in upper_symbols:
             return c
     return None

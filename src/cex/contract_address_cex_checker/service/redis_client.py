@@ -111,10 +111,10 @@ class RedisClient:
             with_addr = 0          # entries that yielded a canonical address
             tradable = 0           # entries that also resolved to a tradable base
             for entry in entries:
-                net = canonical.canonical_network(entry.network)
-                addr = canonical.canonical_address(net, entry.contract_address, entry.coin)
-                if not addr:
-                    continue  # no usable address (e.g. native on an unsupported net)
+                resolved = canonical.resolve_entry(entry.network, entry.contract_address, entry.coin)
+                if not resolved:
+                    continue  # no usable (network, address) to key on
+                net, addr = resolved
                 with_addr += 1
 
                 # Resolve the tradable base from this exchange's market universe.
