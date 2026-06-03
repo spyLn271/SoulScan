@@ -51,10 +51,15 @@ def test_contract_checker_delta_is_intentional():
     # binance is address-resolution-only (not an order-book producer)
     assert "binance" in checker, "contract checker unexpectedly dropped binance"
     assert "binance" not in producer, "binance should not be an order-book producer"
-    # exchanges the checker does NOT cover (documented gap): it can't resolve
-    # addresses for these even though they produce order books.
+    # The checker now covers EVERY order-book producer exchange (lbank + bitmart
+    # were added). lbank contributes 0 addresses (its public API exposes none) but
+    # is present so the sets match — see exchanges/lbank.py.
     uncovered = producer - checker
-    assert uncovered == {"bitmart", "lbank"}, (
-        f"contract-checker coverage changed unexpectedly: now missing {uncovered} "
-        f"(was {{'bitmart','lbank'}}). Update this assertion intentionally."
+    assert uncovered == set(), (
+        f"contract-checker no longer covers every producer exchange: missing {uncovered}. "
+        f"Add a fetcher + config entry for each."
+    )
+    # The only checker-extra vs producers is binance (address-resolution-only).
+    assert checker - producer == {"binance"}, (
+        f"unexpected checker-only exchanges: {checker - producer - {'binance'}}"
     )

@@ -74,44 +74,49 @@ class OkxExchange(BaseExchange):
         results = []
 
         for i, coin in enumerate(unique_coins, 1):
-            request_path = f"/api/v5/asset/deposit-address?ccy={coin}"
-            headers = self._get_headers(request_path)
+            # Continue-on-error per coin: one failing token must not abort the whole
+            # OKX fetch (this previously truncated OKX to a few hundred entries).
+            try:
+                request_path = f"/api/v5/asset/deposit-address?ccy={coin}"
+                headers = self._get_headers(request_path)
 
-            async with session.get(
-                self.config.base_url + request_path,
-                headers=headers,
-                timeout=aiohttp.ClientTimeout(total=self.config.timeout)
-            ) as resp:
-                if resp.status == 429:
-                    self.logger.warning(f"Rate limited, waiting {self.config.rate_limit_wait}s...")
-                    await asyncio.sleep(self.config.rate_limit_wait)
-                    headers = self._get_headers(request_path)
-                    async with session.get(
-                        self.config.base_url + request_path,
-                        headers=headers,
-                        timeout=aiohttp.ClientTimeout(total=self.config.timeout)
-                    ) as retry:
-                        data = await retry.json()
+                async with session.get(
+                    self.config.base_url + request_path,
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=self.config.timeout)
+                ) as resp:
+                    if resp.status == 429:
+                        self.logger.warning(f"Rate limited, waiting {self.config.rate_limit_wait}s...")
+                        await asyncio.sleep(self.config.rate_limit_wait)
+                        headers = self._get_headers(request_path)
+                        async with session.get(
+                            self.config.base_url + request_path,
+                            headers=headers,
+                            timeout=aiohttp.ClientTimeout(total=self.config.timeout)
+                        ) as retry:
+                            data = await retry.json()
+                    else:
+                        data = await resp.json()
+
+                if data.get("code") == "0" and data.get("data"):
+                    for addr_info in data["data"]:
+                        results.append(CoinEntry(
+                            coin=coin,
+                            network=addr_info.get("chain", ""),
+                            contract_address=addr_info.get("ctAddr", "") or ""
+                        ))
+                    if i % 50 == 0:
+                        self.logger.info(f"[{i}/{total}] processed")
                 else:
-                    data = await resp.json()
-
-            if data.get("code") == "0" and data.get("data"):
-                for addr_info in data["data"]:
-                    results.append(CoinEntry(
-                        coin=coin,
-                        network=addr_info.get("chain", ""),
-                        contract_address=addr_info.get("ctAddr", "") or ""
-                    ))
-                if i % 50 == 0:
-                    self.logger.info(f"[{i}/{total}] processed")
-            else:
-                # Fallback: use chain info without contract address
-                for chain in coin_chains.get(coin, []):
-                    results.append(CoinEntry(
-                        coin=coin,
-                        network=chain,
-                        contract_address=""
-                    ))
+                    # Fallback: use chain info without contract address
+                    for chain in coin_chains.get(coin, []):
+                        results.append(CoinEntry(
+                            coin=coin,
+                            network=chain,
+                            contract_address=""
+                        ))
+            except Exception as e:
+                self.logger.warning(f"Failed to fetch deposit address for {coin}: {e}")
 
             await asyncio.sleep(self.config.request_delay)
 

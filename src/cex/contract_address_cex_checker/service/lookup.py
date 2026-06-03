@@ -1,10 +1,14 @@
 """
 Contract address lookup module.
 
-Usage:
-    from service.lookup import lookup_mint
+The contract index is keyed by (network, address) — see canonical.py — so a lookup
+needs both the chain and the address. DEX pools are chain-scoped, so the caller
+always knows the network.
 
-    result = lookup_mint("So11111111111111111111111111111111111111112")
+Usage:
+    from service.lookup import lookup_token
+
+    result = lookup_token("solana", "So11111111111111111111111111111111111111112")
     # Returns: {"bybit": "SOL", "binance": "SOL", ...} or None
 """
 from typing import Dict, Optional
@@ -23,23 +27,26 @@ def _get_redis_client() -> RedisClient:
     return _redis_client
 
 
-def lookup_mint(contract_address: str) -> Optional[Dict[str, str]]:
+def lookup_token(network: str, contract_address: str) -> Optional[Dict[str, str]]:
     """
-    Look up a mint/contract address across all exchanges.
+    Look up a token by (network, address) across all exchanges.
 
     Args:
-        contract_address: The contract/mint address to look up
+        network: chain name (raw or canonical, e.g. "eth", "ERC20", "solana")
+        contract_address: the on-chain address / mint
 
     Returns:
-        Dict of {exchange_name: coin_name} for exchanges that have this address,
-        or None if not found anywhere
+        Dict of {exchange_name: tradable_base_symbol} for exchanges that trade this
+        token, or None if not found anywhere.
 
     Example:
-        >>> lookup_mint("0xdac17f958d2ee523a2206206994597c13d831ec7")
+        >>> lookup_token("eth", "0xdac17f958d2ee523a2206206994597c13d831ec7")
         {"binance": "USDT", "okx": "USDT", "kucoin": "USDT"}
 
-        >>> lookup_mint("nonexistent_address")
+        >>> lookup_token("solana", "So11111111111111111111111111111111111111112")
+        {"binance": "SOL", "gateio": "SOL", ...}
+
+        >>> lookup_token("eth", "0xnonexistent")
         None
     """
-    redis_client = _get_redis_client()
-    return redis_client.lookup_contract(contract_address)
+    return _get_redis_client().lookup_contract(network, contract_address)

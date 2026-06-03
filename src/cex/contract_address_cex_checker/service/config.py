@@ -133,6 +133,22 @@ EXCHANGE_CONFIGS: dict[str, ExchangeConfig] = {
         request_delay=0.1,        # 100ms between requests
         rate_limit_wait=20.0,
     ),
+
+    "bitmart": ExchangeConfig(
+        name="bitmart",
+        base_url="https://api-cloud.bitmart.com",
+        requires_auth=False,
+        fetch_strategy=FetchStrategy.BULK,
+    ),
+
+    # LBank's public API exposes no contract addresses; fetcher returns [] (kept
+    # so the checker set matches the producer set — see exchanges/lbank.py).
+    "lbank": ExchangeConfig(
+        name="lbank",
+        base_url="https://api.lbkex.com",
+        requires_auth=False,
+        fetch_strategy=FetchStrategy.BULK,
+    ),
 }
 
 

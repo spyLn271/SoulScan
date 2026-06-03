@@ -19,6 +19,8 @@ def get_all_exchanges() -> Dict[str, BaseExchange]:
     from .bitget import BitgetExchange
     from .htx import HtxExchange
     from .gateio import GateioExchange
+    from .bitmart import BitmartExchange
+    from .lbank import LbankExchange
 
     EXCHANGE_CLASSES = {
         "binance": BinanceExchange,
@@ -31,6 +33,8 @@ def get_all_exchanges() -> Dict[str, BaseExchange]:
         "bitget": BitgetExchange,
         "htx": HtxExchange,
         "gateio": GateioExchange,
+        "bitmart": BitmartExchange,
+        "lbank": LbankExchange,
     }
 
     exchanges = {}

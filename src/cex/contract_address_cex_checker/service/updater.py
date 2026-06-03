@@ -113,20 +113,44 @@ class UpdaterService:
             sequential_results = await self.fetch_sequential_exchanges(session)
             logger.info(f"Sequential exchanges completed: {len(sequential_results)} successful")
 
-        # Merge results
-        all_results = {**bulk_results, **sequential_results}
+        # Merge fresh results
+        fresh_results = {**bulk_results, **sequential_results}
 
-        if not all_results:
-            logger.error("No exchanges returned data, skipping Redis update")
-            return
-
-        # Store raw data per exchange
-        for exchange_name, entries in all_results.items():
+        # Store fresh data per exchange (updates its last-good cache + timestamp)
+        for exchange_name, entries in fresh_results.items():
             self.redis.store_exchange_data(exchange_name, entries)
             logger.info(f"Stored {len(entries)} entries for {exchange_name}")
 
+        # Per-exchange last-good fallback: for every configured exchange that did
+        # NOT return fresh data this cycle, reuse its last successful snapshot so a
+        # transient fetch failure (bad key / rate-limit) doesn't drop the whole
+        # exchange from the index. Flag which exchanges are serving stale data.
+        rebuild_input: Dict[str, List[CoinEntry]] = dict(fresh_results)
+        stale = []
+        for name in self.exchanges:
+            if name in rebuild_input:
+                continue
+            cached = self.redis.load_exchange_data(name)
+            if cached:
+                rebuild_input[name] = cached
+                stale.append(name)
+        if stale:
+            logger.warning(
+                "Serving LAST-GOOD cached data for %d exchange(s) that failed this "
+                "cycle: %s", len(stale), stale,
+            )
+
+        if not rebuild_input:
+            logger.error("No fresh or cached exchange data available, skipping Redis update")
+            return
+
+        logger.info(
+            "Rebuilding index from %d exchanges (%d fresh, %d cached)",
+            len(rebuild_input), len(fresh_results), len(stale),
+        )
+
         # Rebuild the contract index
-        self.redis.rebuild_contract_index(all_results)
+        self.redis.rebuild_contract_index(rebuild_input)
         stats = self.redis.get_index_stats()
         logger.info(f"Rebuilt contract index: {stats['total_contracts']} unique contracts")
 

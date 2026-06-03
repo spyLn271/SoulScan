@@ -3,11 +3,12 @@ Redis client for storing and retrieving exchange data.
 """
 import json
 import time
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 import redis
 
 from .config import REDIS_CONFIG
 from .exchanges.base import CoinEntry
+from . import canonical
 from src.logger_handler.logger import get_logger
 
 
@@ -47,77 +48,132 @@ class RedisClient:
         ts_key = REDIS_CONFIG.last_update_key.format(exchange=exchange_name)
         self.client.set(ts_key, str(int(time.time())))
 
+    def load_exchange_data(self, exchange_name: str) -> Optional[List[CoinEntry]]:
+        """Load an exchange's LAST-GOOD raw data (from a prior successful cycle).
+
+        Used as a fallback when the current cycle's fetch failed, so one transient
+        failure (bad key, rate-limit) doesn't drop the whole exchange from the
+        index. Returns None if no cached data exists yet."""
+        key = REDIS_CONFIG.exchange_data_key.format(exchange=exchange_name)
+        raw = self.client.get(key)
+        if not raw:
+            return None
+        try:
+            return [CoinEntry(**d) for d in json.loads(raw)]
+        except (ValueError, TypeError) as e:
+            logger.warning("Could not parse cached data for %s: %s", exchange_name, e)
+            return None
+
+    def _load_market_symbols(self, exchange_name: str) -> Set[str]:
+        """Return the set of tradable symbols for an exchange — the FIELD names of
+        its ``spot-market-data:{exchange}`` hash (e.g. {"SOLUSDT","BTCUSDT"}).
+
+        This is the authoritative "what does this exchange actually trade" universe,
+        populated by the market-data service. Used to validate that a resolved base
+        is really tradable before it enters the index. Returns an empty set if the
+        hash is missing (exchange's market data not yet populated)."""
+        try:
+            keys = self.client.hkeys(f"spot-market-data:{exchange_name}")
+            # drop the metadata field(s) like "_version"
+            return {k for k in keys if not k.startswith("_")}
+        except Exception as e:
+            logger.warning("Could not load market symbols for %s: %s", exchange_name, e)
+            return set()
+
     def rebuild_contract_index(self, all_exchange_data: Dict[str, List[CoinEntry]]) -> None:
         """
         Rebuild the contract address index from all exchange data.
 
-        Uses a temporary key and atomic rename for zero-downtime updates.
+        Index shape:  ``{network}:{canonical_address}``  ->  ``{exchange: base_symbol}``
+        where ``base_symbol`` is the TRADABLE base (validated against the exchange's
+        ``spot-market-data`` universe), so the engine can build
+        ``stream:orderbook:{exchange}:spot:{base}{QUOTE}`` directly.
 
-        Safety (PRC-01): if a rebuild cycle produced NO contract addresses at all
-        (every exchange fetch failed / returned nothing), the swap is SKIPPED and
-        the previous index is kept — stale-but-present beats silently blanking the
-        index, which would make every downstream address lookup miss. The skip is
-        logged at WARNING so a total fetch failure is visible, not masked.
+        Network + address are canonicalized (see ``canonical.py``):
+        - the 5 SoulScan chains (eth/base/arbitrum/bsc/solana) get canonical keys;
+          other networks are kept under an ``x-<slug>`` key so coverage isn't lost;
+        - EVM native+wrapped collapse to ``{chain}:0x000…000``; Solana native SOL to
+          ``solana:<WSOL mint>``.
+
+        Uses a temporary key + atomic rename for zero-downtime updates.
+
+        Safety (PRC-01): if a rebuild produced NO entries at all (every fetch failed),
+        the swap is SKIPPED and the previous index kept — stale-but-present beats
+        blanking lookups. Logged at WARNING so a total failure is visible.
         """
         temp_key = f"{REDIS_CONFIG.contract_index_key}:temp"
 
-        # Build index: contract_address -> {exchange: coin_name}
         index: Dict[str, Dict[str, str]] = {}
-
-        # Per-exchange counts for observability (fetched vs. with-contract-address).
         counts: Dict[str, Dict[str, int]] = {}
+
         for exchange_name, entries in all_exchange_data.items():
-            with_addr = 0
+            market_symbols = self._load_market_symbols(exchange_name)
+            with_addr = 0          # entries that yielded a canonical address
+            tradable = 0           # entries that also resolved to a tradable base
             for entry in entries:
-                if entry.contract_address:  # Skip empty addresses
-                    addr = _normalize_address(entry.contract_address)
-                    if addr not in index:
-                        index[addr] = {}
-                    index[addr][exchange_name] = entry.coin
-                    with_addr += 1
-            counts[exchange_name] = {"fetched": len(entries), "with_contract": with_addr}
+                net = canonical.canonical_network(entry.network)
+                addr = canonical.canonical_address(net, entry.contract_address, entry.coin)
+                if not addr:
+                    continue  # no usable address (e.g. native on an unsupported net)
+                with_addr += 1
+
+                # Resolve the tradable base from this exchange's market universe.
+                # If market data is absent for the exchange, fall back to the raw
+                # coin so we don't lose the whole exchange to an empty hash.
+                if market_symbols:
+                    base = canonical.resolve_tradable_base(market_symbols, entry.coin)
+                    if not base:
+                        continue  # listed in wallet config but not actually tradable
+                else:
+                    base = entry.coin.upper()
+                tradable += 1
+
+                key = canonical.make_index_key(net, addr)
+                index.setdefault(key, {})[exchange_name] = base
+            counts[exchange_name] = {
+                "fetched": len(entries), "with_address": with_addr, "tradable": tradable,
+            }
 
         logger.info(
-            "Contract index rebuild: %d unique addresses across %d exchanges | per-exchange %s",
+            "Contract index rebuild: %d unique (network:address) keys across %d exchanges | per-exchange %s",
             len(index), len(all_exchange_data), counts,
         )
 
-        # Guard: never blank a populated index because a whole cycle failed.
         if not index:
             logger.warning(
-                "Contract index rebuild produced 0 addresses — SKIPPING swap, "
-                "keeping previous index to avoid blanking lookups. per-exchange %s",
-                counts,
+                "Contract index rebuild produced 0 entries — SKIPPING swap, keeping "
+                "previous index to avoid blanking lookups. per-exchange %s", counts,
             )
-            # Clean up any leftover temp key from a prior interrupted run.
             self.client.delete(temp_key)
             return
 
-        # Write to temp key using pipeline for efficiency, then atomically swap.
         pipe = self.client.pipeline()
         pipe.delete(temp_key)
-
-        for contract_addr, exchange_map in index.items():
-            pipe.hset(temp_key, contract_addr, json.dumps(exchange_map))
-
-        # Stamp a freshness version (additive field; the Rust reader ignores
-        # unknown hash fields, and "_version" can never collide with a 0x address).
+        for key, exchange_map in index.items():
+            pipe.hset(temp_key, key, json.dumps(exchange_map))
+        # Freshness stamp (reserved field; "_version" never collides with a key).
         pipe.hset(temp_key, "_version", str(int(time.time())))
         pipe.rename(temp_key, REDIS_CONFIG.contract_index_key)
         pipe.execute()
 
-    def lookup_contract(self, contract_address: str) -> Optional[Dict[str, str]]:
+    def lookup_contract(self, network: str, contract_address: str) -> Optional[Dict[str, str]]:
         """
-        Look up a contract address and return exchanges that have it.
+        Look up a token by (network, address) and return the exchanges that trade
+        it plus the tradable base symbol each uses.
 
         Args:
-            contract_address: The mint/contract address to look up
+            network: raw or canonical network name (normalized internally)
+            contract_address: on-chain address / mint
 
         Returns:
-            Dict of {exchange_name: coin_name} or None if not found
+            Dict of {exchange_name: base_symbol} or None if not found.
         """
-        result = self.client.hget(REDIS_CONFIG.contract_index_key, _normalize_address(contract_address))
-
+        net = canonical.canonical_network(network)
+        addr = canonical.canonical_address(net, contract_address, "")
+        if not addr:
+            return None
+        key = canonical.make_index_key(net, addr)
+        result = self.client.hget(REDIS_CONFIG.contract_index_key, key)
         if result:
             return json.loads(result)
         return None
