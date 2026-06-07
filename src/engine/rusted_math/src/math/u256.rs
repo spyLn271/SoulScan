@@ -35,7 +35,7 @@ pub fn hi_lo(hi: u64, lo: u64) -> u128 {
     (hi as u128) << U64_RESOLUTION | (lo as u128)
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct U256 {
     pub items: [u64; NUM_WORDS]
 }

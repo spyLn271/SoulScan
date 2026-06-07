@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
+use std::sync::Arc;
 use r2d2::Pool;
 use r2d2_redis::redis::Commands;
 use rusted_soul_dex::smart_router::v1::router::*;
@@ -10,14 +11,14 @@ use rusted_soul_dex::dex::metadata::{Metadata, ColdPath};
 
 #[derive(Deserialize, Debug)]
 struct PoolStateFor<T> {
-    pool_state: HashMap<String, T>,
+    pool_state: BTreeMap<String, T>,
     ts: u64
 }
 
 fn get_pool_state<T>(
     pool: &Pool<RedisConnectionManager>,
     key: &str
-) -> HashMap<String, T>
+) -> BTreeMap<String, T>
 where
     T: serde::de::DeserializeOwned
 {
@@ -41,7 +42,7 @@ fn get_cold_path(pair: &str, pool: &Pool<RedisConnectionManager>) -> ColdPath {
     paths
 }
 
-fn get_metadata() -> HashMap<String, Metadata> {
+fn get_metadata() -> BTreeMap<String, Metadata> {
     let client = redis::Client::open("redis://127.0.0.1:6379/0").unwrap();
     let mut conn = client.get_connection().unwrap();
 
@@ -53,11 +54,11 @@ fn get_metadata() -> HashMap<String, Metadata> {
         "snapshot:metadata:solana:raydium:amm"
     ];
 
-    let mut metadata: HashMap<String, Metadata> = HashMap::new();
+    let mut metadata: BTreeMap<String, Metadata> = BTreeMap::new();
 
     for key in market_metadata_keys {
         let raw_json = conn.get(key).unwrap().unwrap();
-        let market_metadata: HashMap<String, Metadata> = serde_json::from_str(&raw_json).unwrap();
+        let market_metadata: BTreeMap<String, Metadata> = serde_json::from_str(&raw_json).unwrap();
         metadata.extend(market_metadata);
     }
 
@@ -74,19 +75,21 @@ fn test_smart_router() {
         .build(client)
         .unwrap();
 
-    let whirlpool = get_pool_state(&pool, "snapshot:state:orca:clmm");
+    let whirlpool  = get_pool_state(&pool, "snapshot:state:orca:clmm");
     let ray_clmm = get_pool_state(&pool, "snapshot:state:raydium:clmm");
     let ray_amm = get_pool_state(&pool, "snapshot:state:raydium:amm");
     let met_dlmm = get_pool_state(&pool, "snapshot:state:meteora:dlmm");
 
-    let pool_state = PoolStateV1 {
-        whirlpool: &whirlpool,
-        meteora_dlmm_pool: &met_dlmm,
-        ray_amm_pool: &ray_amm,
-        ray_clmm_pool: &ray_clmm
-    };
+    let pool_state = Arc::new(
+        PoolStateV1 {
+            whirlpool: Arc::new(whirlpool),
+            meteora_dlmm_pool: Arc::new(met_dlmm),
+            ray_amm_pool: Arc::new(ray_amm),
+            ray_clmm_pool: Arc::new(ray_clmm),
+        }
+    );
 
-    let metadata = get_metadata();
+    let metadata = Arc::new(get_metadata());
 
     let smart_router_v1 = SmartRouterV1 {
         pool_state: &pool_state,

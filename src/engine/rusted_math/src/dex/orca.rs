@@ -1,7 +1,8 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
+use std::hash::Hash;
 use serde::Deserialize;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AdaptiveFeeConstants {
@@ -14,7 +15,7 @@ pub struct AdaptiveFeeConstants {
     pub major_swap_threshold_ticks: u16
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AdaptiveFeeVariables {
@@ -25,14 +26,14 @@ pub struct AdaptiveFeeVariables {
     pub volatility_accumulator: u32,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct Oracle {
     pub adaptive_fee_constants: AdaptiveFeeConstants,
     pub adaptive_fee_variables: AdaptiveFeeVariables
 }
 
-#[derive(Deserialize, Debug, Copy, Clone)]
+#[derive(Deserialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct BaseInfo {
     pub tick_spacing: u16,
@@ -47,16 +48,16 @@ pub struct BaseInfo {
     pub crossed_tick_groups: u16,
 }
 
-#[derive(Deserialize, Debug, Copy, Clone)]
+#[derive(Deserialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct TickData {
     pub liquidity_net: i128,
     pub liquidity_gross: u128,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Whirlpool {
     pub base_info: BaseInfo,
-    pub ticks: HashMap<i32, TickData>,
+    pub ticks: BTreeMap <i32, TickData>,
     pub oracle: Option<Oracle>,
 }

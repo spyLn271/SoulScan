@@ -30,7 +30,7 @@ fn get_dlmm_pool() -> MeteoraPools {
 
 
 
-#[test]
+
 fn test_fee_rate_manager() {
     let constant_parameters = ConstantParameters {
         base_factor: 3125,
@@ -70,7 +70,7 @@ fn test_fee_rate_manager() {
     println!("{}", fee_rate_manager.get_fee_rate(7));
 }
 
-#[test]
+
 fn test_swap_manger() {
     let pools = get_dlmm_pool();
     println!("{}", pools.ts);

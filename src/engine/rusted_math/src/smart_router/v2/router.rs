@@ -1,11 +1,16 @@
 // Incremental Allocation 5% (or IA5)
 
-use std::collections::HashMap;
+use std::collections::{HashMap, BTreeMap};
 use std::time;
 use std::time::{Duration, UNIX_EPOCH};
+
+use std::sync::Arc;
+
 use r2d2_redis::redis::Commands;
 use r2d2_redis::RedisConnectionManager;
+
 use crate::config::{COLD_PATH_KEY, DECAY_PERIOD_COLD_PATH};
+
 use crate::smart_router::v2::manager::meteora::dlmm::swap_dynamic::DynamicMeteoraResult;
 use crate::smart_router::v2::manager::orca::clmm::swap_dynamic::DynamicOrcaResult;
 use crate::smart_router::v2::manager::raydium::clmm::swap_dynamic::DynamicRayClmmResult;
@@ -116,21 +121,21 @@ impl UpdatePool for UniswapAmm {
 }
 
 
-#[derive(Debug)]
-pub struct PoolStateV2<'a> {
-    pub whirlpool: &'a HashMap<String, Whirlpool>,
-    pub meteora_dlmm_pool: &'a HashMap<String, MeteoraDlmmPool>,
-    pub ray_amm_pool: &'a HashMap<String, RayAmmPool>,
-    pub ray_clmm_pool: &'a HashMap<String, RayClmmPool>,
-    pub uni_clmm_pool: &'a UniswapClmmPools,
-    pub uni_amm_pool: &'a HashMap<String, UniswapAmm>
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PoolStateV2 {
+    pub whirlpool: Arc<BTreeMap<String, Whirlpool>>,
+    pub meteora_dlmm_pool: Arc<BTreeMap<String, MeteoraDlmmPool>>,
+    pub ray_amm_pool: Arc<BTreeMap<String, RayAmmPool>>,
+    pub ray_clmm_pool: Arc<BTreeMap<String, RayClmmPool>>,
+    pub uni_clmm_pool: Arc<UniswapClmmPools>,
+    pub uni_amm_pool: Arc<BTreeMap<String, UniswapAmm>>
 }
 
-impl<'a> PoolStateV2<'a> {
+impl PoolStateV2 {
     pub fn get_unique_pools_from(
         &self,
         cold_paths: &ColdPath,
-        metadata: &HashMap<String, Metadata>
+        metadata: &BTreeMap<String, Metadata>
     ) -> HashMap<String, Pool> {
         let mut unique_pools: HashMap<String, Pool> = HashMap::new();
 
@@ -212,16 +217,16 @@ pub struct SmartResultV2 {
 
 #[derive(Debug)]
 pub struct SmartRouterV2<'a> {
-    pub metadata: &'a HashMap<String, Metadata>,
-    pub pool_state: &'a PoolStateV2<'a>,
+    pub metadata: &'a BTreeMap<String, Metadata>,
+    pub pool_state: &'a PoolStateV2,
     pub redis_pool_connection: &'a r2d2::Pool<RedisConnectionManager>
 }
 
 
 impl<'a> SmartRouterV2<'a> {
     pub fn new(
-        metadata: &'a HashMap<String, Metadata>,
-        pool_state: &'a PoolStateV2<'a>,
+        metadata: &'a BTreeMap<String, Metadata>,
+        pool_state: &'a PoolStateV2,
         redis_pool_connection: &'a r2d2::Pool<RedisConnectionManager>
     ) -> Self {
         Self {
@@ -259,7 +264,7 @@ impl<'a> SmartRouterV2<'a> {
 
         let mut unique_pools = self.pool_state.get_unique_pools_from(
             &cold_paths,
-            self.metadata
+            &self.metadata
         );
 
         let chunk_amount = delta_amount / 20;
@@ -406,8 +411,8 @@ impl<'a> SmartRouterV2<'a> {
                     );
                 },
                 Pool::RayAmmPool(ray_amm_pool) => {
-                    let fee_rate = (pool_metadata.fee_rate
-                        .ok_or(SoulSmartRouterError::FailedToGetFeeRate)? * 1_000_000f64) as u32;
+                    let fee_rate = pool_metadata.fee_rate
+                        .ok_or(SoulSmartRouterError::FailedToGetFeeRate)?;
 
                     let swap_result = raydium_amm_swap_manager(
                         x_to_y, amount_specified_is_in, processing_amount, fee_rate, ray_amm_pool
@@ -425,8 +430,8 @@ impl<'a> SmartRouterV2<'a> {
                     );
                 },
                 Pool::RayClmmPool(ray_clmm_pool) => {
-                    let fee_rate = (pool_metadata.fee_rate
-                        .ok_or(SoulSmartRouterError::FailedToGetFeeRate)? * 1_000_000f64) as u32;
+                    let fee_rate = pool_metadata.fee_rate
+                        .ok_or(SoulSmartRouterError::FailedToGetFeeRate)?;
 
                     let swap_result = raydium_clmm_swap_manager(
                         x_to_y, amount_specified_is_in, processing_amount, fee_rate, ray_clmm_pool
@@ -462,7 +467,7 @@ impl<'a> SmartRouterV2<'a> {
                 Pool::UniswapClmmPool(uni_clmm_pool) => {
                     // Uniswap fee is already in needed format 400, 500, etc.
                     let fee_rate = pool_metadata.fee_rate
-                        .ok_or(SoulSmartRouterError::FailedToGetFeeRate)? as u32;
+                        .ok_or(SoulSmartRouterError::FailedToGetFeeRate)?;
                     let tick_spacing = pool_metadata.tick_spacing
                         .ok_or(SoulSmartRouterError::FailedToGetTickSpacing)?;
 
@@ -489,7 +494,7 @@ impl<'a> SmartRouterV2<'a> {
                 Pool::UniswapAmmPool(uni_amm_pool) => {
                     // Uniswap fee is already in needed format 400, 500, etc.
                     let fee_rate = pool_metadata.fee_rate
-                        .ok_or(SoulSmartRouterError::FailedToGetFeeRate)? as u32;
+                        .ok_or(SoulSmartRouterError::FailedToGetFeeRate)?;
 
                     let swap_result = uni_amm_swap_manager(
                         x_to_y,

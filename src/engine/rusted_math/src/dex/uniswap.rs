@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use serde::{Deserialize, Deserializer};
 use serde::de::{Error};
 use crate::math::u512::U512;
 
 
 // Uniswap V3
-#[derive(Debug, Deserialize, Copy, Clone)]
+#[derive(Debug, Deserialize, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Slot0 {
     #[serde(deserialize_with = "deserialize_sqrt_price")]
     pub sqrt_price_x96: U512,
@@ -63,7 +63,7 @@ where
     )
 }
 
-#[derive(Deserialize, Debug, Copy, Clone)]
+#[derive(Deserialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct TickData {
     pub liquidity_net: i128,
@@ -74,19 +74,19 @@ pub struct TickData {
 #[derive(Debug, Clone)]
 pub struct UniswapClmm {
     pub slot0: Slot0,
-    pub tick: HashMap<i32, TickData>,
+    pub tick: BTreeMap<i32, TickData>,
 }
 
 // how Smart Routers will save it
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct UniswapClmmPools {
-    pub slot0s: HashMap<String, Slot0>,
-    pub ticks: HashMap<String, HashMap<i32, TickData>>
+    pub slot0s: BTreeMap<String, Slot0>,
+    pub ticks: BTreeMap<String, BTreeMap<i32, TickData>>
 }
 
 
 // Uniswap V2
-#[derive(Debug, Deserialize, Copy, Clone)]
+#[derive(Debug, Deserialize, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct UniswapAmm {
     pub reserve0: u128,
     pub reserve1: u128

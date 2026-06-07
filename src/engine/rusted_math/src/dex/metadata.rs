@@ -35,7 +35,7 @@ pub struct MetadataRaw  {
     pub af: Option<bool>
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Hash)]
 #[serde(try_from = "MetadataRaw")]
 pub struct Metadata {
     pub kind: MarketKind,
@@ -46,10 +46,10 @@ pub struct Metadata {
     pub mint1: String,
     pub decimals0: u8,
     pub decimals1: u8,
-    pub volume24h: f64,
+    pub volume24h: u128,
     pub is_blacklisted: Option<bool>,
 
-    pub fee_rate: Option<f64>,
+    pub fee_rate: Option<u32>,
     pub pool_type: Option<String>,
     pub tick_spacing: Option<u16>,
     pub af: Option<bool>,
@@ -71,6 +71,19 @@ impl TryFrom<MetadataRaw> for Metadata {
             (d, v) => return Err(format!("unknown market kind: {d}/{v}")),
         };
 
+        let fee_rate = match value.fee_rate {
+            Some(v) => {
+                Some(
+                    if v < 1f64 { // Python produces floated fee rate only for Raydium amm and clmm
+                        (v * 1_000_000f64) as u32
+                    } else { // Python produces unsinged integer for Uniswap clmm and amm
+                        v as u32
+                    }
+                )
+            },
+            None => {None},
+        };
+
         Ok(
             Metadata {
                 kind,
@@ -80,9 +93,9 @@ impl TryFrom<MetadataRaw> for Metadata {
                 mint1: value.mint1,
                 decimals0: value.decimals0,
                 decimals1: value.decimals1,
-                volume24h: value.volume24h,
+                volume24h: value.volume24h as u128,
                 is_blacklisted: value.is_blacklisted,
-                fee_rate: value.fee_rate,
+                fee_rate,
                 pool_type: value.pool_type,
                 tick_spacing: value.tick_spacing,
                 af: value.af,

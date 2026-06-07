@@ -11,7 +11,9 @@ use crate::dex::orca::Whirlpool;
 use crate::dex::raydium::{RayClmmPool, RayAmmPool};
 use crate::dex::meteora::MeteoraDlmmPool;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, BTreeMap};
+
+use std::sync::Arc;
 
 use r2d2::Pool;
 use r2d2_redis::redis::Commands;
@@ -20,12 +22,12 @@ use r2d2_redis::RedisConnectionManager;
 use std::time;
 use std::time::{Duration, UNIX_EPOCH};
 
-#[derive(Debug)]
-pub struct PoolStateV1<'a> {
-    pub whirlpool: &'a HashMap<String, Whirlpool>,
-    pub meteora_dlmm_pool: &'a HashMap<String, MeteoraDlmmPool>,
-    pub ray_amm_pool: &'a HashMap<String, RayAmmPool>,
-    pub ray_clmm_pool: &'a HashMap<String, RayClmmPool>,
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub struct PoolStateV1 {
+    pub whirlpool: Arc<BTreeMap<String, Whirlpool>>,
+    pub meteora_dlmm_pool: Arc<BTreeMap<String, MeteoraDlmmPool>>,
+    pub ray_amm_pool: Arc<BTreeMap<String, RayAmmPool>>,
+    pub ray_clmm_pool: Arc<BTreeMap<String, RayClmmPool>>,
 }
 
 #[derive(Debug)]
@@ -38,15 +40,15 @@ pub struct SmartResultV1 {
 
 #[derive(Debug)]
 pub struct SmartRouterV1<'a> {
-    pub metadata: &'a HashMap<String, Metadata>,
-    pub pool_state: &'a PoolStateV1<'a>,
+    pub metadata: &'a BTreeMap<String, Metadata>,
+    pub pool_state: &'a PoolStateV1,
     pub redis_pool_connection: &'a Pool<RedisConnectionManager>
 }
 
 impl<'a> SmartRouterV1<'a> {
     pub fn new(
-        metadata: &'a HashMap<String, Metadata>,
-        pool_state: &'a PoolStateV1<'a>,
+        metadata: &'a BTreeMap<String, Metadata>,
+        pool_state: &'a PoolStateV1,
         redis_pool_connection: &'a Pool<RedisConnectionManager>
     ) -> Self {
         Self {
@@ -162,8 +164,8 @@ impl<'a> SmartRouterV1<'a> {
 
                 },
                 MarketKind::RaydiumClmm | MarketKind::RaydiumAmm => {
-                    let fee_rate = (pool_metadata.fee_rate
-                        .ok_or(SoulSmartRouterError::FailedToGetFeeRate)? * 1_000_000f64) as u32;
+                    let fee_rate = pool_metadata.fee_rate
+                        .ok_or(SoulSmartRouterError::FailedToGetFeeRate)?;
 
                     match kind {
                         MarketKind::RaydiumClmm => {

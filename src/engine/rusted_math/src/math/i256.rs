@@ -7,7 +7,7 @@ use std::cmp::Ordering;
 
 const NUM_WORDS: usize = 4;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct I256 {
     pub bits: U256
 }

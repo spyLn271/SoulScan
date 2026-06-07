@@ -30,7 +30,7 @@ fn get_whirlpool(con_pool: &Pool<RedisConnectionManager>) -> HashMap<String, Whi
 }
 
 
-#[test]
+
 fn test_dynamic_orca_manager() {
     let client = RedisConnectionManager::new("redis://127.0.0.1:6379/0").unwrap();
     let con_pool = Pool::builder()

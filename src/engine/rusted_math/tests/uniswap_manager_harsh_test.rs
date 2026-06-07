@@ -22,7 +22,7 @@ use rusted_soul_dex::dex::uniswap::{Slot0, TickData, UniswapAmm, UniswapClmm};
 use r2d2_redis::RedisConnectionManager;
 use r2d2::Pool;
 use r2d2_redis::redis::Commands;
-use std::collections::HashMap;
+use std::collections::{HashMap, BTreeMap};
 use std::hash::Hash;
 use serde::Deserialize;
 
@@ -65,7 +65,7 @@ pub fn synthetic_clmm(
         liquidity: u128_to_u512(liquidity),
     };
 
-    let mut tick_map: HashMap<i32, TickData> = HashMap::new();
+    let mut tick_map: BTreeMap<i32, TickData> = BTreeMap::new();
     let (lo, hi) = tick_range;
     let mut t = (lo / tick_spacing) * tick_spacing;
     if t < lo {
@@ -191,7 +191,7 @@ pub fn tick_spacing_for_fee(fee_rate: u32) -> i32 {
 
 /// Infers tick_spacing as min consecutive difference among tick keys.
 /// Works when the upstream populates every spacing multiple (per user's setup).
-pub fn infer_tick_spacing(tick_map: &HashMap<i32, TickData>) -> Option<i32> {
+pub fn infer_tick_spacing(tick_map: &BTreeMap<i32, TickData>) -> Option<i32> {
     if tick_map.len() < 2 {
         return None;
     }
@@ -203,9 +203,9 @@ pub fn infer_tick_spacing(tick_map: &HashMap<i32, TickData>) -> Option<i32> {
 // ------------------------- Redis loader -------------------------
 
 #[derive(Deserialize, Debug)]
-#[serde(bound(deserialize = "K: Deserialize<'de> + Eq + Hash, V: Deserialize<'de>"))]
+#[serde(bound(deserialize = "K: Deserialize<'de> + Eq + Ord, V: Deserialize<'de>"))]
 struct PoolFormat<K, V> {
-    pub pool_state: HashMap<K, V>,
+    pub pool_state: BTreeMap<K, V>,
     pub ts: u64,
 }
 
@@ -214,21 +214,21 @@ pub fn redis_pool() -> Pool<RedisConnectionManager> {
     Pool::builder().max_size(10).build(mgr).expect("redis pool (is SSH tunnel up?)")
 }
 
-pub fn load_v3_slots(pool: &Pool<RedisConnectionManager>) -> HashMap<String, Slot0> {
+pub fn load_v3_slots(pool: &Pool<RedisConnectionManager>) -> BTreeMap<String, Slot0> {
     let mut con = pool.get().expect("redis conn");
     let raw: String = con.hget("snapshot:state:eth:uniswap:v3", "slot").expect("hget slot");
     let pf: PoolFormat<String, Slot0> = serde_json::from_str(&raw).expect("parse slot0");
     pf.pool_state
 }
 
-pub fn load_v3_ticks(pool: &Pool<RedisConnectionManager>) -> HashMap<String, HashMap<i32, TickData>> {
+pub fn load_v3_ticks(pool: &Pool<RedisConnectionManager>) -> BTreeMap<String, BTreeMap<i32, TickData>> {
     let mut con = pool.get().expect("redis conn");
     let raw: String = con.hget("snapshot:state:eth:uniswap:v3", "ticks").expect("hget ticks");
-    let pf: PoolFormat<String, HashMap<i32, TickData>> = serde_json::from_str(&raw).expect("parse ticks");
+    let pf: PoolFormat<String, BTreeMap<i32, TickData>> = serde_json::from_str(&raw).expect("parse ticks");
     pf.pool_state
 }
 
-pub fn load_v2_pools(pool: &Pool<RedisConnectionManager>) -> HashMap<String, UniswapAmm> {
+pub fn load_v2_pools(pool: &Pool<RedisConnectionManager>) -> BTreeMap<String, UniswapAmm> {
     let mut con = pool.get().expect("redis conn");
     let raw: String = con.get("snapshot:state:eth:uniswap:v2").expect("get v2");
     let pf: PoolFormat<String, UniswapAmm> = serde_json::from_str(&raw).expect("parse v2");

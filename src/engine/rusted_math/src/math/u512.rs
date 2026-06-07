@@ -9,7 +9,7 @@ const U64_RESOLUTION: u32 = 64;
 
 
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct U512 {
     pub items: [u64; NUM_WORDS]
 }

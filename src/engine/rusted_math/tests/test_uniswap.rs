@@ -8,7 +8,7 @@ use r2d2_redis::RedisConnectionManager;
 use r2d2::Pool;
 use r2d2_redis::redis::Commands;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, BTreeMap};
 use std::hash::Hash;
 use std::ops::Shr;
 use rusted_soul_dex::dex::metadata::Metadata;
@@ -23,9 +23,9 @@ use rusted_soul_dex::math::u512::U512;
 use rusted_soul_dex::smart_router::v2::manager::uniswap::clmm::swap_dynamic;
 
 #[derive(Deserialize, Debug)]
-#[serde(bound(deserialize = "K: Deserialize<'de> + Eq + Hash, V: Deserialize<'de>"))]
+#[serde(bound(deserialize = "K: Deserialize<'de> + Eq + Ord, V: Deserialize<'de>"))]
 struct PoolFormat<K, V> {
-    pub pool_state: HashMap<K, V>,
+    pub pool_state: BTreeMap<K, V>,
     pub ts: u64,
 }
 
@@ -50,7 +50,7 @@ fn get_state_amm(
     redis_pool_con: &Pool<RedisConnectionManager>,
     network: &String,
     market: &String,
-) -> HashMap<String, UniswapAmm> {
+) -> BTreeMap<String, UniswapAmm> {
     let mut redis_con = redis_pool_con.get().unwrap();
 
     let raw_json: String = redis_con.get(
@@ -59,7 +59,7 @@ fn get_state_amm(
 
     let pool_form: PoolFormat<String, UniswapAmm> = serde_json::from_str(&raw_json).unwrap();
 
-    let state_amm: HashMap<String, UniswapAmm> = pool_form.pool_state;
+    let state_amm: BTreeMap<String, UniswapAmm> = pool_form.pool_state;
 
     state_amm
 }
@@ -69,7 +69,7 @@ fn get_state_slot0s(
     network: &String,
     market: &String,
     version: &String
-) -> HashMap<String, Slot0> {
+) -> BTreeMap<String, Slot0> {
     let mut redis_con = redis_pool_con.get().unwrap();
 
     let raw_json: String = redis_con.hget(
@@ -90,7 +90,7 @@ fn get_ticks(
     network: &String,
     market: &String,
     version: &String
-) -> HashMap<String, HashMap<i32, TickData>> {
+) -> BTreeMap<String, BTreeMap<i32, TickData>> {
 
     let mut redis_con = redis_pool_con.get().unwrap();
 
@@ -99,7 +99,7 @@ fn get_ticks(
         "ticks"
     ).unwrap();
 
-    let pool_form: PoolFormat<String, HashMap<i32, TickData>> = serde_json::from_str(&raw_json).unwrap();
+    let pool_form: PoolFormat<String, BTreeMap<i32, TickData>> = serde_json::from_str(&raw_json).unwrap();
 
     let ticks = pool_form.pool_state;
 

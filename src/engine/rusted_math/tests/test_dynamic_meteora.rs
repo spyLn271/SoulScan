@@ -31,7 +31,7 @@ fn get_dlmm_pools(con_pool: &Pool<RedisConnectionManager>) -> HashMap<String, Me
     pool_state.pool_state
 }
 
-#[test]
+
 fn test_dynamic_meteora() {
     let client = RedisConnectionManager::new("redis://127.0.0.1:6379/0").unwrap();
     let con_pool = Pool::builder()

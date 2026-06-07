@@ -1,7 +1,7 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use serde::Deserialize;
 
-#[derive(Copy, Clone, Debug, Deserialize)]
+#[derive(Copy, Clone, Debug, Deserialize, PartialEq, Eq, Hash)]
 pub struct ConstantParameters {
     pub base_factor: u16,
     pub filter_period: u16,
@@ -15,7 +15,7 @@ pub struct ConstantParameters {
     pub base_fee_power_factor: u8
 }
 
-#[derive(Copy, Clone, Debug, Deserialize)]
+#[derive(Copy, Clone, Debug, Deserialize, PartialEq, Eq, Hash)]
 pub struct VariableParameters {
     pub volatility_accumulator: u32,
     pub volatility_reference: u32,
@@ -27,7 +27,7 @@ pub struct VariableParameters {
     pub crossed_bins: u16
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct LbPair {
     pub parameters: ConstantParameters,
     pub v_parameters: VariableParameters,
@@ -36,16 +36,16 @@ pub struct LbPair {
     pub oracle: String
 }
 
-#[derive(Deserialize, Clone, Copy, Debug)]
+#[derive(Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Bin {
     pub amount_x: u128,
     pub amount_y: u128,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MeteoraDlmmPool {
     #[serde(rename = "LbPair")]
     pub lb_pair: LbPair,
 
-    pub bins: HashMap<i32, Bin>
+    pub bins: BTreeMap<i32, Bin>
 }
