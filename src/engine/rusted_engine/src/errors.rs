@@ -35,6 +35,18 @@ pub enum SoulEngineErrors {
     #[error("order book data wasn't found")]
     OrderBookDataNotFound,
 
+    #[error("This network is not supported")]
+    NotSupportedNetwork,
+    
+    #[error("This (market, version) combination is not supported in this network")]
+    NotSupportedMarket,
+
+    #[error("Data is stale")]
+    StalePoolStateData,
+
+    #[error("This symbol is not inactive")]
+    InactiveSymbol,
+
     #[error("Error")]
     Error,
 }

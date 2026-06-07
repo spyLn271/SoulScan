@@ -43,6 +43,12 @@ def test_get_all_cold_path():
 
     total_empty = 0
 
+    total_none_empty = 0
+
+    total_len_of_route_evm = 0
+
+    total_len_of_route_solana = 0
+
     evm_empty = 0
 
     solana_empty = 0
@@ -74,6 +80,14 @@ def test_get_all_cold_path():
                 evm_empty += 1
             else:
                 solana_empty += 1
+        else:
+            total_none_empty += 1
+
+            if addr0.startswith("0x") and addr1.startswith("0x"):
+                total_len_of_route_evm += len(data["routes"])
+            else:
+                total_len_of_route_solana += len(data["routes"])
+
 
     with open("cold_paths.json", "w") as f:
         f.write(json.dumps(all_cold_paths, indent=4))
@@ -85,6 +99,11 @@ def test_get_all_cold_path():
     print(f"Total cold paths: {total_cold_paths}")
     print(f"EVM cold paths: {evm_cold_paths}")
     print(f"Solana cold paths: {solana_cold_paths}")
+
+    print(f"avg len of route for EVM: {total_len_of_route_evm / (evm_cold_paths - evm_empty)}")
+    print(f"avg len of route for Solana: {total_len_of_route_solana / (solana_cold_paths - solana_empty)}")
+
+
 
 def test_brute_for_pair():
     """
@@ -307,4 +326,4 @@ def test_state():
 
 
 if __name__ == "__main__":
-    test_metadata_fetching()
+    test_get_all_cold_path()

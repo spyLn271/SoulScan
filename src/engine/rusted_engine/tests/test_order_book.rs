@@ -1,6 +1,7 @@
 use r2d2::Pool;
 use r2d2_redis::RedisConnectionManager;
-use rusted_engine::{config, cex_api};
+use rusted_engine::config;
+use rusted_engine::api::cex;
 
 
 #[test]
@@ -14,7 +15,7 @@ fn test_bids_order_side() {
 
     for cex in config::SUPPORTED_CEX_LIST {
         println!("{cex} BIDS");
-        let order_book = cex_api::order_book::get_oder_book(
+        let order_book = cex::orderbook::get_oder_book(
             &redis_conn_pool,
             cex,
             "SOLUSDT",
@@ -36,7 +37,7 @@ fn test_asks_order_side() {
 
     for cex in config::SUPPORTED_CEX_LIST {
         println!("{cex} ASKS");
-        let order_book = cex_api::order_book::get_oder_book(
+        let order_book = cex::orderbook::get_oder_book(
             &redis_conn_pool,
             cex,
             "SOLUSDT",

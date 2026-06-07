@@ -1,7 +1,46 @@
-use rusted_engine::cex_api::address_resolver::get_addr_supported_cex;
+use std::collections::HashMap;
+use rusted_engine::api::cex::address_resolver::get_addr_supported_cex;
 use r2d2_redis::RedisConnectionManager;
 use r2d2::Pool;
 
+use rusted_engine::api::dex::snapshot::get_token_addresses;
+
+
+fn token_addr_resolution_analyzer(redis_conn_pool: &Pool<RedisConnectionManager>, network: &str) {
+    let eth_tokens = get_token_addresses(
+        redis_conn_pool,
+        network
+    ).unwrap();
+
+    let mut founded_addresses_count = 0;
+    let mut unfounded_addresses_count = 0;
+
+    let mut avg_cex_count = 0;
+
+    for token in eth_tokens.iter() {
+        let cex_token_data = get_addr_supported_cex(
+            redis_conn_pool,
+            network,
+            token.0.as_str()
+        );
+
+        match &cex_token_data {
+            Ok(cex) => {
+                founded_addresses_count += 1;
+                avg_cex_count += cex.len();
+            },
+            Err(_) => {unfounded_addresses_count += 1}
+        }
+
+        println!("{:?}", token);
+        println!("{:?}", cex_token_data);
+        println!("_____________________________________________________");
+    }
+
+    println!("found {} addresses", founded_addresses_count);
+    println!("unfound {} addresses", unfounded_addresses_count);
+    println!("avg_cex_count {}", (avg_cex_count as f32) / (founded_addresses_count as f32));
+}
 
 #[test]
 fn test_addr_resolver() {
@@ -12,20 +51,5 @@ fn test_addr_resolver() {
         .build(client)
         .unwrap();
 
-    let addr_to_test: [&str; 4] = [
-        "So11111111111111111111111111111111111111112",
-        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-        "0xa0B86991C6218b36c1d19D4A2E9eB0ce3606eb48",
-        "0xdac17f958d2ee523a2206206994597c13d831ec7"
-    ];
-
-    for addr in addr_to_test {
-        let resolved_list = get_addr_supported_cex(
-            &redis_conn_pool,
-            addr
-        );
-
-        println!("{resolved_list:?}")
-    }
-
+    token_addr_resolution_analyzer(&redis_conn_pool, "arbitrum");
 }

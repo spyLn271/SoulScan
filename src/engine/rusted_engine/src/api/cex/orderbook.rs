@@ -29,7 +29,14 @@ pub fn get_oder_book(
 
     let mut conn = redis_conn_pool.get()?;
 
+    // better to use active_symbols, as inactive_symbols set is deleted if there is no inactive
+    // symbols, and it causes the trouble " could not find the set with a key "
+    let key_to_active_symbols: String = format!("symbols_status:{}:spot:active_symbols", exchange);
     let key_to_orderbook: String = format!("stream:orderbook:{exchange}:spot:{symbol}");
+
+    if !conn.sismember(&key_to_active_symbols, symbol)? {
+        return Err(SoulEngineErrors::InactiveSymbol);
+    }
 
     let raw_data: StreamReadReply = conn
         .xread(&[key_to_orderbook], &["+"])?;

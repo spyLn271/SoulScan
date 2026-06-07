@@ -1,2 +1,2 @@
-pub mod order_book;
+pub mod orderbook;
 pub mod address_resolver;
