@@ -215,11 +215,15 @@ pub struct SmartResultV2 {
 }
 
 
+
+// use mut as smart router caches the cold path.
+// DO NOT CHANGE neither 'metadata' nor 'pool_state' not 'redis_pool_connection'
 #[derive(Debug)]
 pub struct SmartRouterV2<'a> {
     pub metadata: &'a BTreeMap<String, Metadata>,
     pub pool_state: &'a PoolStateV2,
-    pub redis_pool_connection: &'a r2d2::Pool<RedisConnectionManager>
+    pub redis_pool_connection: &'a r2d2::Pool<RedisConnectionManager>,
+    cold_path_cache: HashMap<String, (u64, Arc<ColdPath>)>,
 }
 
 
@@ -232,12 +236,13 @@ impl<'a> SmartRouterV2<'a> {
         Self {
             metadata,
             pool_state,
-            redis_pool_connection
+            redis_pool_connection,
+            cold_path_cache: HashMap::new(),
         }
     }
 
     pub fn smart_router(
-        &self,
+        &mut self,
         base_mint: &str,
         quote_mint: &str,
         delta_amount: u128,
@@ -530,15 +535,24 @@ impl<'a> SmartRouterV2<'a> {
     }
 
     fn get_cold_path(
-        &self,
+        &mut self,
         pair: &str,
         timestamp: u64
-    ) -> Result<ColdPath, SoulSmartRouterError> {
+    ) -> Result<Arc<ColdPath>, SoulSmartRouterError> {
+
+        if let Some(cache) = self.cold_path_cache.get(pair) {
+            if timestamp.saturating_sub(cache.0) < 3 {
+                return Ok(cache.1.clone())
+            } else {
+                self.cold_path_cache.remove(pair);
+            }
+        };
+
         let mut conn = self.redis_pool_connection.get()?;
 
         let raw_json: String = conn.hget(COLD_PATH_KEY, pair)?;
 
-        let paths: ColdPath = serde_json::from_str(&raw_json)?;
+        let paths: Arc<ColdPath> = Arc::new(serde_json::from_str(&raw_json)?);
 
         let ts: u64 = paths.ts.parse()?;
 
@@ -549,6 +563,17 @@ impl<'a> SmartRouterV2<'a> {
         if paths.routes.is_empty() {
             return Err(SoulSmartRouterError::NoRoutes);
         }
+
+        self.cold_path_cache
+            .insert(
+                pair.to_string(),
+                (
+                    time::SystemTime::now()
+                        .duration_since(UNIX_EPOCH)?
+                        .as_secs(),
+                    paths.clone()
+                )
+            );
 
         Ok(paths)
     }

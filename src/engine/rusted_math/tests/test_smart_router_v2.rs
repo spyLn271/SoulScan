@@ -223,7 +223,7 @@ fn test_smart_router() {
 
     let metadata = get_metadata(&con_pool);
 
-    let smart_router_v2 = SmartRouterV2::new(
+    let mut smart_router_v2 = SmartRouterV2::new(
         &metadata,
         &pools_state_v2,
         &con_pool
@@ -261,6 +261,16 @@ fn test_smart_router() {
         false,
         false
     );
+
+    let res_v2_clone = smart_router_v2.smart_router(
+        "So11111111111111111111111111111111111111112",
+        "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+        10000000000000,
+        true,
+        true
+    );
+
+    println!("{res_v2_clone:?}");
 
     println!("{res_1_v2:?}");
 
