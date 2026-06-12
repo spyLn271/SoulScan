@@ -15,19 +15,25 @@ fn test_metadata() {
         .unwrap();
 
 
-    let eth_uni_v3_metadata = get_metadata(
-        &redis_conn_pool,
-        "solana",
-        "uniswap",
-        "v4"
-    );
+    // let eth_uni_v3_metadata = get_metadata(
+    //     &redis_conn_pool,
+    //     "solana",
+    //     "uniswap",
+    //     "v4"
+    // );
 
     // println!("{:?}", eth_uni_v3_metadata);
 
-    let eth_addresses = get_token_addresses(
-        &redis_conn_pool,
-        "eth"
-    );
+    // let eth_addresses = get_token_addresses(
+    //     &redis_conn_pool,
+    //     "eth"
+    // ).unwrap();
+
+    // for (idx, data) in eth_addresses.range(0..10) {
+    //     println!("index {}", idx);
+    //     println!("eth_address {:?}", data.0.as_str());
+    //     println!("______________________________________");
+    // }
 
     // println!("{:?}", eth_addresses);
 
@@ -67,13 +73,13 @@ fn test_metadata() {
     // );
     // println!("{:?}", uniswap_amm_pool_state);
 
-    let uniswap_clmm_pool_state = UniswapClmmPools::get_state_snapshot(
-        &redis_conn_pool,
-        "base",
-        false
-    ).unwrap();
-
-    println!("{:?}", uniswap_clmm_pool_state.slot0s);
+    // let uniswap_clmm_pool_state = UniswapClmmPools::get_state_snapshot(
+    //     &redis_conn_pool,
+    //     "base",
+    //     false
+    // ).unwrap();
+    //
+    // println!("{:?}", uniswap_clmm_pool_state.slot0s);
 
     // let network_metadata = get_metadata_for_network(
     //     &redis_conn_pool,

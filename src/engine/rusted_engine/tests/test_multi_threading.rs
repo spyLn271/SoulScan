@@ -1,10 +1,11 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
+
 use std::sync::Arc;
 use evmap;
 use std::thread;
 use r2d2::Pool;
 use r2d2_redis::RedisConnectionManager;
-use rusted_engine::api::dex::snapshot::{StateViewer, get_metadata, get_metadata_for_network};
+use rusted_engine::api::dex::snapshot::{StateViewer, get_metadata, get_metadata_for_network, TokenData};
 use rusted_soul_dex::smart_router::v2::router::{SmartRouterV2, PoolStateV2};
 use rusted_soul_dex::dex::uniswap::{UniswapClmmPools, UniswapAmm};
 use rusted_soul_dex::dex::meteora::MeteoraDlmmPool;
@@ -14,8 +15,12 @@ use rusted_soul_dex::dex::metadata::Metadata;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum DataV2 {
-    PoolState(PoolStateV2),
-    Metadata(BTreeMap<String, Metadata>)
+    PoolState {
+        pool_state: PoolStateV2,
+        ts: u64
+    },
+    Metadata(BTreeMap<String, Metadata>),
+    Tokens(BTreeMap<usize, (String, TokenData)>),
 }
 
 #[test]
@@ -27,7 +32,7 @@ fn test_threading() {
         .unwrap();
 
     let (mut write, reader) = unsafe {
-        evmap::new_assert_stable::<&'static str, DataV2>()
+        evmap::new_assert_stable::<&'static str, Arc<DataV2>>()
     };
 
     let whirlpools = Whirlpool::get_state_snapshot(
@@ -70,60 +75,88 @@ fn test_threading() {
 
     write.insert(
         "state",
-        DataV2::PoolState(
-            PoolStateV2 {
-                whirlpool: Arc::new(whirlpools.unwrap()),
-                meteora_dlmm_pool: Arc::new(meteora_dlmm.unwrap()),
-                ray_amm_pool: Arc::new(raydium_amm.unwrap()),
-                ray_clmm_pool: Arc::new(raydium_clmm.unwrap()),
-                uni_amm_pool: Arc::new(uni_amm.unwrap()),
-                uni_clmm_pool: Arc::new(uni_clmm.unwrap()),
+        Arc::new(
+            DataV2::PoolState {
+                pool_state: PoolStateV2 {
+                    whirlpool: Arc::new(whirlpools.unwrap()),
+                    meteora_dlmm_pool: Arc::new(meteora_dlmm.unwrap()),
+                    ray_amm_pool: Arc::new(raydium_amm.unwrap()),
+                    ray_clmm_pool: Arc::new(raydium_clmm.unwrap()),
+                    uni_amm_pool: Arc::new(uni_amm.unwrap()),
+                    uni_clmm_pool: Arc::new(uni_clmm.unwrap()),
+                },
+                ts: 123
             }
         )
     );
 
     write.insert(
         "metadata",
-        DataV2::Metadata(
-            metadata
+        Arc::new(
+            DataV2::Metadata(
+                metadata
+            )
         )
     );
 
     write.publish();
 
 
-    let handles: Vec<_> = (0..4).map(|_| {
+    let handles: Vec<_> = (0..4).map(|i: usize| {
         let reader_inner = reader.clone();
 
-        thread::spawn(move || {
-            let data=reader_inner.get("state").unwrap();
-            let a = data.get_one().unwrap();
+        let handler = thread::spawn(move || {
+            let pool_state=reader_inner
+                .get("state")
+                .unwrap()
+                .get_one()
+                .unwrap()
+                .clone();
+
+            let metadata=reader_inner
+                .get("metadata")
+                .unwrap()
+                .get_one()
+                .unwrap()
+                .clone();
+
             println!("thread spawned");
-            // println!("{:?}", a..get("Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE").unwrap().base_info);
-            match a {
-                DataV2::PoolState(pool_state) => {
+            match &*pool_state {
+                DataV2::PoolState {pool_state, ts} => {
                     println!("{:?}", pool_state.whirlpool.get("Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE").unwrap().base_info);
                 },
                 DataV2::Metadata(metadata) => {
                     println!("{:?}", metadata.get("3nMFwZXwY1s1M5s8vYAHqd4wGs4iSxXE4LRoUMMYqEgF"));
-                }
+                },
+                DataV2::Tokens(tokens) => {}
             }
 
-            let metadata = reader_inner.get("metadata").unwrap();
-            let b = metadata.get_one().unwrap();
-            match b {
-                DataV2::PoolState(pool_state) => {
+            match &*metadata {
+                DataV2::PoolState {pool_state, ts} => {
                     println!("{:?}", pool_state.whirlpool.get("Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE").unwrap().base_info);
                 },
                 DataV2::Metadata(metadata) => {
                     println!("{:?}", metadata.get("3nMFwZXwY1s1M5s8vYAHqd4wGs4iSxXE4LRoUMMYqEgF"));
-                }
+                },
+                DataV2::Tokens(tokens) => {}
             }
             10
-        })
+        });
+
+        (i, handler)
     }).collect();
 
-    for value in handles {
-        value.join().unwrap();
+    let mut finished_set: HashSet<usize> = HashSet::new();
+    let mut finished_counter = 0;
+
+    while finished_counter < handles.len() {
+        for handle in handles.iter() {
+            let a = handle.1.is_finished();
+            if a && !finished_set.contains(&handle.0) {
+                finished_set.insert(handle.0);
+                finished_counter += 1;
+                println!("finished thread {}", handle.0);
+            }
+        }
     }
 }

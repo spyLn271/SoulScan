@@ -24,15 +24,15 @@ use crate::config::{
     Version
 };
 
-#[derive(Deserialize, Debug, Clone, Copy)]
+#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TokenData {
-    pub decimals: u16
+    pub decimals: u32
 }
 
 pub fn get_token_addresses(
     redis_conn_pool: &Pool<RedisConnectionManager>,
     network: &str,
-) -> Result<BTreeMap<String, TokenData>, SoulEngineErrors> {
+) -> Result<BTreeMap<usize, (String, TokenData)>, SoulEngineErrors> {
     if !SUPPORTED_NETWORK_LIST.contains(&network) {
         return Err(SoulEngineErrors::NotSupportedNetwork);
     }
@@ -43,7 +43,14 @@ pub fn get_token_addresses(
 
     let raw_token_list: String = conn.get(&key_to_tokens_list)?;
 
-    let token_list: BTreeMap<String, TokenData> = serde_json::from_str(&raw_token_list)?;
+    let tokens: BTreeMap<String, TokenData> = serde_json::from_str(&raw_token_list)?;
+    
+    let mut token_list: BTreeMap<usize, (String, TokenData)> = BTreeMap::new();
+    
+    for (idx, (address, token_data)) in tokens.into_iter().enumerate() {
+        token_list.insert(idx, (address, token_data));
+    }
+    
 
     Ok(token_list)
 }

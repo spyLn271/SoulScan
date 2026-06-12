@@ -17,11 +17,11 @@ fn token_addr_resolution_analyzer(redis_conn_pool: &Pool<RedisConnectionManager>
 
     let mut avg_cex_count = 0;
 
-    for token in eth_tokens.iter() {
+    for (idx, data) in eth_tokens.iter() {
         let cex_token_data = get_addr_supported_cex(
             redis_conn_pool,
             network,
-            token.0.as_str()
+            data.0.as_str()
         );
 
         match &cex_token_data {
@@ -32,7 +32,7 @@ fn token_addr_resolution_analyzer(redis_conn_pool: &Pool<RedisConnectionManager>
             Err(_) => {unfounded_addresses_count += 1}
         }
 
-        println!("{:?}", token);
+        println!("{:?}", data.0.as_str());
         println!("{:?}", cex_token_data);
         println!("_____________________________________________________");
     }

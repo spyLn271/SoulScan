@@ -47,3 +47,24 @@ fn test_asks_order_side() {
         println!("_________________________________");
     }
 }
+
+#[test]
+fn test_whole_order_book() {
+    let client = RedisConnectionManager::new("redis://127.0.0.1:6379/0").unwrap();
+    let redis_conn_pool = Pool::builder()
+        .max_size(10)
+        .build(client)
+        .unwrap();
+
+
+    for cex in config::SUPPORTED_CEX_LIST {
+        println!("{cex} ASKS");
+        let order_book = cex::orderbook::get_whole_order_book(
+            &redis_conn_pool,
+            cex,
+            "SOLUSDT",
+        );
+        println!("{order_book:?}");
+        println!("_________________________________");
+    }
+}
