@@ -1,24 +1,43 @@
 mod cli;
 
-use std::path::PathBuf;
+use clap::Parser;
 
 use rusted_engine::logging;
 
-fn main() {
-    let log_dir = std::env::var("ENGINE_LOG_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("logs"));
+use crate::cli::{Cli, Mode};
 
-    let _guard = logging::init(&log_dir)
+fn main() {
+    let cli = Cli::parse();
+
+    let _guard = logging::init(&cli.log_dir)
         .expect("failed to initialize logging");
 
     logging::install_panic_hook();
 
-    tracing::info!(log_dir = %log_dir.display(), "rusted_engine starting");
+    tracing::info!(
+        network = cli.network.map(|n| n.as_str()).unwrap_or("none"),
+        mode = cli.mode.as_str(),
+        workers = cli.workers,
+        log_dir = %cli.log_dir.display(),
+        "rusted_engine starting"
+    );
 
-    // TEST: temporary hardcoded start until cli.rs is implemented
-    rusted_engine::scanner::dex_cex::start_cex_dex_scanner_supervisor("solana".to_string(), 2);
+    match cli.mode {
+        Mode::CexDex | Mode::DexCex => {
+            let network = cli.network
+                .expect("--network is required for dex_cex/cex_dex");
+            rusted_engine::scanner::dex_cex::start_cex_dex_scanner_supervisor(
+                network.as_str().to_string(),
+                cli.workers,
+                &cli.redis_url,
+            );
+        }
+        // Mode::CexCex => {
+        //     rusted_engine::scanner::cex_cex::start_cex_cex_scanner_supervisor(
+        //         cli.workers,
+        //         &cli.redis_url,
+        //     );
+        // }
+    }
 
-    // parse CLI (-n network, -m mode, -w workers, -l log_dir) and start:
-    // rusted_engine::scanner::dex_cex::start_cex_dex_scanner_supervisor(network, workers);
 }

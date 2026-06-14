@@ -232,7 +232,7 @@ impl<'a, 'b> CexDexScanner<'a, 'b> {
             OPPORTUNITY_STREAM,
             StreamMaxlen::Approx(10_000),
             "*",
-            &[("data", payload.as_str())],
+            &[("data", payload.as_str()), ("type", "dex_cex")],
         );
 
         match status {
@@ -540,28 +540,28 @@ fn data_generation_for_writer(
                         MeteoraDlmmPool::get_state_snapshot(
                             redis_conn_pool,
                             network,
-                            false // TEST: revert to true
+                            true
                         )?
                     ),
                     whirlpool: Arc::new(
                         Whirlpool::get_state_snapshot(
                             redis_conn_pool,
                             network,
-                            false // TEST: revert to true
+                            true
                         )?
                     ),
                     ray_clmm_pool: Arc::new(
                         RayClmmPool::get_state_snapshot(
                             redis_conn_pool,
                             network,
-                            false // TEST: revert to true
+                            true
                         )?
                     ),
                     ray_amm_pool: Arc::new(
                         RayAmmPool::get_state_snapshot(
                             redis_conn_pool,
                             network,
-                            false // TEST: revert to true
+                            true
                         )?
                     ),
                     uni_amm_pool: Arc::new(BTreeMap::new()),
@@ -580,14 +580,14 @@ fn data_generation_for_writer(
                         UniswapAmm::get_state_snapshot(
                             redis_conn_pool,
                             network,
-                            false // TEST: revert to true
+                            true
                         )?
                     ),
                     uni_clmm_pool: Arc::new(
                         UniswapClmmPools::get_state_snapshot(
                             redis_conn_pool,
                             network,
-                            false // TEST: revert to true
+                            true
                         )?
                     ),
                     meteora_dlmm_pool: Arc::new(BTreeMap::new()),
@@ -860,6 +860,7 @@ fn get_start_and_end(
 pub fn start_cex_dex_scanner_supervisor (
     network: String,
     total_workers_num: usize,
+    redis_url: &str
 ) {
     if !SUPPORTED_NETWORK_LIST.contains(&network.as_str()) {
         panic!("{network} network is not supported");
@@ -871,7 +872,7 @@ pub fn start_cex_dex_scanner_supervisor (
 
     info!(%network, total_workers_num, "cex-dex scanner supervisor starting");
 
-    let client = RedisConnectionManager::new("redis://127.0.0.1:6379/0")
+    let client = RedisConnectionManager::new(redis_url)
         .expect("invalid redis url");
     let redis_conn_pool = Pool::builder()
         .max_size(50)
