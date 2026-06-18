@@ -7,7 +7,7 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOG_ROOT="$SCRIPT_DIR/LogFolder"
+LOG_ROOT="$SCRIPT_DIR/logs"
 CONFIG_FILE="/etc/logrotate.d/soulscan"
 
 echo "=== SoulScan Logrotate Setup ==="

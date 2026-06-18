@@ -28,6 +28,7 @@ EVM_NATIVE_TOKEN_ADDRESSES below is COPIED from src/settings/config.py on purpos
 DEX env vars, and the lean cex branch must stay DEX-env-independent. If you change
 the table in one place, change it in the other.
 """
+import re
 from typing import Dict, Optional
 
 # SoulScan-supported networks: Network = Literal["eth","base","arbitrum","bsc","solana"]
@@ -75,12 +76,16 @@ _NETWORK_ALIASES: Dict[str, str] = {
     "eth": "eth", "ethereum": "eth", "erc20": "eth", "eth-erc20": "eth",
     # ----- bsc -----
     "bsc": "bsc", "bep20": "bsc", "bnb": "bsc", "binance-smart-chain": "bsc",
-    "bnb smart chain": "bsc",
+    "bnb smart chain": "bsc", "bep20(bsc)": "bsc",  # lbank chain string
+    "bsc_bnb": "bsc",  # bitmart
     # ----- base -----
     "base": "base", "baseevm": "base", "base-base": "base",
+    "base mainnet": "base",  # lbank chain string (NOT "base goerli"/testnets)
+    "base-eth": "base",  # bitmart (Base chain)
     # ----- arbitrum (one) -----
     "arbitrum": "arbitrum", "arbevm": "arbitrum", "arbitrumone": "arbitrum",
     "arbitrum one": "arbitrum", "arb": "arbitrum", "arbitrum-arbitrum one": "arbitrum",
+    "arbi": "arbitrum",  # bitmart / bybit (Arbitrum One; NOT Arbitrum Nova)
     # ----- solana -----
     "sol": "solana", "solana": "solana", "sol-solana": "solana",
 }
@@ -112,6 +117,16 @@ def canonical_network(raw_network: str) -> str:
     key = raw_network.strip().lower()
     if key in _NETWORK_ALIASES:
         return _NETWORK_ALIASES[key]
+    # Verbose "Name(TOKEN)" forms (e.g. mexc 'Ethereum(ERC20)', 'BNB Smart Chain(BEP20)',
+    # 'Solana(SOL)', 'Arbitrum One(ARB)'): try the outer name and the inner token against
+    # the alias table. Only known alias keys match, so 'Polygon(MATIC)'/'Tron(TRC20)' stay x-*.
+    if "(" in key and key.endswith(")"):
+        outer = key[:key.index("(")].strip()
+        inner = key[key.index("(") + 1:-1].strip()
+        if outer in _NETWORK_ALIASES:
+            return _NETWORK_ALIASES[outer]
+        if inner in _NETWORK_ALIASES:
+            return _NETWORK_ALIASES[inner]
     return f"x-{_slug(raw_network)}"
 
 
@@ -127,6 +142,25 @@ def _normalize_evm_address(addr: str) -> str:
     if len(addr) == 42 and addr[:2].lower() == "0x":
         return addr.lower()
     return addr
+
+
+# Address-format validation. Some exchanges return malformed/truncated addresses
+# (notably OKX, whose deposit-address `ctAddr` is masked to the last 6 chars of the
+# real address). Such stubs must NOT become index keys: the engine queries the REAL
+# address and would never find them, and the junk key also pollutes price-matching.
+_EVM_ADDR_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
+# base58 (Bitcoin alphabet — no 0/O/I/l); Solana mints are ~32-44 chars.
+_B58_ALPHABET = set("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
+
+
+def _is_valid_evm_address(addr: str) -> bool:
+    """True iff addr is a well-formed 42-char 0x-prefixed hex EVM address."""
+    return bool(_EVM_ADDR_RE.match(addr))
+
+
+def _is_valid_solana_address(addr: str) -> bool:
+    """True iff addr looks like a base58 Solana mint (32-44 base58 chars)."""
+    return 32 <= len(addr) <= 44 and all(c in _B58_ALPHABET for c in addr)
 
 
 def canonical_address(canonical_net: str, raw_address: str, coin: str = "") -> Optional[str]:
@@ -146,12 +180,19 @@ def canonical_address(canonical_net: str, raw_address: str, coin: str = "") -> O
         if not addr:
             # native SOL (and only native) -> WSOL mint
             return WSOL_MINT if coin.upper() in ("SOL", "WSOL") else None
+        if not _is_valid_solana_address(addr):
+            return None  # malformed/truncated mint (e.g. OKX 6-char stub) -> drop
         return addr  # SPL mint, case-sensitive — keep as-is
 
     if canonical_net in EVM_NATIVE_TOKEN_ADDRESSES:  # eth/base/arbitrum/bsc
         if not addr:
-            return EVM_NATIVE_ADDRESS  # native asset on this chain
+            # Native (ETH/BNB) or its wrapped alias with no address -> native sentinel.
+            # Any OTHER address-less token can't be keyed and must NOT collapse onto the
+            # native 0x0 key (that pollutes it) -> drop. Mirrors the Solana guard above.
+            return EVM_NATIVE_ADDRESS if coin.upper() in native_symbols(canonical_net) else None
         low = _normalize_evm_address(addr)
+        if not _is_valid_evm_address(low):
+            return None  # malformed/truncated address (e.g. OKX 6-char stub) -> drop
         if low in _WRAPPED_ADDR_TO_NET and _WRAPPED_ADDR_TO_NET[low] == canonical_net:
             return EVM_NATIVE_ADDRESS  # wrapped form collapses to native
         return low
@@ -169,6 +210,21 @@ def canonical_address(canonical_net: str, raw_address: str, coin: str = "") -> O
 NATIVE_COIN_HOME_CHAIN = {"ETH": "eth", "BNB": "bsc", "SOL": "solana"}
 
 
+def _strip_coin_prefix(network: str, coin: str) -> str:
+    """Some exchanges encode the chain as ``{COIN}-{CHAIN}`` / ``{COIN}_{CHAIN}`` (OKX:
+    'AXS-ERC20', 'ANIME-Arbitrum One'; coinex: 'AAVE_BSC'). Strip a leading coin prefix so
+    the chain part can be canonicalized. Returns the chain part, or the original network if
+    it doesn't start with the coin."""
+    if not network or not coin:
+        return network
+    cu, nu = coin.upper(), network.upper()
+    for sep in ("-", "_"):
+        pref = cu + sep
+        if nu.startswith(pref) and len(network) > len(pref):
+            return network[len(pref):]
+    return network
+
+
 def resolve_entry(raw_network: str, raw_address: str, coin: str):
     """Resolve a raw exchange (network, address, coin) entry to a canonical
     ``(network, address)`` pair for the index, or None to skip.
@@ -179,6 +235,13 @@ def resolve_entry(raw_network: str, raw_address: str, coin: str):
     ``x-<coin>`` with a ``native`` address sentinel.
     """
     net = canonical_network(raw_network)
+    # Full string wasn't a known chain — some exchanges prefix the chain with the coin
+    # ('AXS-ERC20', 'AAVE_BSC'). Strip the coin and retry (full string tried first so an
+    # explicit alias like 'BASE-ETH'->base wins over stripping to 'ETH').
+    if net.startswith("x-"):
+        stripped = _strip_coin_prefix(raw_network, coin)
+        if stripped != raw_network:
+            net = canonical_network(stripped)
     addr = (raw_address or "").strip()
 
     # Blank network (-> x-unknown) with no address: treat the coin as a native.
@@ -198,6 +261,25 @@ def resolve_entry(raw_network: str, raw_address: str, coin: str):
 def make_index_key(canonical_net: str, canonical_addr: str) -> str:
     """The cex:contract_index hash field: ``{network}:{address}``."""
     return f"{canonical_net}:{canonical_addr}"
+
+
+def native_symbols(canonical_net: str) -> set:
+    """Wallet-coin symbols (native + wrapped) that denote a chain's NATIVE asset.
+
+    Used by the back-fill witness map: a chain's native key (``{net}:0x000…0`` or
+    ``solana:<WSOL mint>``) is registered under all of these so a back-fill source
+    that names the native ``SOL`` still matches when the only native producer filed
+    it as wallet-coin ``WSOL`` (native wallet-coin naming is the least consistent
+    field across CEXes). Returns an empty set for non-native-bearing networks.
+    """
+    if canonical_net == "solana":
+        return {"SOL", "WSOL"}
+    info = EVM_NATIVE_TOKEN_ADDRESSES.get(canonical_net)
+    if not info:
+        return set()
+    syms = {info["symbol"].upper()}
+    syms.update(a.upper() for a in info.get("alias", []))
+    return syms
 
 
 # Quote assets the orderbook side trades against (must match producer/config.py
@@ -228,3 +310,15 @@ def resolve_tradable_base(market_symbols: set, coin: str) -> Optional[str]:
         if f"{c}{q}" in upper_symbols:
             return c
     return None
+
+
+def split_stream_symbol(suffix: str):
+    """Split an order-book stream suffix ``{BASE}{QUOTE}`` into ``(BASE, QUOTE)`` by
+    stripping a trailing accepted quote (``ETHUSDT`` -> ``("ETH","USDT")``). Returns
+    ``(suffix.upper(), "")`` if it doesn't end in a known quote — used by the price-match
+    layer to enumerate a producer's tradable bases from its stream keys."""
+    s = suffix.upper()
+    for q in QUOTE_ASSETS:
+        if s.endswith(q) and len(s) > len(q):
+            return s[:-len(q)], q
+    return s, ""

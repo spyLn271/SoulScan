@@ -43,7 +43,7 @@ class Config(BaseSettings):
 
     OSR_V1_LEVEL_DEPTH: int
 
-    LOG_MAIN_FOLDER: Path = Path("./LogFolder")
+    LOG_MAIN_FOLDER: Path = Path("./logs")
     OSR_LOG_FOLDER: Path = Path("osr")
     SCANNER_LOG_FOLDER: Path = Path("scanner")
     DATA_FETCHER_LOG_FOLDER: Path = Path("data-fetcher")

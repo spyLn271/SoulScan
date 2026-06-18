@@ -3,9 +3,9 @@
 The order-book contract requires the Python producer's enabled exchanges and the
 Rust consumer's SUPPORTED_CEX_LIST to agree — otherwise Python writes streams the
 Rust engine never reads, or Rust queries streams that don't exist. This test
-fails if they drift. The contract-address checker intentionally differs (it adds
-`binance` for address resolution and omits the order-book-only exchanges); that
-delta is asserted explicitly so an *unintended* change is still caught.
+fails if they drift. binance is now BOTH an order-book producer (binance_plugin)
+and an address-resolution source, so the producer set and the contract-checker set
+align exactly; that match is asserted so an *unintended* change is still caught.
 """
 import os
 import re
@@ -45,21 +45,21 @@ def test_producer_matches_rust_orderbook_list():
     )
 
 
-def test_contract_checker_delta_is_intentional():
+def test_contract_checker_matches_producers():
     producer = set(get_enabled_exchanges())
     checker = _contract_checker_exchanges()
-    # binance is address-resolution-only (not an order-book producer)
-    assert "binance" in checker, "contract checker unexpectedly dropped binance"
-    assert "binance" not in producer, "binance should not be an order-book producer"
-    # The checker now covers EVERY order-book producer exchange (lbank + bitmart
-    # were added). lbank contributes 0 addresses (its public API exposes none) but
-    # is present so the sets match — see exchanges/lbank.py.
+    # binance is now both an order-book producer (binance_plugin) and an address-
+    # resolution source, so the two sets align exactly.
+    assert "binance" in producer and "binance" in checker
+    # The checker must cover EVERY order-book producer (else a producer's streams have
+    # no contract mapping). lbank exposes no contract addresses of its own; it
+    # contributes via cross-exchange back-fill (see exchanges/lbank.py + Phase 2 of
+    # redis_client.rebuild_contract_index).
     uncovered = producer - checker
     assert uncovered == set(), (
         f"contract-checker no longer covers every producer exchange: missing {uncovered}. "
         f"Add a fetcher + config entry for each."
     )
-    # The only checker-extra vs producers is binance (address-resolution-only).
-    assert checker - producer == {"binance"}, (
-        f"unexpected checker-only exchanges: {checker - producer - {'binance'}}"
-    )
+    # ...and the checker carries no stragglers that aren't produced.
+    extra = checker - producer
+    assert extra == set(), f"unexpected checker-only exchanges: {extra}"

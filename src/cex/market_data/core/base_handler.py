@@ -186,6 +186,13 @@ class BaseMarketDataHandler(ABC):
                 pipe.hset(self.redis_key, symbol, json.dumps(data))
                 count += 1
 
+        # Never blank a populated hash: if a non-empty-but-malformed API response yielded 0
+        # valid symbols, abandon the pipeline (the queued DELETE never runs) so the existing
+        # hash — the symbol universe the order-book fetcher reads — is preserved.
+        if count == 0:
+            self.logger.warning("0 valid symbols parsed; preserving existing hash (skip blanking)")
+            return 0
+
         # Add version field to track data freshness
         pipe.hset(self.redis_key, '_version', version)
 

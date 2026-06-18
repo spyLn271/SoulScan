@@ -16,12 +16,15 @@ import time
 from src.settings import cex_config as config
 from src.settings.graceful_shut_down import TerminateSignal, sigterm_handler
 from src.logger_handler.logger import setup_logger, get_logger
+from src.cex.producer.core.limits import install_orphan_guards, acquire_singleton_lock
 
 
 WORKER_NAME = "cex-Contracts"
+_SINGLETON_LOCK_FH = None  # keep the held lock alive for the process lifetime
 
 
 def bootstrap_cex_contracts_worker() -> None:
+    install_orphan_guards()   # die if the supervisor dies (no orphaned workers)
     os.makedirs(config.CEX_CONTRACTS_LOG_FOLDER, exist_ok=True)
     log_file = os.path.join(config.CEX_CONTRACTS_LOG_FOLDER, f"{WORKER_NAME}.log")
 
@@ -76,6 +79,14 @@ def RUN_CEX_CONTRACTS() -> None:
     )
     sup_logger = get_logger("cex-Contracts-Supervisor")
     sup_logger.info("cex Contracts Supervisor started.")
+
+    global _SINGLETON_LOCK_FH
+    _SINGLETON_LOCK_FH = acquire_singleton_lock(
+        os.path.join(config.CEX_CONTRACTS_LOG_FOLDER, ".cex_contracts.lock"),
+        sup_logger, "cex_contracts supervisor",
+    )
+    if _SINGLETON_LOCK_FH is None:
+        return
 
     start_method = multiprocessing.get_start_method()
     if start_method != 'spawn':

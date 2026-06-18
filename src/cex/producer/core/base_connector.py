@@ -133,7 +133,16 @@ class BaseExchangeConnector(ABC):
         self.active_symbols: Set[str] = set()
         self.active_tasks: Dict[str, asyncio.Task] = {}
         self.shutdown_event = asyncio.Event()
-        self.last_symbol_timestamps: Dict[str, int] = {}  # Track last timestamp per symbol to skip stale data
+        self.last_symbol_timestamps: Dict[str, int] = {}  # last RECEIVE time (ms) per symbol
+        # Wall-clock of each symbol's last orderbook write — used only for the
+        # observability `stale_symbols` heartbeat metric (NOT to inactivate symbols:
+        # an unchanged order book is still valid; the consumer age-checks per-entry
+        # timestamp_ms). For batched exchanges "active" means the batch connection
+        # is alive, so this surfaces symbols whose own book has gone quiet.
+        self.last_symbol_update_wall: Dict[str, float] = {}
+        self.stale_symbol_age = self.market_config.get(
+            'stale_symbol_age', MONITORING_CONFIG.get('stale_symbol_age', 120)
+        )
 
         # Dynamic symbol monitoring
         self.currently_monitored_symbols: Set[str] = set()
@@ -154,6 +163,16 @@ class BaseExchangeConnector(ABC):
         self.stale_stream_timeout = self.market_config.get(
             'stale_stream_timeout',
             MONITORING_CONFIG.get('stale_stream_timeout', 60)
+        )
+
+        # Connection-failure tolerance: the engine trades on active∧¬inactive set
+        # membership (no per-entry age-check), so keep symbols active + their streams
+        # intact through TRANSIENT reconnects and only mark inactive + delete streams
+        # after this many CONSECUTIVE failures (a genuinely lost connection).
+        # consecutive_failures resets to 0 on any successful (re)connect.
+        self.cleanup_after_failures = self.market_config.get(
+            'cleanup_after_failures',
+            MONITORING_CONFIG.get('cleanup_after_failures', 3)
         )
 
         # Reliability state (P1)
@@ -593,10 +612,12 @@ class BaseExchangeConnector(ABC):
                 # Report error for all symbols in this batch
                 await self.report_error(symbols, error_type, error_msg, traceback.format_exc())
 
-                # Clean up streams and mark symbols inactive immediately on connection failure
-                # Stale data is dangerous for trading calculations - better no data than wrong data
-                await self._cleanup_symbols_on_failure(symbols)
-                self.logger.warning(f"Cleaned up batch {batch_name} with {len(symbols)} symbols immediately on connection failure")
+                # Keep symbols active + streams intact through transient reconnects; only
+                # cleanup (mark inactive + delete streams) after sustained failure, so the
+                # engine's tradeable set (active∧¬inactive) doesn't flap on brief blips.
+                if consecutive_failures >= self.cleanup_after_failures:
+                    await self._cleanup_symbols_on_failure(symbols)
+                    self.logger.warning(f"Cleaned up batch {batch_name} ({len(symbols)} symbols) after {consecutive_failures} consecutive failures")
 
                 # Handle proxy failover if configured
                 if self._proxy_manager and consecutive_failures >= 3:
@@ -684,19 +705,20 @@ class BaseExchangeConnector(ABC):
             if not symbol:
                 self.logger.warning("Received orderbook data without symbol")
                 return
+            # Canonical uppercase form so the stream key, the entry's symbol field, and the
+            # active/inactive sets all agree (the engine joins active∧¬inactive to the stream).
+            symbol = self._normalize_symbol_for_redis(symbol)
 
-            # Get timestamp for stale data detection
+            # Exchange-provided event time. For some venues this is the book *generation*
+            # time, which can lag by minutes/hours for illiquid books (e.g. okx) or arrive
+            # out of order — so we keep it for information but DO NOT gate on it. The engine
+            # judges freshness by active-set membership, and messages on a single socket
+            # already arrive in order, so the latest received message is the freshest book.
+            # (Gating on event time previously dropped fresh re-broadcasts whose generation
+            # time went backwards, silently wedging those books.)
             timestamp_ms = data.get('timestamp_ms', int(time.time() * 1000))
-
-            # Skip stale data - don't overwrite newer data with older data
-            # This prevents "flapping" when workers reconnect with stale snapshots
-            last_ts = self.last_symbol_timestamps.get(symbol, 0)
-            if timestamp_ms < last_ts:
-                self.logger.debug(f"[{symbol}] Skipping stale data: {timestamp_ms} < {last_ts}")
-                return
-
-            # Update last timestamp for this symbol
-            self.last_symbol_timestamps[symbol] = timestamp_ms
+            recv_ts_ms = int(time.time() * 1000)  # true receive time — the honest "last update"
+            self.last_symbol_timestamps[symbol] = recv_ts_ms
 
             # Store in Redis stream
             stream_key = get_stream_key(self.exchange_name, self.market_type, symbol)
@@ -719,6 +741,7 @@ class BaseExchangeConnector(ABC):
             # fields and reads the rest by name.
             redis_data = {
                 'timestamp_ms': timestamp_ms,
+                'recv_ts_ms': recv_ts_ms,
                 'symbol': symbol,
                 'bids': json.dumps(bids),
                 'asks': json.dumps(asks),
@@ -729,6 +752,7 @@ class BaseExchangeConnector(ABC):
             # No-silent-loss write: retry transients, else buffer (collapse-to-newest).
             await self._store_redis_data(stream_key, redis_data)
             self._messages_processed += 1
+            self.last_symbol_update_wall[symbol] = time.time()  # for stale_symbols metric
 
             # Only mark symbol active if not already tracked (reduces Redis ops from 3 to 1 per message)
             if symbol not in self.active_symbols:
@@ -847,7 +871,7 @@ class BaseExchangeConnector(ABC):
                         if hasattr(self, '_normalize_symbol_for_redis') else symbol)
                 stream_key = get_stream_key(self.exchange_name, self.market_type, norm)
                 await self._store_redis_data(stream_key, {
-                    'timestamp_ms': ts, 'symbol': norm, 'bids': '[]', 'asks': '[]',
+                    'timestamp_ms': ts, 'recv_ts_ms': ts, 'symbol': norm, 'bids': '[]', 'asks': '[]',
                     'worker_id': wid, 'schema_version': self._schema_version, 'gap': 'reconnect',
                 })
             except Exception as e:
@@ -859,11 +883,20 @@ class BaseExchangeConnector(ABC):
             key = get_heartbeat_key(self.exchange_name, self.market_type, self.worker_id)
             proxy_label = self._proxy_manager.current_proxy_label() if self._proxy_manager else 'direct'
             rotations = getattr(self._proxy_manager, 'rotations', 0) if self._proxy_manager else 0
+            # Observability: active symbols whose own orderbook hasn't been written
+            # within stale_symbol_age. For batched exchanges this exposes the gap
+            # between "connection alive" (active) and "this symbol has fresh data".
+            now = time.time()
+            stale_symbols = sum(
+                1 for s in self.active_symbols
+                if now - self.last_symbol_update_wall.get(s, 0) > self.stale_symbol_age
+            )
             payload = {
                 'ts': int(time.time() * 1000),
                 'msgs': self._messages_processed,
                 'active_symbols': len(self.active_symbols),
                 'monitored_symbols': len(self.currently_monitored_symbols),
+                'stale_symbols': stale_symbols,
                 'buffered_streams': len(self._pending_xadds),
                 'redis_backpressured': self._redis_backpressured,
                 'monitoring_healthy': self._monitoring_healthy,
@@ -897,8 +930,17 @@ class BaseExchangeConnector(ABC):
             except asyncio.TimeoutError:
                 continue
 
+    def _normalize_symbol_for_redis(self, symbol: str) -> str:
+        """Canonical Redis-facing symbol form — MUST match get_stream_key()'s casing
+        (uppercase) so the active/inactive sets and the stream key ALWAYS agree. The
+        engine reads a book iff the symbol is in active, NOT in inactive, AND its stream
+        exists — all keyed by this form; a casing mismatch leaves active-without-stream
+        (or a symbol the engine can't see). Plugins may override but must stay consistent."""
+        return symbol.upper()
+
     async def _mark_symbol_active(self, symbol: str):
         """Mark symbol as active in Redis with retry logic"""
+        symbol = self._normalize_symbol_for_redis(symbol)
         async def _do_mark_active():
             active_key = f"symbols_status:{self.exchange_name}:{self.market_type}:active_symbols"
             inactive_key = f"symbols_status:{self.exchange_name}:{self.market_type}:inactive_symbols"
@@ -919,6 +961,7 @@ class BaseExchangeConnector(ABC):
 
     async def _mark_symbol_inactive(self, symbol: str):
         """Mark symbol as inactive in Redis with retry logic"""
+        symbol = self._normalize_symbol_for_redis(symbol)
         async def _do_mark_inactive():
             active_key = f"symbols_status:{self.exchange_name}:{self.market_type}:active_symbols"
             inactive_key = f"symbols_status:{self.exchange_name}:{self.market_type}:inactive_symbols"
@@ -1000,11 +1043,12 @@ class BaseExchangeConnector(ABC):
         # Report to error queue
         await self.report_error(symbols, error_type, error_msg, traceback.format_exc())
 
-        # Clean up streams and mark symbols inactive immediately on connection failure
-        # Stale data is dangerous for trading calculations - better no data than wrong data
-        if symbols:
+        # Keep the symbol active + its stream through transient reconnects; only cleanup
+        # (mark inactive + delete stream) after sustained failure (the engine trades on
+        # active∧¬inactive membership, so avoid flapping it on brief blips).
+        if symbols and consecutive_failures >= self.cleanup_after_failures:
             await self._cleanup_symbols_on_failure(symbols)
-            self.logger.warning(f"Cleaned up symbols {symbols} immediately on connection failure")
+            self.logger.warning(f"Cleaned up symbols {symbols} after {consecutive_failures} consecutive failures")
 
         # Handle proxy failover if configured
         if self._proxy_manager and consecutive_failures >= 3:
@@ -1118,7 +1162,13 @@ class BaseExchangeConnector(ABC):
             }
 
             error_queue_key = get_error_queue_key(self.exchange_name)
-            await self.redis_client.lpush(error_queue_key, json.dumps(error_entry))
+            # Bounded push: keep only the most recent N entries so a retry storm
+            # (e.g. EMFILE loop) can't grow the queue without limit and bloat Redis.
+            max_entries = STREAM_CONFIG.get('error_queue_max_entries', 5000)
+            pipe = self.redis_client.pipeline()
+            pipe.lpush(error_queue_key, json.dumps(error_entry))
+            pipe.ltrim(error_queue_key, 0, max_entries - 1)
+            await pipe.execute()
 
             self.logger.debug(f"Reported error to Redis: {error_type}")
 

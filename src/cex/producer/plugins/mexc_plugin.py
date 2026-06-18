@@ -199,11 +199,18 @@ class MexcConnector(BaseExchangeConnector):
         """Get MEXC-specific connection parameters"""
         kwargs = await super().get_connection_kwargs(symbol)
 
-        # Add MEXC-specific connection settings
+        # Over SOCKS5 the danted tunnel silently drops idle connections ("no close
+        # frame received or sent"). When proxied, enable library-level ws PING frames
+        # (in addition to MEXC's 25s app ping) so the tunnel stays alive and dead links
+        # are detected fast; direct connections keep manual ping (None). VALIDATE LIVE:
+        # if the server/proxy does not return PONGs this would force-close — watch
+        # proxy_rotations after deploy and revert if it rises.
+        proxied = self._proxy_manager is not None
         kwargs.update({
             'open_timeout': 30,
             'close_timeout': 10,
-            'ping_interval': None,  # We handle ping manually
+            'ping_interval': 15 if proxied else None,
+            'ping_timeout': 20 if proxied else None,
             'compression': None,    # No compression for MEXC
         })
 

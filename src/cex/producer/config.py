@@ -65,6 +65,39 @@ PROXY_MODES = {
 
 # --- Exchange Configurations ---
 EXCHANGES = {
+    'binance': {
+        'enabled': True,
+        'name': 'Binance',
+        'spot': {
+            'enabled': True,
+            # Combined-stream endpoint (messages wrapped as {stream, data}); symbols
+            # are added via SUBSCRIBE after connect. Reachable direct from this host.
+            'ws_url': 'wss://stream.binance.com:9443/stream',
+            'connection_type': 'batched',   # many @depth streams per socket
+            'symbols_per_connection': 100,  # Binance allows up to 1024 streams/conn
+            'flush_interval': 0.05,         # OrderBookConnector: pipeline latest->Redis every 50ms
+            'ping_interval': None,          # server pings us; websockets auto-pongs
+            'reconnect_delay_base': 2.0,
+            'reconnect_delay_max': 60,
+            'workers': 1,                   # ~665 symbols / 100 = ~7 conns, one process is plenty
+            'special_params': {
+                'depth_level': 20,          # top-20 partial book (5|10|20)
+                'update_speed': '100ms',    # 100ms | 1000ms
+            },
+        },
+        'futures': {
+            'enabled': False,
+        },
+        'proxy': {
+            'use_proxy': False,
+            'mode': 'none',
+        },
+        'rate_limits': {
+            'connections_per_second': 5,
+            'subscriptions_per_second': 10,
+        },
+    },
+
     'bybit': {
         'enabled': True,
         'name': 'Bybit',
@@ -330,8 +363,8 @@ EXCHANGES = {
             'workers': 2,  # Number of worker processes for distributed mode
         },
         'proxy': {
-            'use_proxy': False,
-            'mode': 'none',
+            'use_proxy': True,
+            'mode': 'load_balance',  # spread the ~49 connections across the 2 SOCKS5 exit IPs
         }
     },
 
@@ -362,6 +395,7 @@ STREAM_CONFIG = {
     'log_stream_template': 'logs:{exchange}:{market_type}',  # Log stream for web panel
     'log_stream_maxlen': 1000,  # Keep last 1000 log entries per exchange
     'error_queue_max_size_bytes': 500 * 1024 * 1024,  # 500MB - rotate queue when exceeded
+    'error_queue_max_entries': 5000,  # Hard cap: LTRIM each error queue to last N on every push
     'error_archive_dir': './error_archive',  # Directory for archived error logs
     'schema_version': 1,  # Bumped only on a breaking stream-payload change (additive field)
     'orderbook_maxlen': 10,  # Stream trim: keep last N entries per symbol (consumers read latest)
@@ -383,6 +417,8 @@ MONITORING_CONFIG = {
     'heartbeat_interval': 15,  # How often a worker writes its health heartbeat (s)
     'heartbeat_ttl': 60,  # TTL on the heartbeat key (s); supervisor treats expiry as hung
     'hung_worker_timeout': 120,  # Supervisor: alive worker, no heartbeat/progress this long => restart
+    'stale_symbol_age': 120,  # Heartbeat observability: active symbol with no orderbook write in this long counts as stale
+    'cleanup_after_failures': 3,  # Mark symbols inactive + delete streams only after this many CONSECUTIVE connection failures (keep them through transient reconnects)
 }
 
 # --- Utility Functions ---

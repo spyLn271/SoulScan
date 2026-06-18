@@ -65,7 +65,12 @@ class ErrorReporter:
             }
 
             error_queue_key = get_error_queue_key(self.exchange_name)
-            await self.redis_client.lpush(error_queue_key, json.dumps(error_entry))
+            # Bounded push: cap the queue to the most recent N entries (see STREAM_CONFIG).
+            max_entries = STREAM_CONFIG.get('error_queue_max_entries', 5000)
+            pipe = self.redis_client.pipeline()
+            pipe.lpush(error_queue_key, json.dumps(error_entry))
+            pipe.ltrim(error_queue_key, 0, max_entries - 1)
+            await pipe.execute()
 
             self.logger.debug(f"Reported {error_type} for {len(symbols)} symbols")
 
@@ -110,7 +115,12 @@ class ErrorReporter:
             if cleaned_count > 0:
                 await self.redis_client.delete(error_queue_key)
                 if filtered_entries:
-                    await self.redis_client.lpush(error_queue_key, *filtered_entries)
+                    # filtered_entries is newest-first (lrange 0..-1). Use rpush to append
+                    # in-order so the newest-first invariant is preserved (lpush would
+                    # reverse it), then cap so the queue can't grow unbounded.
+                    max_entries = STREAM_CONFIG.get('error_queue_max_entries', 5000)
+                    await self.redis_client.rpush(error_queue_key, *filtered_entries)
+                    await self.redis_client.ltrim(error_queue_key, 0, max_entries - 1)
 
                 self.logger.info(f"Cleaned {cleaned_count} error entries for {len(symbols)} reconnected symbols")
 

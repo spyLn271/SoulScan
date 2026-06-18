@@ -20,7 +20,10 @@ import traceback
 import websockets
 from typing import Dict, List, Optional, Any
 
+import contextlib
+
 from src.cex.producer.core.base_connector import BaseExchangeConnector
+from src.cex.producer.core.socks5_websocket import connect_with_proxy_config
 from src.cex.producer.config import get_exchange_config
 
 
@@ -37,10 +40,18 @@ class LbankConnector(BaseExchangeConnector):
         self.pending_pong_data: Optional[str] = None  # For ping/pong tracking
 
         # LBank-specific settings from original implementation
-        self.depth_level = "50"
-        self.subscription_delay = 0.25  # 250ms delay between subscriptions
+        self.depth_level = "50"            # valid LBank depth levels: 10/50/100
+        self.subscription_delay = 0.05     # delay between per-pair subscribe sends
 
         self.logger.info("Initialized LBank connector with custom ping/pong and symbol format conversion")
+
+    def _normalize_symbol_for_redis(self, symbol: str) -> str:
+        """Redis-facing symbol form (uppercase), matching the force-uppercased
+        stream key. The base connector calls this when seeding the inactive set at
+        startup and during cleanup, so the active/inactive sets stay in the same
+        namespace as the data-path active-marking (which uses the uppercased
+        symbol from parse_message)."""
+        return symbol.upper()
 
     def convert_to_lbank_format(self, symbol: str) -> str:
         """
@@ -91,32 +102,25 @@ class LbankConnector(BaseExchangeConnector):
         return None
 
     async def subscribe_to_symbols(self, websocket, symbols: List[str]):
-        """
-        Subscribe to LBank symbols using individual subscription format
-        Preserves original LBank individual subscription behavior
-        """
-        self.subscribed_symbols.clear()
+        """Subscribe each symbol's depth feed (LBank takes one pair per message).
 
+        NOTE: deliberately NO shared per-connection map here. Incoming depth is mapped
+        back to the canonical symbol statelessly in parse_message via
+        convert_from_lbank_format, so concurrent batch connections never stomp each
+        other's subscription state (the bug that dropped most lbank data).
+        """
         for symbol in symbols:
-            # Convert to LBank WebSocket format
             ws_symbol = self.convert_to_lbank_format(symbol)
-            self.subscribed_symbols[ws_symbol] = symbol
-
-            # LBank individual subscription format
-            subscription_msg = {
+            await websocket.send(json.dumps({
                 "action": "subscribe",
                 "subscribe": "depth",
                 "depth": self.depth_level,
-                "pair": ws_symbol
-            }
+                "pair": ws_symbol,
+            }))
+            if self.subscription_delay:
+                await asyncio.sleep(self.subscription_delay)
 
-            await websocket.send(json.dumps(subscription_msg))
-            self.logger.debug(f"Subscribed to {symbol} as {ws_symbol}")
-
-            # Add delay between subscriptions to avoid overwhelming the server
-            await asyncio.sleep(self.subscription_delay)
-
-        self.logger.info(f"Sent individual subscriptions for {len(symbols)} symbols")
+        self.logger.info(f"Sent depth subscriptions for {len(symbols)} symbols")
 
     async def parse_message(self, raw_message) -> Optional[Dict[str, Any]]:
         """
@@ -155,20 +159,21 @@ class LbankConnector(BaseExchangeConnector):
             # Process depth data
             if "depth" in data and "pair" in data:
                 ws_pair = data.get("pair")
+                # Map "btc_usdt" -> canonical "BTCUSDT" STATELESSLY (no shared map), so
+                # concurrent batch connections can't drop each other's data. Uppercase
+                # matches the force-uppercased stream key + active/inactive sets.
+                standard_symbol = self.convert_from_lbank_format(ws_pair)
+                depth_data = data["depth"]
+                timestamp_ms = int(time.time() * 1000)  # LBank doesn't provide timestamp
 
-                if ws_pair in self.subscribed_symbols:
-                    standard_symbol = self.subscribed_symbols[ws_pair]
-                    depth_data = data["depth"]
-                    timestamp_ms = int(time.time() * 1000)  # LBank doesn't provide timestamp
-
-                    return {
-                        'symbol': standard_symbol,
-                        'timestamp_ms': timestamp_ms,
-                        'bids': depth_data.get("bids", []),
-                        'asks': depth_data.get("asks", []),
-                        'sequence': timestamp_ms,  # Use timestamp as sequence
-                        'is_snapshot': True  # LBank sends full depth, not incremental
-                    }
+                return {
+                    'symbol': standard_symbol,
+                    'timestamp_ms': timestamp_ms,
+                    'bids': depth_data.get("bids", []),
+                    'asks': depth_data.get("asks", []),
+                    'sequence': timestamp_ms,  # Use timestamp as sequence
+                    'is_snapshot': True  # LBank sends full depth, not incremental
+                }
 
             # Ignore other message types
             return None
@@ -279,12 +284,16 @@ class LbankConnector(BaseExchangeConnector):
             try:
                 self.logger.info(f"[{batch_name}] Connecting with {len(symbols)} symbols...")
 
-                # Get connection parameters
+                # Get connection parameters; route through the rotating SOCKS5 proxy
+                # when configured (spreads connections across the exit IPs).
                 ws_url = await self.get_websocket_url()
                 connect_kwargs = await self.get_connection_kwargs()
+                proxy_config = await self._proxy_manager.get_connection_params() if self._proxy_manager else None
+                route = self._proxy_manager.current_proxy_label() if self._proxy_manager else "direct"
 
-                async with websockets.connect(ws_url, **connect_kwargs) as websocket:
-                    self.logger.info(f"[{batch_name}] Connected successfully")
+                websocket = await connect_with_proxy_config(ws_url, proxy_config, **connect_kwargs)
+                try:
+                    self.logger.info(f"[{batch_name}] Connected successfully via {route}")
                     consecutive_failures = 0
                     reconnect_delay = self.reconnect_delay_base
 
@@ -300,10 +309,10 @@ class LbankConnector(BaseExchangeConnector):
                         raise  # Re-raise to trigger connection retry or cleanup
 
                     # Handle messages with LBank-specific ping/pong
-                    try:
-                        await self._handle_messages(websocket, symbols)
-                    finally:
-                        pass  # No ping task to cancel for LBank
+                    await self._handle_messages(websocket, symbols)
+                finally:
+                    with contextlib.suppress(Exception):
+                        await websocket.close()
 
             except Exception as e:
                 consecutive_failures += 1
@@ -317,14 +326,17 @@ class LbankConnector(BaseExchangeConnector):
                 # Report error for all symbols in this batch
                 await self.report_error(symbols, error_type, error_msg, traceback.format_exc())
 
-                # Clean up streams and mark symbols inactive immediately on connection failure
-                # Stale data is dangerous for trading calculations - better no data than wrong data
-                await self._cleanup_symbols_on_failure(symbols)
-                self.logger.warning(f"Cleaned up batch {batch_name} with {len(symbols)} symbols immediately on connection failure")
+                # Keep symbols active + streams intact through transient reconnects; only
+                # cleanup after sustained failure so the engine's tradeable set doesn't flap.
+                if consecutive_failures >= self.cleanup_after_failures:
+                    await self._cleanup_symbols_on_failure(symbols)
+                    self.logger.warning(f"Cleaned up batch {batch_name} ({len(symbols)} symbols) after {consecutive_failures} consecutive failures")
 
-                # Handle proxy failover if configured
-                if self._proxy_manager and consecutive_failures >= 3:
-                    await self._proxy_manager.handle_connection_failure(error_type, None)
+                # Proxy failover + rotate to a different exit IP before the next retry
+                if self._proxy_manager:
+                    if consecutive_failures >= 3:
+                        await self._proxy_manager.handle_connection_failure(error_type, None)
+                    await self._proxy_manager.rotate_on_disconnect()
 
                 if not self.shutdown_event.is_set():
                     await asyncio.sleep(min(reconnect_delay, self.reconnect_delay_max))
@@ -334,11 +346,18 @@ class LbankConnector(BaseExchangeConnector):
         """Get LBank-specific connection parameters"""
         kwargs = await super().get_connection_kwargs(symbol)
 
-        # Add LBank-specific connection settings
+        # Over SOCKS5 the danted tunnel silently drops idle connections ("no close
+        # frame received or sent"), which drives LBank's heavy reconnect churn. When
+        # proxied, enable library-level ws PING frames so the tunnel sees periodic
+        # traffic and a dead link is detected fast; direct connections keep manual
+        # ping (None). VALIDATE LIVE: if the server/proxy does not return PONGs this
+        # would force-close — watch proxy_rotations after deploy and revert if it rises.
+        proxied = self._proxy_manager is not None
         kwargs.update({
             'open_timeout': 20,
             'close_timeout': 10,
-            'ping_interval': None,  # LBank handles ping/pong manually
+            'ping_interval': 15 if proxied else None,
+            'ping_timeout': 20 if proxied else None,
         })
 
         return kwargs

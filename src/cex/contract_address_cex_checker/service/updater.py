@@ -6,7 +6,16 @@ import asyncio
 from typing import Dict, List, Optional
 import aiohttp
 
-from .config import UPDATE_INTERVAL_SECONDS, FetchStrategy, validate_exchange_credentials
+from .config import (
+    UPDATE_INTERVAL_SECONDS,
+    BACKFILL_MIN_WITNESSES,
+    PRICE_MATCH_ENABLED,
+    PRICE_MATCH_MAX_DEVIATION,
+    PRICE_MATCH_STREAM_MAX_AGE,
+    FetchStrategy,
+    get_backfill_exchanges,
+    validate_exchange_credentials,
+)
 from .exchanges import get_all_exchanges
 from .exchanges.base import BaseExchange, CoinEntry
 from .redis_client import RedisClient
@@ -149,8 +158,17 @@ class UpdaterService:
             len(rebuild_input), len(fresh_results), len(stale),
         )
 
-        # Rebuild the contract index
-        self.redis.rebuild_contract_index(rebuild_input)
+        # Rebuild the contract index. Back-fill-only exchanges (e.g. LBank, which
+        # exposes no contract addresses) are attached to addresses other exchanges
+        # resolved, gated by the witness threshold.
+        self.redis.rebuild_contract_index(
+            rebuild_input,
+            backfill_exchanges=get_backfill_exchanges(),
+            min_witnesses=BACKFILL_MIN_WITNESSES,
+            price_match=PRICE_MATCH_ENABLED,
+            price_match_max_deviation=PRICE_MATCH_MAX_DEVIATION,
+            price_match_stream_max_age=PRICE_MATCH_STREAM_MAX_AGE,
+        )
         stats = self.redis.get_index_stats()
         logger.info(f"Rebuilt contract index: {stats['total_contracts']} unique contracts")
 

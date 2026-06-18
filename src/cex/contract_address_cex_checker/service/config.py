@@ -39,6 +39,12 @@ class ExchangeConfig:
     fetch_strategy: FetchStrategy = FetchStrategy.BULK
     requires_auth: bool = False
 
+    # Cross-exchange back-fill: this exchange exposes no on-chain contract
+    # addresses (e.g. LBank), so it cannot create index keys on its own. Its
+    # entries are instead attached to addresses OTHER exchanges resolved, matched
+    # by (chain, wallet-coin). See redis_client.rebuild_contract_index Phase 2.
+    backfill_only: bool = False
+
     # Retry settings
     max_retries: int = 3
     retry_delay: float = 5.0
@@ -141,15 +147,27 @@ EXCHANGE_CONFIGS: dict[str, ExchangeConfig] = {
         fetch_strategy=FetchStrategy.BULK,
     ),
 
-    # LBank's public API exposes no contract addresses; fetcher returns [] (kept
-    # so the checker set matches the producer set — see exchanges/lbank.py).
+    # LBank's public API exposes no contract addresses — only (assetCode, chain)
+    # pairs. It is a back-fill-only source: its tradable tokens are attached to
+    # addresses other exchanges resolved (see exchanges/lbank.py + Phase 2 of
+    # redis_client.rebuild_contract_index). request_delay throttles the per-asset
+    # fallback path (assetConfigs.do) used when the bulk endpoint is unavailable.
     "lbank": ExchangeConfig(
         name="lbank",
         base_url="https://api.lbkex.com",
         requires_auth=False,
         fetch_strategy=FetchStrategy.BULK,
+        backfill_only=True,
+        request_delay=0.1,
     ),
 }
+
+
+def get_backfill_exchanges() -> set[str]:
+    """Names of exchanges that contribute via cross-exchange back-fill only (no
+    own contract addresses). Passed to rebuild_contract_index so Phase 1 excludes
+    them as key-creators and Phase 2 attaches them by (chain, wallet-coin)."""
+    return {name for name, ec in EXCHANGE_CONFIGS.items() if ec.backfill_only}
 
 
 # Redis configuration
@@ -176,6 +194,15 @@ REDIS_CONFIG = RedisConfig()
 
 # Update interval in seconds (20 minutes)
 UPDATE_INTERVAL_SECONDS = _cfg.UPDATE_INTERVAL
+
+# Minimum independent-exchange witnesses to back-fill a back-fill-only exchange
+# onto an address (see get_backfill_exchanges / Phase 2 of rebuild_contract_index).
+BACKFILL_MIN_WITNESSES = _cfg.BACKFILL_MIN_WITNESSES
+
+# Price-fingerprint address matching (resolve gaps via order-book price).
+PRICE_MATCH_ENABLED = _cfg.PRICE_MATCH_ENABLED
+PRICE_MATCH_MAX_DEVIATION = _cfg.PRICE_MATCH_MAX_DEVIATION
+PRICE_MATCH_STREAM_MAX_AGE = _cfg.PRICE_MATCH_STREAM_MAX_AGE
 
 
 def validate_exchange_credentials() -> None:

@@ -43,17 +43,28 @@ def enabled_pairs() -> List[tuple]:
     return pairs
 
 
-def evaluate_pair(redis_client, exchange, market_type, hung_timeout=None, now=None) -> PairHealth:
+def evaluate_pair(redis_client, exchange, market_type, hung_timeout=None, now=None,
+                  worker_id="*") -> PairHealth:
+    """Aggregate heartbeat health for an (exchange, market_type).
+
+    worker_id="*" (default) aggregates ALL workers' heartbeats (health:...:*).
+    Pass a specific worker_id (or None for the legacy ':none' key) to evaluate just
+    that one worker — used by the supervisor for per-worker hung detection.
+    """
     if hung_timeout is None:
         hung_timeout = MONITORING_CONFIG.get("hung_worker_timeout", 120)
     if now is None:
         now = time.time()
     ph = PairHealth(exchange=exchange, market_type=market_type)
-    pattern = f"{HEALTH_PREFIX}:{exchange}:{market_type}:*"
-    if hasattr(redis_client, "scan_iter"):
-        keys = list(redis_client.scan_iter(match=pattern))
+    if worker_id == "*":
+        pattern = f"{HEALTH_PREFIX}:{exchange}:{market_type}:*"
+        if hasattr(redis_client, "scan_iter"):
+            keys = list(redis_client.scan_iter(match=pattern))
+        else:
+            keys = redis_client.keys(pattern)
     else:
-        keys = redis_client.keys(pattern)
+        wid = 'none' if worker_id is None else worker_id
+        keys = [f"{HEALTH_PREFIX}:{exchange}:{market_type}:{wid}"]
     best_age = None
     for key in keys:
         raw = redis_client.get(key)

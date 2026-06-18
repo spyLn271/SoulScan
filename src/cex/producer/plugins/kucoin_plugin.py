@@ -24,7 +24,9 @@ import redis.asyncio as redis
 import contextlib
 
 # Import config for Redis settings
-from src.cex.producer.config import get_redis_config
+from src.cex.producer.config import get_redis_config, get_heartbeat_key, get_exchange_config, MONITORING_CONFIG
+from src.cex.producer.core.socks5_websocket import connect_with_proxy_config
+from src.cex.producer.core.proxy_manager import ProxyManager
 
 # ------------------ Configuration ------------------ #
 EXCHANGE_NAME = "kucoin"
@@ -37,12 +39,16 @@ REDIS_ACTIVE_SET = f"symbols_status:{EXCHANGE_NAME}:spot:active_symbols"
 REDIS_INACTIVE_SET = f"symbols_status:{EXCHANGE_NAME}:spot:inactive_symbols"
 STREAM_KEY_TEMPLATE = "stream:orderbook:kucoin:spot:{raw_symbol}"
 STREAM_MAXLEN = 10
+FLUSH_INTERVAL = 0.1                   # seconds between pipelined Redis flushes
 
 KUCOIN_BULLET_URL_SPOT = "https://www.kucoin.com/_api/bullet-usercenter/v1/bullet-public"
 CONNECT_ID = "connect_welcome"
 
 BASE_RECONNECT_DELAY = 1.0  # base delay in seconds
 MAX_RECONNECT_DELAY = 60    # maximum delay in seconds
+# Keep symbols active + streams through transient reconnects; only mark inactive +
+# delete after this many consecutive failures (the engine trades active∧¬inactive).
+CLEANUP_AFTER_FAILURES = MONITORING_CONFIG.get('cleanup_after_failures', 3)
 
 SUCCESSFUL_SUFFIX_JSON_FILE = "successful_suffixes.json"
 
@@ -67,6 +73,12 @@ current_run_successful_details: List[Tuple[str, str]] = []
 batch_workers: Dict[str, asyncio.Task] = {}   # batch_id -> task
 batch_symbol_lists: Dict[str, List[str]] = {} # batch_id -> list of raw symbols
 active_symbols_global: Set[str] = set()       # global set of active symbols
+pending_writes: Dict[str, dict] = {}          # raw_symbol -> latest depth fields (collapse-to-latest, flushed via pipeline)
+messages_processed: int = 0                   # cumulative depth msgs (supervisor heartbeat)
+monitored_count: int = 0                      # symbols currently monitored (supervisor heartbeat)
+last_symbol_update_wall: Dict[str, float] = {}  # raw_symbol -> wall clock of last depth write (stale_symbols metric)
+proxy_mgr: Optional[ProxyManager] = None      # SOCKS5 proxy rotation; built in main() if configured
+STALE_AGE = 120                               # s; active symbol with no update beyond this counts as "stale" (observability)
 
 success_map_lock = asyncio.Lock()
 
@@ -79,10 +91,15 @@ def setup_logging():
     formatter = logging.Formatter(LOG_FORMAT)
     logging.getLogger("websockets").setLevel(logging.INFO)
 
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.INFO)
-    ch.setFormatter(formatter)
-    root.addHandler(ch)
+    # The console handler floods the supervisor's terminal — kucoin runs as a supervisor child
+    # whose stdout IS the supervisor's tty, so every INFO line spams the tmux pane and makes the
+    # process feel "unstoppable". kucoin already logs to files (below) + a Redis log stream, so the
+    # console handler is opt-in for genuine standalone debugging only (set KUCOIN_CONSOLE_LOG=1).
+    if os.environ.get("KUCOIN_CONSOLE_LOG"):
+        ch = logging.StreamHandler(sys.stdout)
+        ch.setLevel(logging.INFO)
+        ch.setFormatter(formatter)
+        root.addHandler(ch)
 
     try:
         os.makedirs(os.path.dirname(MAIN_LOG_FILE), exist_ok=True)
@@ -102,7 +119,12 @@ def setup_logging():
 
     logger.info("Logging setup completed. Redis error queue enabled.")
 
-setup_logging()
+# Skip the import-time setup under pytest: it otherwise creates ./app_log + ./error_log in the CWD and
+# attaches DEBUG file handlers to the ROOT logger for the whole test session (so every other plugin's +
+# the supervisor's errors landed in a file named "kucoin"). The real producer, run via the supervisor
+# (not pytest), still configures logging on import. (Legacy path; retired once kucoin migrates to cex_v2.)
+if "pytest" not in sys.modules:
+    setup_logging()
 
 # ------------------ Helpers ------------------ #
 def ensure_ws_scheme(endpoint: str) -> str:
@@ -141,7 +163,11 @@ async def log_error_to_redis(source_script: str, exchange: str, affected_symbols
         }
         
         error_queue_key = ERROR_QUEUE_KEY_TEMPLATE.format(exchange_name=exchange)
-        await redis_client.lpush(error_queue_key, json.dumps(error_entry, separators=(',', ':')))
+        # Bounded push: keep only the most recent N entries to avoid Redis bloat.
+        pipe = redis_client.pipeline()
+        pipe.lpush(error_queue_key, json.dumps(error_entry, separators=(',', ':')))
+        pipe.ltrim(error_queue_key, 0, 4999)
+        await pipe.execute()
         logger.debug(f"Logged error to Redis queue: {error_type} for symbols {affected_symbols}")
     except Exception as e:
         logger.error(f"Failed to log error to Redis: {e}")
@@ -277,8 +303,10 @@ async def fetch_bullet_token(session: aiohttp.ClientSession) -> Tuple[str, str, 
         token = data["data"]["token"]
         server = next((s for s in data["data"]["instanceServers"] if s.get("protocol") == "socket.io"),
                       data["data"]["instanceServers"][0])
-        ping_i = server.get("pingInterval", 20000)
-        ping_t = server.get("pingTimeout", 10000)
+        # The website socket.io server may omit/null these; default sanely so the
+        # downstream arithmetic never hits None.
+        ping_i = server.get("pingInterval") or 20000
+        ping_t = server.get("pingTimeout") or 10000
         endpoint = ensure_ws_scheme(server["endpoint"])
         logger.debug(f"Fetched bullet token (masked={mask_token(token)}) endpoint={endpoint} pingInterval={ping_i} pingTimeout={ping_t}")
         return token, endpoint, ping_i, ping_t
@@ -338,9 +366,11 @@ def split_frames(raw: str) -> List[str]:
 async def batch_worker(batch_id: str, symbols: List[str], suffixes: Dict[str, str]):
     """
     One websocket connection handling up to TOPICS_PER_CONNECTION symbols.
-    Implemented with aiohttp.ClientSession.ws_connect to avoid websockets.create_connection
-    parameter compatibility issues.
+    Transport: the `websockets` library via connect_with_proxy_config (python_socks),
+    so the connection can egress through the rotating SOCKS5 proxy pool. The bullet
+    token is fetched on a short-lived direct aiohttp session (tokens are not IP-bound).
     """
+    global messages_processed
     consecutive_failures = 0
     last_error: Optional[Exception] = None
 
@@ -349,45 +379,38 @@ async def batch_worker(batch_id: str, symbols: List[str], suffixes: Dict[str, st
 
     try:
         while not stop_event.is_set() and not shutdown_in_progress:
-            session: Optional[aiohttp.ClientSession] = None
-            ws_conn: Optional[aiohttp.ClientWebSocketResponse] = None
+            ws_conn = None
             ping_task: Optional[asyncio.Task] = None
             try:
                 consecutive_failures += 1
-                session = aiohttp.ClientSession()
-                token, endpoint, ping_interval, ping_timeout = await fetch_bullet_token(session)
+                # Bullet token over a short-lived DIRECT session — KuCoin website tokens
+                # are not IP-bound (verified live); only the websocket egresses via proxy.
+                async with aiohttp.ClientSession() as token_session:
+                    token, endpoint, ping_interval, ping_timeout = await fetch_bullet_token(token_session)
                 base = endpoint.rstrip('/')
                 ws_url = (f"{base}/socket.io/?isPublic=true&isKumex=false&token={token}"
                           f"&format=json&acceptUserMessage=false&connectId={CONNECT_ID}&EIO=3&transport=websocket")
 
+                # SOCKS5 proxy (rotating) via the shared python_socks/websockets helper —
+                # the same path gateio/htx/bybit/okx use. None => direct.
+                proxy_config = await proxy_mgr.get_connection_params() if proxy_mgr else None
+                route = proxy_mgr.current_proxy_label() if proxy_mgr else "direct"
                 logger.debug(f"[batch {batch_id}] WebSocket URL: {ws_url.replace(token, mask_token(token))}")
-                logger.info(f"[batch {batch_id}] Connecting (failure count: {consecutive_failures}) with {len(symbols)} symbols.")
+                logger.info(f"[batch {batch_id}] Connecting (failure count: {consecutive_failures}) "
+                            f"with {len(symbols)} symbols via {route}.")
 
-                try:
-                    ws_conn = await session.ws_connect(
-                        ws_url,
-                        heartbeat=None,        # manual heartbeat
-                        autoping=False,        # we handle ping/pong frames ourselves
-                        compress=0,
-                        timeout=aiohttp.ClientTimeout(total=20),
-                        headers={
-                            "User-Agent": "Mozilla/5.0",
-                            "Origin": "https://www.kucoin.com",
-                            "Referer": "https://www.kucoin.com/trade/BTC-USDT",
-                            "Accept": "*/*",
-                        },
-                    )
-                except aiohttp.ClientResponseError as e:
-                    # Report HTTP connection errors
-                    await log_error_to_redis(
-                        source_script="redis-kuc.py",
-                        exchange=EXCHANGE_NAME,
-                        affected_symbols=symbols,
-                        error_type="InvalidStatusCode",
-                        error_message=f"HTTP {e.status}: {e.message}",
-                        traceback_str=str(e)
-                    )
-                    raise
+                ws_conn = await connect_with_proxy_config(
+                    ws_url, proxy_config,
+                    open_timeout=20,
+                    close_timeout=5,
+                    ping_interval=None,   # socket.io heartbeat handled manually below
+                    compression=None,
+                    extra_headers={       # websockets 12.0 uses extra_headers (NOT additional_headers)
+                        "User-Agent": "Mozilla/5.0",
+                        "Origin": "https://www.kucoin.com",
+                        "Referer": "https://www.kucoin.com/trade/BTC-USDT",
+                    },
+                )
 
                 open_received = False
                 sio_connected = False
@@ -400,7 +423,7 @@ async def batch_worker(batch_id: str, symbols: List[str], suffixes: Dict[str, st
                     interval_s = max(ping_interval * 0.9 / 1000, 5)
                     while True:
                         try:
-                            await ws_conn.send_str("2")  # client ping
+                            await ws_conn.send("2")  # client ping
                         except Exception:
                             break
                         await asyncio.sleep(interval_s)
@@ -418,23 +441,21 @@ async def batch_worker(batch_id: str, symbols: List[str], suffixes: Dict[str, st
                     }
                     arr_frame = ["bullet", json.dumps(payload_obj, separators=(',', ':'))]
                     frame = "42" + json.dumps(arr_frame, separators=(',', ':'))
-                    await ws_conn.send_str(frame)
+                    await ws_conn.send(frame)
                     topic_map[topic] = raw_symbol
                     logger.debug(f"[batch {batch_id}] Sent subscribe {raw_symbol} -> {topic}")
 
                 ping_task = asyncio.create_task(heartbeat())
 
-                # --- Receive Loop ---
-                async for msg in ws_conn:
-                    if msg.type == aiohttp.WSMsgType.CLOSED:
-                        raise ConnectionError("WebSocket closed by server.")
-                    if msg.type == aiohttp.WSMsgType.ERROR:
-                        raise ConnectionError(f"WebSocket error: {ws_conn.exception()}")
+                # --- Receive Loop (websockets yields str/bytes directly) ---
+                async for raw_message in ws_conn:
+                    # Any frame proves the socket is alive. KuCoin's website socket.io
+                    # endpoint sends NO engine.io ping/pong here (verified live), so the
+                    # old "stale unless we received a '3' pong" check false-fired ~22s in
+                    # and killed healthy connections. Treat the receive timer as a pure
+                    # silence detector.
+                    last_pong = time.time()
 
-                    if msg.type not in (aiohttp.WSMsgType.TEXT, aiohttp.WSMsgType.BINARY):
-                        continue
-
-                    raw_message = msg.data
                     if isinstance(raw_message, bytes):
                         if raw_message.startswith(b'\x1f\x8b'):
                             try:
@@ -459,7 +480,7 @@ async def batch_worker(batch_id: str, symbols: List[str], suffixes: Dict[str, st
                             open_received = True
                             try:
                                 _ = json.loads(frame[1:])
-                                await ws_conn.send_str("40")
+                                await ws_conn.send("40")
                             except Exception as e:
                                 logger.warning(f"[batch {batch_id}] Open parse error: {e}")
 
@@ -506,11 +527,11 @@ async def batch_worker(batch_id: str, symbols: List[str], suffixes: Dict[str, st
                                                                                 ctx=f"batch:{batch_id}-ack")
                                         established_successful_suffix_map[raw_symbol] = suffixes[raw_symbol]
                                         active_symbols_global.add(raw_symbol)
-                                        
-                                        # Clean up error queue for this symbol
-                                        await cleanup_error_queue_for_symbols(EXCHANGE_NAME, [raw_symbol])
-                                        
-                                        # Reset consecutive failures on successful subscription
+                                        # NOTE: do NOT clean the error queue here. It reads the whole
+                                        # (capped) queue per symbol; doing that on first data for ~944
+                                        # symbols at startup stalled the receive loop and built a multi-
+                                        # minute backlog. The queue is bounded by LTRIM, so stale entries
+                                        # rotate out on their own.
                                         consecutive_failures = 0
 
                                 elif mtype == "message" and topic and "level2Depth50" in topic:
@@ -523,11 +544,8 @@ async def batch_worker(batch_id: str, symbols: List[str], suffixes: Dict[str, st
                                         await update_inactive_symbols_in_redis([raw_symbol], "remove",
                                                                                 ctx=f"batch:{batch_id}-data")
                                         active_symbols_global.add(raw_symbol)
-                                        
-                                        # Clean up error queue for this symbol on first data
-                                        await cleanup_error_queue_for_symbols(EXCHANGE_NAME, [raw_symbol])
-                                        
-                                        # Reset consecutive failures on successful data reception
+                                        # NOTE: error-queue cleanup intentionally NOT done here — see the
+                                        # ack branch above (per-symbol full-queue reads stalled startup).
                                         consecutive_failures = 0
 
                                     data_obj = payload.get("data", {})
@@ -544,13 +562,18 @@ async def batch_worker(batch_id: str, symbols: List[str], suffixes: Dict[str, st
                                         "bids": json.dumps(bids, separators=(',', ':')),
                                         "asks": json.dumps(asks, separators=(',', ':'))
                                     }
-                                    await redis_client.xadd(
-                                        name=STREAM_KEY_TEMPLATE.format(raw_symbol=raw_symbol),
-                                        fields=msg_fields,
-                                        id="*",
-                                        maxlen=STREAM_MAXLEN,
-                                        approximate=True
-                                    )
+                                    # Collapse-to-latest: update this symbol's pending snapshot
+                                    # (non-blocking) instead of awaiting an xadd here. redis_flush_loop
+                                    # pipelines the pending snapshots every FLUSH_INTERVAL. This keeps
+                                    # the receive loop from blocking on Redis I/O and drops stale
+                                    # intermediate snapshots (level2Depth50 is a full snapshot — only
+                                    # the newest matters). The old awaited-xadd-per-message capped
+                                    # drain throughput to ~the incoming rate, so any hiccup built a
+                                    # permanent multi-minute delay (book content minutes behind the
+                                    # exchange while still being written fresh).
+                                    pending_writes[raw_symbol] = msg_fields
+                                    messages_processed += 1  # supervisor heartbeat counter
+                                    last_symbol_update_wall[raw_symbol] = time.time()  # stale_symbols metric
                             except Exception as e:
                                 logger.error(f"[batch {batch_id}] Event parse error: {e}")
 
@@ -558,7 +581,7 @@ async def batch_worker(batch_id: str, symbols: List[str], suffixes: Dict[str, st
                             last_pong = time.time()
 
                         elif t == '2':
-                            await ws_conn.send_str('3')
+                            await ws_conn.send('3')
 
                         elif t == '1':
                             logger.info(f"[batch {batch_id}] Server close frame.")
@@ -585,11 +608,19 @@ async def batch_worker(batch_id: str, symbols: List[str], suffixes: Dict[str, st
                     error_message=error_msg
                 )
                 
-                await redis_client.srem(REDIS_ACTIVE_SET, *symbols)
-                await update_inactive_symbols_in_redis(symbols, "add", ctx=f"batch:{batch_id}-err")
+                # Keep symbols active + streams intact through transient reconnects; only
+                # mark inactive + delete after sustained failure (engine trades active∧¬inactive).
+                if consecutive_failures >= CLEANUP_AFTER_FAILURES:
+                    await redis_client.srem(REDIS_ACTIVE_SET, *symbols)
+                    await update_inactive_symbols_in_redis(symbols, "add", ctx=f"batch:{batch_id}-err")
+                    await delete_streams_for_symbols(symbols, context=f" [batch:{batch_id}-err]")
 
-                # Delete streams for inactive symbols to prevent stale data
-                await delete_streams_for_symbols(symbols, context=f" [batch:{batch_id}-err]")
+                # Rotate to a different proxy before reconnecting; demote a persistently
+                # failing proxy after repeated errors (mirrors base_connector behaviour).
+                if proxy_mgr:
+                    await proxy_mgr.rotate_on_disconnect()
+                    if consecutive_failures >= 3:
+                        await proxy_mgr.handle_connection_failure(error_type, None)
 
                 # Progressive backoff delay - never give up reconnecting
                 delay = min(BASE_RECONNECT_DELAY * consecutive_failures, MAX_RECONNECT_DELAY)
@@ -598,11 +629,9 @@ async def batch_worker(batch_id: str, symbols: List[str], suffixes: Dict[str, st
             finally:
                 if ping_task and not ping_task.done():
                     ping_task.cancel()
-                if ws_conn and not ws_conn.closed:
+                if ws_conn is not None:
                     with contextlib.suppress(Exception):
                         await ws_conn.close()
-                if session:
-                    await session.close()
                     
     finally:
         # Guaranteed stream cleanup on task termination
@@ -693,7 +722,7 @@ async def restart_dead_workers() -> bool:
 
 # ------------------ Symbol Monitor ------------------ #
 async def monitor_symbols_loop():
-    global symbol_suffix_map, symbol_kucoin_name
+    global symbol_suffix_map, symbol_kucoin_name, monitored_count
     previous_symbol_set: Set[str] = set()
     previous_suffixes: Dict[str, str] = {}
 
@@ -735,6 +764,8 @@ async def monitor_symbols_loop():
                         symbol_kucoin_name[raw_symbol] = kc_name
                     else:
                         current_symbols.discard(raw_symbol)
+
+            monitored_count = len(current_symbols)
 
             if added or removed:
                 symbol_suffix_map = new_suffix_map
@@ -814,8 +845,65 @@ def print_summary():
     logger.info(f"Established suffix map size: {len(established_successful_suffix_map)}")
     logger.info("=" * 70)
 
+async def write_heartbeat_loop():
+    """Publish the supervisor heartbeat so cex_supervisor does not treat kucoin as
+    dead. The supervisor reads health:kucoin:spot:* via src/cex/health.evaluate_pair
+    (ts/msgs/active_symbols); without it the connector was restart-looped."""
+    key = get_heartbeat_key(EXCHANGE_NAME, "spot", None)  # health:kucoin:spot:none
+    while not stop_event.is_set():
+        try:
+            now = time.time()
+            stale = sum(1 for s in active_symbols_global
+                        if now - last_symbol_update_wall.get(s, 0) > STALE_AGE)
+            payload = {
+                "ts": int(now * 1000),
+                "msgs": messages_processed,
+                "active_symbols": len(active_symbols_global),
+                "monitored_symbols": monitored_count,
+                "stale_symbols": stale,
+                "monitoring_healthy": True,
+                "current_proxy": proxy_mgr.current_proxy_label() if proxy_mgr else "direct",
+                "proxy_rotations": proxy_mgr.rotations if proxy_mgr else 0,
+                "worker_id": "none",
+                "schema_version": 1,
+            }
+            await redis_client.set(key, json.dumps(payload), ex=60)
+        except Exception as e:
+            logger.debug(f"heartbeat write failed: {e}")
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=15)
+            break
+        except asyncio.TimeoutError:
+            continue
+
+
+async def redis_flush_loop():
+    """Pipeline the latest pending depth snapshot per symbol to Redis every
+    FLUSH_INTERVAL. Decouples the websocket receive loops from Redis I/O (so a slow
+    Redis moment can never back up the sockets into a permanent lag) and drops stale
+    intermediate snapshots (only the newest snapshot per symbol is written)."""
+    while not stop_event.is_set():
+        try:
+            await asyncio.sleep(FLUSH_INTERVAL)
+            if not pending_writes:
+                continue
+            batch = dict(pending_writes)   # atomic snapshot (no await between)
+            pending_writes.clear()
+            pipe = redis_client.pipeline(transaction=False)
+            for raw_symbol, fields in batch.items():
+                pipe.xadd(
+                    STREAM_KEY_TEMPLATE.format(raw_symbol=raw_symbol),
+                    fields, id="*", maxlen=STREAM_MAXLEN, approximate=True,
+                )
+            await pipe.execute()
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Redis flush failed: {e}")
+
+
 async def main():
-    global redis_client, established_successful_suffix_map
+    global redis_client, established_successful_suffix_map, proxy_mgr
     
     # Register signal handlers for graceful shutdown
     signal.signal(signal.SIGINT, signal_handler)
@@ -841,12 +929,22 @@ async def main():
 
     established_successful_suffix_map = load_established_suffixes()
 
+    # Build the rotating SOCKS5 proxy manager if kucoin has proxy enabled in config.
+    pcfg = (get_exchange_config(EXCHANGE_NAME) or {}).get("proxy", {})
+    if pcfg.get("use_proxy"):
+        proxy_mgr = ProxyManager(EXCHANGE_NAME, pcfg)
+        logger.info(f"KuCoin proxy enabled: mode={pcfg.get('mode')}")
+    else:
+        logger.info("KuCoin proxy disabled (use_proxy=False); connecting direct.")
+
     while not stop_event.is_set():
         try:
             with contextlib.suppress(Exception):
                 await redis_client.delete(REDIS_ACTIVE_SET)
 
             monitor_task = asyncio.create_task(monitor_symbols_loop())
+            heartbeat_task = asyncio.create_task(write_heartbeat_loop())
+            flush_task = asyncio.create_task(redis_flush_loop())
             logger.info("Symbol monitor started.")
             logger.info(f"KuCoin batched monitor active. Batch size={TOPICS_PER_CONNECTION}.")
 
@@ -865,7 +963,9 @@ async def main():
 
             if not monitor_task.done():
                 monitor_task.cancel()
-            await asyncio.gather(monitor_task, return_exceptions=True)
+            heartbeat_task.cancel()
+            flush_task.cancel()
+            await asyncio.gather(monitor_task, heartbeat_task, flush_task, return_exceptions=True)
 
             # Perform graceful shutdown cleanup
             await global_shutdown_cleanup()

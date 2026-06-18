@@ -61,7 +61,7 @@ Thumbs.db
 .env.local
 
 # Runtime log directories
-LogFolder/
+logs/
 app_log/
 error_log/
 *.log
@@ -71,3 +71,8 @@ error_log/
 target/
 
 /SoulDec
+# cex_v2 centralized logs (runtime, never commit) + archived old-cex
+/root/cex.archived-*/
+cex.archived-*/
+SoulAudit/
+/docs/
