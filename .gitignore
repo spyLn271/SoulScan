@@ -61,7 +61,7 @@ Thumbs.db
 .env.local
 
 # Runtime log directories
-LogFolder/
+logs/
 app_log/
 error_log/
 *.log

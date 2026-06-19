@@ -3,9 +3,6 @@ import multiprocessing
 from src.supervisors import (
     RUN_METADATA_FETCHERS,
     RUN_STATE_FETCHERS,
-    RUN_CEX_ORDERBOOKS,
-    RUN_CEX_MARKET_DATA,
-    RUN_CEX_CONTRACTS,
     EthereumOSRSupervisor,
     SolanaOSRSupervisor,
     BinanceOSRSupervisor,
@@ -26,9 +23,6 @@ def main():
         print("  osr_bsc          - Computes optimal swap routes for Binance Smart Chain")
         print("  osr_base         - Computes optimal swap routes for Base")
         print("  osr_arbitrum     - Computes optimal swap routes for Arbitrum")
-        print("  cex_orderbooks    - Streams cex orderbooks to Redis for the reader contract")
-        print("  cex_market_data   - Refreshes {market_type}-market-data:{exchange} Redis hashes")
-        print("  cex_contracts     - Maps cex coin tickers to on-chain contract addresses")
         sys.exit(1)
 
     supervisor = sys.argv[1].lower()
@@ -47,12 +41,6 @@ def main():
         BaseOSRSupervisor().RUN_ONLINE_SMART_ROUTER()
     elif supervisor == "osr_arbitrum":
         ArbitrumOSRSupervisor().RUN_ONLINE_SMART_ROUTER()
-    elif supervisor == "cex_orderbooks":
-        RUN_CEX_ORDERBOOKS()
-    elif supervisor == "cex_market_data":
-        RUN_CEX_MARKET_DATA()
-    elif supervisor == "cex_contracts":
-        RUN_CEX_CONTRACTS()
     else:
         print(f"Unknown supervisor: {supervisor}")
         sys.exit(1)
