@@ -1,226 +1,142 @@
 #!/usr/bin/env python3
 """
-Market Data Manager - Dynamic plugin loader and manager for market data handlers
+cex_v2 market-data manager — single process, one thread per enabled (exchange, market) handler.
+Singleton flock (no duplicate market-data processes), clean shutdown, per-handler restart on crash.
+Atomic MULTI/EXEC writes mean a daemon thread killed mid-cycle never leaves a partial hash.
 
-Dynamically loads and manages market data handler plugins based on configuration.
-Demonstrates the market data plugin architecture in action.
+Run: python -m src.cex.market_data.manager
 """
-
-# Fix Python path for imports
-import sys
-import os
-
-import asyncio
+import importlib
 import logging
 import signal
-import importlib
 import threading
-from typing import Dict, List, Optional, Any
-from dataclasses import dataclass
+import time
 
-from src.cex.market_data.config import get_enabled_exchanges, get_exchange_config, MARKET_DATA_CONFIG
-from src.logger_handler.logger import get_logger
+from src.cex.config import MARKET_DATA, METRICS, metrics_offset
+from src.cex.core.backoff import RestartBackoff
+from src.cex.core.limits import acquire_singleton_lock
+from src.cex.observability import setup_logging
+from src.cex.observability import metrics as _metrics
+
+log = logging.getLogger("cexv2.md.manager")
+
+def _lock_path(markets, exchanges) -> str:
+    mk = "-".join(sorted(markets))
+    ex = "all" if not exchanges else "-".join(sorted(exchanges))
+    return f"/tmp/.cex_v2_marketdata_{mk}_{ex}.lock"
 
 
-@dataclass
-class MarketDataPlugin:
-    """Container for market data plugin information"""
-    name: str
-    handler: Any
-    config: Dict[str, Any]
-    thread: Optional[threading.Thread] = None
+def _discover(markets=("spot", "futures"), exchanges=None):
+    pairs = []
+    for ex, cfg in MARKET_DATA.items():
+        if exchanges and ex not in exchanges:
+            continue
+        for mt, mc in cfg.items():
+            if mt not in markets:
+                continue
+            if mc.get("enabled", True):
+                pairs.append((ex, mt))
+    return pairs
+
+
+def _make_handler(exchange, market_type):
+    mod = importlib.import_module(f"src.cex.market_data.handlers.{exchange}")
+    cls = getattr(mod, f"{exchange.title()}{market_type.title()}MarketData")
+    return cls()
 
 
 class MarketDataManager:
-    """
-    Manages all market data handler plugins dynamically based on configuration
-    """
-
     def __init__(self):
-        self.plugins: Dict[str, MarketDataPlugin] = {}
-        self.shutdown_event = asyncio.Event()
-        self.logger = get_logger("cex-MarketData-Manager")
+        self.stop = threading.Event()
+        self.handlers = {}
+        self.threads = {}
 
-        # Signal handlers are installed by the supervisor wrapper. When run
-        # standalone (run.py), install them here too — but only if we're on
-        # the main thread (signal.signal raises ValueError otherwise).
-        if threading.current_thread() is threading.main_thread():
-            signal.signal(signal.SIGINT, self._signal_handler)
-            signal.signal(signal.SIGTERM, self._signal_handler)
-
-    def _signal_handler(self, signum, frame):
-        """Handle shutdown signals"""
-        self.logger.info(f"Received signal {signum}, initiating graceful shutdown...")
-        self.shutdown_event.set()
-
-    async def load_plugins(self):
-        """Dynamically load market data handler plugins based on configuration"""
-        enabled_exchanges = get_enabled_exchanges()
-
-        if not enabled_exchanges:
-            self.logger.warning("No exchanges enabled in configuration")
-            return
-
-        self.logger.info(f"Loading plugins for {len(enabled_exchanges)} exchanges: {enabled_exchanges}")
-
-        for exchange in enabled_exchanges:
-            config = get_exchange_config(exchange)
-            if not config:
-                self.logger.warning(f"No configuration found for {exchange}")
-                continue
-
-            # Load enabled market types for this exchange
-            for market_type in ['spot', 'futures']:
-                market_config = config.get(market_type)
-                if not market_config or not market_config.get('enabled', False):
-                    continue
-
-                try:
-                    plugin_name = f"{exchange}_{market_type}"
-                    handler = await self._load_handler_plugin(exchange, market_type)
-
-                    if handler:
-                        plugin = MarketDataPlugin(
-                            name=plugin_name,
-                            handler=handler,
-                            config=market_config
-                        )
-                        self.plugins[plugin_name] = plugin
-                        self.logger.info(f"✅ Loaded {plugin_name} handler")
-
-                except Exception as e:
-                    self.logger.error(f"❌ Failed to load {exchange} {market_type} handler: {e}")
-
-        self.logger.info(f"Successfully loaded {len(self.plugins)} market data handler plugins")
-
-    async def _load_handler_plugin(self, exchange: str, market_type: str):
-        """Load a specific market data handler plugin"""
-        try:
-            # Import the handler module from the appropriate plugin folder (spot or futures)
-            module_name = f"src.cex.market_data.plugins_{market_type}.{exchange}_handler"
-            module = importlib.import_module(module_name)
-
-            # Get the handler class name with special cases for acronyms and multi-word names
-            exchange_name_map = {
-                'htx': 'HTX',
-                'mexc': 'MEXC',
-                'okx': 'Okx',
-                'lbank': 'LBank',
-                'gateio': 'Gateio',
-                'coinex': 'CoinEx',
-                'bitmart': 'BitMart'
-            }
-            exchange_title = exchange_name_map.get(exchange, exchange.title())
-            class_name = f"{exchange_title}{market_type.title()}Handler"
-            handler_class = getattr(module, class_name)
-
-            # Create handler instance
-            handler = handler_class()
-
-            # Initialize Redis connection
-            success = handler.initialize()
-            if not success:
-                self.logger.error(f"Failed to initialize Redis connection for {exchange} {market_type}")
-                return None
-
-            return handler
-
-        except ImportError as e:
-            self.logger.error(f"Could not import {exchange} handler module: {e}")
-            return None
-        except AttributeError as e:
-            self.logger.error(f"Handler class not found in {exchange} module: {e}")
-            return None
-        except Exception as e:
-            self.logger.error(f"Unexpected error loading {exchange} handler: {e}")
-            return None
-
-    async def start_all_plugins(self):
-        """Start all loaded plugins in separate threads"""
-        if not self.plugins:
-            self.logger.warning("No plugins loaded to start")
-            return
-
-        self.logger.info(f"Starting {len(self.plugins)} market data handlers...")
-
-        for name, plugin in self.plugins.items():
+    def _run_handler(self, name, exchange, market_type):
+        backoff = RestartBackoff(base=5, cap=60)
+        while not self.stop.is_set():
+            started = time.monotonic()
+            h = None
             try:
-                # Start handler in separate thread since it's synchronous
-                thread = threading.Thread(
-                    target=plugin.handler.run,
-                    name=f"MarketData-{name}",
-                    daemon=True
-                )
-                thread.start()
-                plugin.thread = thread
-
-                self.logger.info(f"✅ Started {name} handler")
-
+                h = _make_handler(exchange, market_type)
+                if not h.initialize():
+                    time.sleep(backoff.next_delay()); continue
+                self.handlers[name] = h
+                h.run()  # loops until shutdown_requested
+                if self.stop.is_set():
+                    break
+                log.warning("%s handler returned unexpectedly; restarting", name)
             except Exception as e:
-                self.logger.error(f"❌ Failed to start {name} handler: {e}")
+                log.error("%s handler crashed: %s", name, e, exc_info=True)
+            finally:
+                # ALWAYS release the handler's httpx.Client + redis before re-creating it; otherwise
+                # a crash-looping handler leaks keep-alive sockets per restart (httpx has no __del__).
+                if h is not None:
+                    try:
+                        h.cleanup()
+                    except Exception:
+                        pass
+            backoff.note_uptime(time.monotonic() - started)
+            if not self.stop.is_set():
+                time.sleep(backoff.next_delay())
 
-        self.logger.info("All market data handlers started successfully")
+    def start(self, pairs):
+        for ex, mt in pairs:
+            name = f"{ex}_{mt}"
+            t = threading.Thread(target=self._run_handler, args=(name, ex, mt), name=f"md-{name}", daemon=True)
+            self.threads[name] = t
+            t.start()
+            log.info("started market-data handler %s", name)
 
-    async def monitor_plugins(self):
-        """Monitor running plugins and handle shutdown"""
-        try:
-            self.logger.info("Market data monitoring started. Press Ctrl+C to stop.")
-
-            # Wait for shutdown signal
-            await self.shutdown_event.wait()
-
-        except Exception as e:
-            self.logger.error(f"Error in monitoring: {e}")
-        finally:
-            await self.stop_all_plugins()
-
-    async def stop_all_plugins(self):
-        """Stop all running plugins"""
-        self.logger.info("Stopping all market data handlers...")
-
-        for name, plugin in self.plugins.items():
-            try:
-                # Request handler shutdown
-                plugin.handler.shutdown_requested = True
-
-                # Wait for thread to finish (with timeout)
-                if plugin.thread and plugin.thread.is_alive():
-                    plugin.thread.join(timeout=5.0)
-
-                    if plugin.thread.is_alive():
-                        self.logger.warning(f"{name} handler did not stop gracefully")
-                    else:
-                        self.logger.info(f"✅ Stopped {name} handler")
-
-                # Cleanup handler resources
-                plugin.handler.cleanup()
-
-            except Exception as e:
-                self.logger.error(f"Error stopping {name} handler: {e}")
-
-        self.plugins.clear()
-        self.logger.info("All market data handlers stopped")
-
-    async def run(self):
-        """Main run method"""
-        try:
-            await self.load_plugins()
-            await self.start_all_plugins()
-            await self.monitor_plugins()
-
-        except Exception as e:
-            self.logger.error(f"Unexpected error in market data manager: {e}")
-            import traceback
-            traceback.print_exc()
-        finally:
-            await self.stop_all_plugins()
+    def shutdown(self):
+        self.stop.set()
+        for h in self.handlers.values():
+            h.shutdown_requested = True
+        for t in self.threads.values():
+            t.join(timeout=8)
+        for h in self.handlers.values():   # belt-and-suspenders: close resources of any handler whose
+            try:                           # thread didn't reach its own cleanup (join timeout)
+                h.cleanup()
+            except Exception:
+                pass
 
 
-async def main():
-    """Standalone entry — used by run.py and the supervisor."""
-    manager = MarketDataManager()
-    await manager.run()
+_LOCK_FH = None
+
+
+def RUN(markets=("spot", "futures"), exchanges=None):
+    """Run the market-data manager for the selected market types + exchanges."""
+    global _LOCK_FH
+    # per-exchange-selection log file (marketdata_<ex>.log) so separate md managers don't share one file
+    setup_logging("marketdata", exchange="-".join(exchanges) if exchanges else None)
+    if METRICS["enabled"]:
+        md_off = min((metrics_offset(e) for e in exchanges), default=0) if exchanges else 0
+        _metrics.start_metrics_server(METRICS["md_base"] + md_off, addr=METRICS["bind_host"])  # ob uses base+1..
+    sel = f"markets={','.join(markets)} exchanges={'all' if not exchanges else ','.join(exchanges)}"
+    _LOCK_FH = acquire_singleton_lock(_lock_path(markets, exchanges), log, f"cex_v2 market-data manager [{sel}]")
+    if _LOCK_FH is None:
+        return
+    mgr = MarketDataManager()
+
+    def _sig(*_):
+        log.info("shutdown signal; stopping handlers")
+        mgr.stop.set()
+
+    signal.signal(signal.SIGINT, _sig)
+    signal.signal(signal.SIGTERM, _sig)
+
+    pairs = _discover(markets, exchanges)
+    if not pairs:
+        log.critical("no enabled market-data pairs for %s; exiting", sel)
+        return
+    log.info("cex_v2 market-data manager [%s]: %d handlers %s", sel, len(pairs), [f"{e}_{m}" for e, m in pairs])
+    mgr.start(pairs)
+    try:
+        while not mgr.stop.is_set():
+            time.sleep(0.5)
+    finally:
+        mgr.shutdown()
+        log.info("market-data manager stopped")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    RUN()

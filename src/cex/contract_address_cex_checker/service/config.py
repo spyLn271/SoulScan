@@ -2,14 +2,14 @@
 Centralized configuration for all exchange-specific settings.
 API keys, rate limits, wait times, base URLs, etc.
 
-All environment-sourced values come from the typed `src.settings.cex_config`
+All environment-sourced values come from the typed `src.settings.config`
 settings object (no scattered os.getenv here).
 """
 from dataclasses import dataclass
 from typing import Optional
 from enum import Enum
 
-from src.settings.cex_config import get_cex_config
+from src.settings.config import get_cex_config
 
 _cfg = get_cex_config()
 
@@ -131,13 +131,14 @@ EXCHANGE_CONFIGS: dict[str, ExchangeConfig] = {
         timeout=15,
     ),
 
+    # /spot/currencies returns chains[] (name + addr) for EVERY currency in ONE bulk call, so the
+    # per-currency /wallet/currency_chains fetch is unnecessary (was 5150 sequential calls, ~2h/cycle).
     "gateio": ExchangeConfig(
         name="gateio",
         base_url="https://api.gateio.ws/api/v4",
         requires_auth=False,
-        fetch_strategy=FetchStrategy.SEQUENTIAL,
-        request_delay=0.1,        # 100ms between requests
-        rate_limit_wait=20.0,
+        fetch_strategy=FetchStrategy.BULK,
+        timeout=30,               # /spot/currencies is a single large (~5MB) response
     ),
 
     "bitmart": ExchangeConfig(

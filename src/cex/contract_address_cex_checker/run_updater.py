@@ -7,7 +7,7 @@ Production runs through the supervisor:
 import asyncio
 import os
 
-from src.settings import cex_config as _sscfg
+from src.settings import config as _sscfg
 from src.logger_handler.logger import setup_logger
 from src.cex.contract_address_cex_checker.service.updater import UpdaterService
 

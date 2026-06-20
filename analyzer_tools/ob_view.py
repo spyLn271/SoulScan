@@ -21,7 +21,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import redis
-from src.cex_v2.config import get_redis_config, get_stream_key, get_market_data_key
+from src.cex.config import get_redis_config, get_stream_key, get_market_data_key
 
 RED = "\033[91m"; GREEN = "\033[92m"; DIM = "\033[2m"; BOLD = "\033[1m"; CYAN = "\033[96m"; RESET = "\033[0m"
 HOME = "\033[H"; CLR_DOWN = "\033[0J"; CLR_ALL = "\033[2J"; HIDE = "\033[?25l"; SHOW = "\033[?25h"

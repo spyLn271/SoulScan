@@ -13,10 +13,10 @@ import os
 import signal
 import time
 
-from src.settings import cex_config as config
+from src.settings import config
 from src.settings.graceful_shut_down import TerminateSignal, sigterm_handler
 from src.logger_handler.logger import setup_logger, get_logger
-from src.cex.producer.core.limits import install_orphan_guards, acquire_singleton_lock
+from src.cex.core.limits import install_orphan_guards, acquire_singleton_lock
 
 
 WORKER_NAME = "cex-Contracts"

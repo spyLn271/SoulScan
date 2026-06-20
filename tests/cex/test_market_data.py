@@ -1,74 +1,123 @@
-"""market_data BaseMarketDataHandler: atomic hash rebuild + store semantics.
-
-Tests target the REAL handler API (parse_api_response / _store_data_in_redis),
-using fakeredis. The key guarantee is that _store_data_in_redis rebuilds the hash
-atomically (MULTI/EXEC) and stamps a _version, so a reader never sees a partial
-hash.
-"""
+"""cex_v2 market-data invariant tests (from MARKET_DATA_AUDIT.md): never-blank, count-drop guard,
+malformed-drop, USDC coverage, string prices."""
 import json
+
 import fakeredis
 
-from src.cex.market_data.core.base_handler import BaseMarketDataHandler
+from src.cex.market_data.handlers.binance import BinanceSpotMarketData
 
 
-class _Handler(BaseMarketDataHandler):
-    def __init__(self):
-        super().__init__("testex", "spot")
-        self.redis_key = "spot-market-data:testex"
-        self.redis_client = fakeredis.FakeStrictRedis(decode_responses=True)
-
-    def parse_api_response(self, response_data):
-        # response_data is already in the [{symbol, data}] shape for tests
-        return response_data
+def _h():
+    h = BinanceSpotMarketData()
+    h.redis = fakeredis.FakeStrictRedis(decode_responses=True)
+    return h
 
 
-def test_store_writes_hash_with_version():
-    h = _Handler()
-    n = h._store_data_in_redis([
-        {"symbol": "BTCUSDT", "data": {"lastPrice": "50000"}},
-        {"symbol": "ETHUSDT", "data": {"lastPrice": "3000"}},
-    ])
-    assert n == 2
-    assert json.loads(h.redis_client.hget(h.redis_key, "BTCUSDT")) == {"lastPrice": "50000"}
-    assert h.redis_client.hget(h.redis_key, "_version") is not None
+# --- parser: USDC coverage + malformed-drop + string prices (binance handler) ---
+def test_binance_parse_usdc_and_strings_and_drop_malformed():
+    h = _h()
+    resp = [
+        {"symbol": "BTCUSDT", "bidPrice": "60000.1", "askPrice": "60000.2", "lastPrice": "60000.1", "quoteVolume": "100"},
+        {"symbol": "ETHUSDC", "bidPrice": "3000.5", "askPrice": "3000.6", "lastPrice": "3000.5", "quoteVolume": "50"},
+        {"symbol": "FOOBTC", "bidPrice": "1", "askPrice": "2", "lastPrice": "1", "quoteVolume": "1"},   # non-USDT/USDC -> drop
+        {"symbol": "BADUSDT", "bidPrice": None, "askPrice": "2", "lastPrice": "1", "quoteVolume": "1"},  # malformed -> drop
+    ]
+    out = h.parse_api_response(resp)
+    syms = {o["symbol"] for o in out}
+    assert syms == {"BTCUSDT", "ETHUSDC"}            # USDC kept (legacy dropped it); non-USDT/USDC + malformed dropped
+    btc = next(o for o in out if o["symbol"] == "BTCUSDT")["data"]
+    assert btc["best_bid"] == "60000.1" and isinstance(btc["best_bid"], str)   # full-precision string, not float
+    assert isinstance(btc["24h_volume_usdt"], float)
+    assert h.parse_api_response({"not": "a list"}) == []
 
 
-def test_store_uses_transaction_pipeline(monkeypatch):
-    """The rebuild must use a MULTI/EXEC (transaction=True) pipeline."""
-    h = _Handler()
-    seen = {}
-    real_pipeline = h.redis_client.pipeline
-
-    def spy_pipeline(*a, **kw):
-        seen["transaction"] = kw.get("transaction", a[0] if a else None)
-        return real_pipeline(*a, **kw)
-
-    monkeypatch.setattr(h.redis_client, "pipeline", spy_pipeline)
-    h._store_data_in_redis([{"symbol": "BTCUSDT", "data": {"p": 1}}])
-    assert seen.get("transaction") is True
+# --- core invariant: NEVER blank a populated hash when all records are invalid ---
+def test_store_never_blanks_on_all_invalid():
+    h = _h()
+    h.redis.hset(h.redis_key, "BTCUSDT", json.dumps({"best_bid": "1"}))
+    h._last_count = 50
+    ok = h._store([{"symbol": "X", "data": None}, {"symbol": None, "data": {}}])  # all invalid
+    assert ok is False
+    assert h.redis.hget(h.redis_key, "BTCUSDT") is not None   # preserved, not blanked
 
 
-def test_store_empty_returns_zero():
-    h = _Handler()
-    assert h._store_data_in_redis([]) == 0
+# --- core invariant: reject a catastrophic count collapse (suspected partial API break) ---
+def test_store_rejects_count_collapse():
+    h = _h()
+    h.redis.hset(h.redis_key, "BTCUSDT", json.dumps({"best_bid": "1"}))
+    h._last_count = 100
+    ok = h._store([{"symbol": "AAAUSDT", "data": {"best_bid": "1", "best_ask": "2", "lastPrice": "1.5"}}])  # 1 << 50
+    assert ok is False
+    assert h.redis.hget(h.redis_key, "BTCUSDT") is not None   # preserved
 
 
-def test_store_skips_rows_missing_symbol_or_data():
-    h = _Handler()
-    n = h._store_data_in_redis([
-        {"symbol": "BTCUSDT", "data": {"p": 1}},
-        {"symbol": None, "data": {"p": 2}},      # skipped
-        {"symbol": "ETHUSDT", "data": None},     # skipped
-    ])
-    assert n == 1
-    assert h.redis_client.hget(h.redis_key, "BTCUSDT") is not None
-    assert h.redis_client.hget(h.redis_key, "ETHUSDT") is None
+# --- core: a good batch writes atomically + stamps _version + tracks last_count ---
+def test_store_writes_good_batch():
+    h = _h()
+    batch = [{"symbol": f"S{i}USDT", "data": {"best_bid": "1", "best_ask": "2", "lastPrice": "1.5"}} for i in range(5)]
+    ok = h._store(batch)
+    assert ok is True
+    assert h.redis.hlen(h.redis_key) == 6              # 5 symbols + _version
+    assert h.redis.hget(h.redis_key, "_version")
+    assert h._last_count == 5
+    assert json.loads(h.redis.hget(h.redis_key, "S0USDT"))["best_bid"] == "1"
 
 
-def test_rebuild_replaces_previous_contents():
-    h = _Handler()
-    h._store_data_in_redis([{"symbol": "OLD", "data": {"p": 1}}])
-    h._store_data_in_redis([{"symbol": "NEW", "data": {"p": 2}}])
-    # delete-then-repopulate means stale symbols are gone
-    assert h.redis_client.hget(h.redis_key, "OLD") is None
-    assert h.redis_client.hget(h.redis_key, "NEW") is not None
+def test_manager_discovers_binance():
+    from src.cex.market_data.manager import _discover, _make_handler
+    assert ("binance", "spot") in _discover()
+    assert ("binance", "futures") in _discover()
+    h = _make_handler("binance", "spot")
+    assert h.exchange == "binance" and h.redis_key == "spot-market-data:binance"
+    hf = _make_handler("binance", "futures")
+    assert hf.market_type == "futures" and hf.redis_key == "futures-market-data:binance"
+
+
+def test_binance_futures_merges_three_endpoints():
+    from src.cex.market_data.handlers.binance import BinanceFuturesMarketData
+    h = BinanceFuturesMarketData()
+    ticker = [{"symbol": "BTCUSDT", "lastPrice": "64000", "quoteVolume": "1000"},
+              {"symbol": "ETHUSDC", "lastPrice": "3000", "quoteVolume": "500"},
+              {"symbol": "NOPREMUSDT", "lastPrice": "1", "quoteVolume": "1"},   # missing premium -> drop
+              {"symbol": "FOOBUSD", "lastPrice": "1", "quoteVolume": "1"}]        # non-USDT/USDC -> drop
+    book = [{"symbol": "BTCUSDT", "bidPrice": "63999", "askPrice": "64001"},
+            {"symbol": "ETHUSDC", "bidPrice": "2999", "askPrice": "3001"},
+            {"symbol": "NOPREMUSDT", "bidPrice": "1", "askPrice": "2"}]
+    premium = [{"symbol": "BTCUSDT", "markPrice": "64000.5", "indexPrice": "64000.2",
+                "lastFundingRate": "0.0001", "nextFundingTime": 1781460000000},
+               {"symbol": "ETHUSDC", "markPrice": "3000.1", "indexPrice": "3000.0",
+                "lastFundingRate": "-0.0002", "nextFundingTime": 1781460000000}]
+    by_url = {h._ep_ticker: ticker, h._ep_book: book, h._ep_premium: premium}
+    h._get = lambda url: by_url[url]   # map by URL: _get_many fetches concurrently, order is not fixed
+    by = {o["symbol"]: o["data"] for o in h.fetch_parsed()}
+    assert set(by) == {"BTCUSDT", "ETHUSDC"}                  # USDC kept; missing-premium + non-USDT/USDC dropped
+    btc = by["BTCUSDT"]
+    assert btc["best_bid"] == "63999" and isinstance(btc["best_bid"], str)
+    assert btc["markPrice"] == "64000.5" and btc["indexPrice"] == "64000.2"
+    assert abs(btc["funding_rate_percent"] - 0.01) < 1e-9    # 0.0001 * 100
+    assert btc["next_funding_time"] == 1781460000            # ms -> s
+
+
+# --- universe hygiene: drop delisted/halted (0.00000000) pairs so the order-book never subscribes to dead symbols ---
+def test_spot_drops_zero_priced_dead_symbols():
+    h = _h()
+    resp = [
+        {"symbol": "LIVEUSDT", "bidPrice": "1.0", "askPrice": "1.1", "lastPrice": "1.05", "quoteVolume": "10"},
+        {"symbol": "DEADUSDT", "bidPrice": "0.00000000", "askPrice": "0.00000000", "lastPrice": "0", "quoteVolume": "0"},
+        {"symbol": "HALFUSDT", "bidPrice": "0", "askPrice": "2.0", "lastPrice": "1", "quoteVolume": "1"},  # one side 0 -> dead
+    ]
+    assert {o["symbol"] for o in h.parse_api_response(resp)} == {"LIVEUSDT"}
+
+
+def test_futures_drops_zero_priced_dead_symbols():
+    from src.cex.market_data.handlers.binance import BinanceFuturesMarketData
+    h = BinanceFuturesMarketData()
+    ticker = [{"symbol": "LIVEUSDT", "lastPrice": "1", "quoteVolume": "1"},
+              {"symbol": "DEADUSDT", "lastPrice": "1", "quoteVolume": "1"}]
+    book = [{"symbol": "LIVEUSDT", "bidPrice": "1.0", "askPrice": "1.1"},
+            {"symbol": "DEADUSDT", "bidPrice": "0.00000000", "askPrice": "0.00000000"}]
+    premium = [{"symbol": s, "markPrice": "1", "indexPrice": "1", "lastFundingRate": "0",
+                "nextFundingTime": 1781460000000} for s in ("LIVEUSDT", "DEADUSDT")]
+    by_url = {h._ep_ticker: ticker, h._ep_book: book, h._ep_premium: premium}
+    h._get = lambda u: by_url[u]
+    assert {o["symbol"] for o in h.fetch_parsed()} == {"LIVEUSDT"}

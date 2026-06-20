@@ -30,8 +30,6 @@ except ImportError:  # CEX-only checkout: src/engine not present
     SolanaOSRSupervisor = None
     BinanceOSRSupervisor = None
 
-from src.supervisors.cex_supervisor import RUN_CEX_ORDERBOOKS
-from src.supervisors.cex_market_data_supervisor import RUN_CEX_MARKET_DATA
 from src.supervisors.cex_contracts_supervisor import RUN_CEX_CONTRACTS
 
 __all__ = [
@@ -47,7 +45,5 @@ __all__ = [
     "BinanceOSRSupervisor",
 
     # cex SUPERVISORS
-    "RUN_CEX_ORDERBOOKS",
-    "RUN_CEX_MARKET_DATA",
     "RUN_CEX_CONTRACTS",
 ]
