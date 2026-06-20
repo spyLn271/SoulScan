@@ -9,7 +9,7 @@ tenacity == 9.1.2
 web3 == 7.15.0
 pydantic-settings == 2.14.0
 
-# cex producer (src/cex/producer/): WebSocket feeds, SOCKS5 proxy, HTTP, MEXC protobuf
+# cex order-book core (src/cex/core, src/cex/plugins): WebSocket feeds, SOCKS5 proxy, HTTP, MEXC protobuf
 websockets == 12.0
 python-socks == 2.5.0
 httpx == 0.27.2
@@ -18,7 +18,7 @@ protobuf == 6.33.5
 # cex market data handlers (src/cex/market_data/): synchronous REST polling
 requests == 2.33.1
 
-# cex_v2 (src/cex_v2/): fast JSON on the hot path, fast event loop, scrapeable metrics
+# cex hot-path (src/cex/core, src/cex/observability): fast JSON, fast event loop, scrapeable metrics
 orjson == 3.11.9
 uvloop == 0.22.1
 prometheus-client == 0.25.0

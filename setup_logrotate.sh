@@ -66,19 +66,8 @@ $LOG_ROOT/osr/*.log {
     su root root
 }
 
-$LOG_ROOT/cex/*.log {
-    hourly
-    maxsize 100M
-    rotate 168
-    compress
-    delaycompress
-    missingok
-    notifempty
-    copytruncate
-    su root root
-}
-
-$LOG_ROOT/cex-market-data/*.log {
+# CEX order-book + market-data fleet: orderbook_*, marketdata_*, perf_*, supervisor (all under logs/cex_v2).
+$LOG_ROOT/cex_v2/*.log {
     hourly
     maxsize 100M
     rotate 168
