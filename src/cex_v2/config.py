@@ -441,6 +441,42 @@ EXCHANGES: Dict[str, Dict[str, Any]] = {
         },
         "proxy": {"use_proxy": False},
     },
+    "kucoin": {
+        "enabled": True,
+        "name": "KuCoin",
+        # DOCUMENTED public WS via the bullet-public token flow (ws_url() POSTs /api/v1/bullet-public for a
+        # fresh token + endpoint per connection; ws-api-spot / ws-api-futures). Carries the SAME
+        # level2Depth50 topic the kucoin.com website wraps in socket.io (verified: documented WS == REST).
+        # level2Depth50 pushes a FULL top-50 snapshot every frame -> STATELESS. Symbols batch comma-separated
+        # <=100 per topic. client {"type":"ping"} keepalive. Spot sizes base-asset; futures sizes in CONTRACTS
+        # -> x multiplier (from the md hash). The OB reads each symbol's WIRE form (BTC-USDT / XBTUSDTM) from
+        # the md hash to subscribe (XBT = bitcoin).
+        "spot": {
+            "enabled": True,
+            "ws_url": "wss://ws-api-spot.kucoin.com/",   # informational; real endpoint+token from bullet-public
+            "connection_type": "batched",
+            "symbols_per_connection": 100,
+            "flush_interval": 0.02,
+            "ping_interval": 15000,
+            "workers": 1,
+            "special_params": {"depth_level": 50, "topic_chunk": 100},
+        },
+        "futures": {   # USDT-M perps
+            "enabled": True,
+            "ws_url": "wss://ws-api-futures.kucoin.com/",
+            "connection_type": "batched",
+            "symbols_per_connection": 100,
+            "flush_interval": 0.02,
+            "ping_interval": 15000,
+            # level2Depth50 is a FIXED 10 frames/s PER SYMBOL (not on-change like spot), so 639 symbols =
+            # ~6.4k frames/s — too much for ONE event loop (recv/flush back up -> ~1s lag on busy symbols).
+            # Fan out across workers (modulo-split) so each process drains ~1.6k frames/s. Spot is on-change
+            # (lower aggregate) so it stays workers=1.
+            "workers": 4,
+            "special_params": {"depth_level": 50, "topic_chunk": 100},
+        },
+        "proxy": {"use_proxy": False},
+    },
 }
 
 
@@ -548,6 +584,15 @@ MARKET_DATA: Dict[str, Dict[str, Any]] = {
                  "api_endpoint": "https://api.gateio.ws/api/v4/spot/tickers"},
         "futures": {"enabled": False, "update_interval": 3,
                     "api_endpoint": "https://fx-api.gateio.ws/api/v4/futures/usdt/tickers"},
+    },
+    "kucoin": {
+        # Spot: /market/allTickers (data.ticker[] buy/sell BBO, last, volValue). Futures: handler MERGES
+        # /contracts/active (multiplier/mark/index/funding/turnover) + /allTickers (bestBid/AskPrice). Both
+        # publish the exchange WIRE symbol (BTC-USDT / XBTUSDTM) so the OB subscribes without reverse-mapping.
+        "spot": {"enabled": True, "update_interval": 3,
+                 "api_endpoint": "https://api.kucoin.com/api/v1/market/allTickers"},
+        "futures": {"enabled": True, "update_interval": 3,
+                    "api_endpoint": "https://api-futures.kucoin.com/api/v1/contracts/active"},
     },
 }
 

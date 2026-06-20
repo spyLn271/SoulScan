@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from typing import Literal
+from typing import Literal, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import model_validator
+from pydantic import model_validator, Field
 from functools import lru_cache
 
 
@@ -80,19 +80,11 @@ def get_config() -> Config:
     return Config()
 
 
-_config = get_config()
-
-
-SOLANA_RPC_ENDPOINT = _config.SOLANA_RPC_ENDPOINT
-EVM_RPC_ENDPOINT = {
-    'base': _config.BASE_RPC_ENDPOINT,
-    'eth': _config.ETHEREUM_RPC_ENDPOINT,
-    'arbitrum': _config.ARB_RPC_ENDPOINT,
-    'bsc': _config.BNB_RPC_ENDPOINT,
-}
-
-REDIS_HOST = _config.REDIS.HOST
-REDIS_PORT = _config.REDIS.PORT
+# Config (DEX/engine) is LAZY: instantiate via get_config() when needed — it is NOT created at import,
+# so importing this module for the CEX config (below) never requires the DEX env vars, preserving a
+# CEX-only deployment that supplies only CEX + Redis vars. The former module-level DEX exports
+# (SOLANA_RPC_ENDPOINT / EVM_RPC_ENDPOINT / REDIS_HOST/PORT / log folders / MIN_* / SWAPPER_FEE) had no
+# importers and were removed with the eager instantiation.
 
 REDIS_METADATA_KEY = 'snapshot:metadata:%s:%s:%s'  # network, market and version
 POOLS_STATE_DICT_REDIS_KEY = 'snapshot:state:%s:%s:%s'  # network, market and version
@@ -101,27 +93,6 @@ REDIS_DEX_MINTS = "snapshot:addresses:%s" # network
 
 ENV_CLMM_SLOT_KEY = "slot"
 ENV_CLMM_TICKS_KEY = "ticks"
-
-OSR_LOG_FOLDER = str(_config.OSR_LOG_FOLDER) + "/"
-SCANNER_LOG_FOLDER = str(_config.SCANNER_LOG_FOLDER) + "/"
-DATA_FETCHER_LOG_FOLDER = str(_config.DATA_FETCHER_LOG_FOLDER) + "/"
-SUPERVISOR_LOG_FOLDER = str(_config.SUPERVISOR_LOG_FOLDER) + "/"
-CEX_LOG_FOLDER = str(_config.CEX_LOG_FOLDER) + "/"
-CEX_MARKET_DATA_LOG_FOLDER = str(_config.CEX_MARKET_DATA_LOG_FOLDER) + "/"
-CEX_CONTRACTS_LOG_FOLDER = str(_config.CEX_CONTRACTS_LOG_FOLDER) + "/"
-
-# Consolidated data-fetcher log files.
-EVM_FETCHER_LOG_FILE = DATA_FETCHER_LOG_FOLDER + "evm.fetcher.log"
-EVM_SKELETON_LOG_FILE = DATA_FETCHER_LOG_FOLDER + "evm.skeleton.log"
-SOLANA_FETCHER_LOG_FILE = DATA_FETCHER_LOG_FOLDER + "solana.fetcher.log"
-METADATA_LOG_FILE = DATA_FETCHER_LOG_FOLDER + "metadata.log"
-OSR_LOG_FILES = {
-    "eth": OSR_LOG_FOLDER + "eth.osr.log",
-    "base": OSR_LOG_FOLDER + "base.osr.log",
-    "arbitrum": OSR_LOG_FOLDER + "arbitrum.osr.log",
-    "bsc": OSR_LOG_FOLDER + "bsc.osr.log",
-    "solana": OSR_LOG_FOLDER + "solana.osr.log",
-}
 
 ORCA_CLMM_PROGRAM_ID = 'whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc'
 METEORA_DLMM_PROGRAM_ID = 'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo'
@@ -241,9 +212,93 @@ DEX = Literal["uniswap", "sushiswap", "pancakeswap"]
 Version = Literal["v2", "v3", "v4"]
 
 
-MIN_VOL24 = _config.MIN_VOL24
-MIN_TVL = _config.MIN_TVL
-POOL_STATE_DECAY_TIME = _config.POOL_STATE_DECAY_TIME
+# =====================================================================================================
+# CEX subsystem config — merged here from src/settings/cex_config.py so Config (DEX, above) and CexConfig
+# live in ONE config file. Reuses the RedisSettings above (one shared definition). UNLIKE Config, CexConfig
+# IS instantiated at import: its module-level values below (REDIS_HOST, CEX_*_LOG_FOLDER, PRICE_MATCH_*, …)
+# are consumed across src/cex, src/cex_v2 and the supervisors. Needs only CEX + Redis vars (no DEX vars).
+# =====================================================================================================
+class CexConfig(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        env_nested_delimiter="__",
+    )
 
-MINIMAL_PROFIT = _config.MINIMAL_PROFIT
-SWAPPER_FEE = _config.SWAPPER_FEE
+    # --- Redis ---
+    REDIS: RedisSettings = Field(default_factory=RedisSettings)
+    REDIS_DB: int = 0
+    REDIS_PASSWORD: Optional[str] = None
+
+    # --- CEX log folders (relative names; resolved under LOG_MAIN_FOLDER) ---
+    LOG_MAIN_FOLDER: Path = Path("./logs")
+    CEX_LOG_FOLDER: Path = Path("cex")
+    CEX_MARKET_DATA_LOG_FOLDER: Path = Path("cex-market-data")
+    CEX_CONTRACTS_LOG_FOLDER: Path = Path("cex-contracts")
+
+    # --- Contract-address checker: exchange API credentials (None if unset) ---
+    BINANCE_API_KEY: Optional[str] = None
+    BINANCE_SECRET_KEY: Optional[str] = None
+    BYBIT_API_KEY: Optional[str] = None
+    BYBIT_SECRET_KEY: Optional[str] = None
+    OKX_API_KEY: Optional[str] = None
+    OKX_SECRET_KEY: Optional[str] = None
+    OKX_PASSPHRASE: Optional[str] = None
+    MEXC_API_KEY: Optional[str] = None
+    MEXC_SECRET_KEY: Optional[str] = None
+    BINGX_API_KEY: Optional[str] = None
+    BINGX_SECRET_KEY: Optional[str] = None
+    COINEX_API_KEY: Optional[str] = None
+    COINEX_SECRET_KEY: Optional[str] = None
+
+    # --- Contract-address checker cadence ---
+    UPDATE_INTERVAL: int = 20 * 60  # seconds
+
+    # --- Cross-exchange back-fill (LBank et al. that expose no contract address) ---
+    # Minimum number of OTHER exchanges that must independently resolve the same single address for a
+    # (chain, coin) before a back-fill-only exchange is attached. >=2 removes same-ticker collisions.
+    BACKFILL_MIN_WITNESSES: int = 2
+
+    # --- Price-fingerprint address matching (resolve gaps by order-book price) ---
+    PRICE_MATCH_ENABLED: bool = True
+    PRICE_MATCH_MAX_DEVIATION: float = 0.15
+    PRICE_MATCH_STREAM_MAX_AGE: int = 300
+
+    # --- Proxy-rotation Telegram alerts (optional) ---
+    CEX_TELEGRAM_BOT_TOKEN: Optional[str] = None
+    CEX_TELEGRAM_CHAT_ID: Optional[str] = None
+
+    def model_post_init(self, __context) -> None:
+        # Resolve CEX log folders under LOG_MAIN_FOLDER and ensure they exist.
+        base = self.LOG_MAIN_FOLDER.resolve()
+        base.mkdir(parents=True, exist_ok=True)
+        for field in ("CEX_LOG_FOLDER", "CEX_MARKET_DATA_LOG_FOLDER", "CEX_CONTRACTS_LOG_FOLDER"):
+            resolved = base / getattr(self, field)
+            resolved.mkdir(parents=True, exist_ok=True)
+            object.__setattr__(self, field, resolved)
+        object.__setattr__(self, "LOG_MAIN_FOLDER", base)
+
+
+@lru_cache
+def get_cex_config() -> CexConfig:
+    return CexConfig()
+
+
+_cex = get_cex_config()
+
+# --- Module-level convenience values (the CEX code consumes these directly) ---
+REDIS_HOST: str = _cex.REDIS.HOST
+REDIS_PORT: int = _cex.REDIS.PORT
+REDIS_DB: int = _cex.REDIS_DB
+REDIS_PASSWORD: Optional[str] = _cex.REDIS_PASSWORD
+
+CEX_LOG_FOLDER: str = str(_cex.CEX_LOG_FOLDER) + "/"
+CEX_MARKET_DATA_LOG_FOLDER: str = str(_cex.CEX_MARKET_DATA_LOG_FOLDER) + "/"
+CEX_CONTRACTS_LOG_FOLDER: str = str(_cex.CEX_CONTRACTS_LOG_FOLDER) + "/"
+
+UPDATE_INTERVAL_SECONDS: int = _cex.UPDATE_INTERVAL
+BACKFILL_MIN_WITNESSES: int = _cex.BACKFILL_MIN_WITNESSES
+PRICE_MATCH_ENABLED: bool = _cex.PRICE_MATCH_ENABLED
+PRICE_MATCH_MAX_DEVIATION: float = _cex.PRICE_MATCH_MAX_DEVIATION
+PRICE_MATCH_STREAM_MAX_AGE: int = _cex.PRICE_MATCH_STREAM_MAX_AGE
