@@ -69,7 +69,7 @@ MONITORING = {
                                      # trading halt (feeder drops a 0-priced pair) never looks like a delist
     "reconcile_min_fraction": 0.5,   # startup reconcile SKIPS if the feeder universe < this * (active+inactive)
                                      # already in redis (degraded/cold feeder) — never mass-evict live symbols
-    "flush_interval": 0.05,          # default: pipeline latest->Redis every 50ms
+    "flush_interval": 0.02,          # default: pipeline latest->Redis every 20ms
     "check_interval": 5,             # supervisor poll interval
 }
 
@@ -124,7 +124,7 @@ EXCHANGES: Dict[str, Dict[str, Any]] = {
             "ws_url": "wss://stream.binance.com:9443/stream",  # combined-stream endpoint
             "connection_type": "batched",
             "symbols_per_connection": 100,
-            "flush_interval": 0.05,
+            "flush_interval": 0.02,
             "ping_interval": None,    # server pings us; websockets auto-pongs
             "workers": 1,
             "special_params": {"depth_level": 20, "update_speed": "100ms"},
@@ -134,7 +134,7 @@ EXCHANGES: Dict[str, Dict[str, Any]] = {
             "ws_url": "wss://fstream.binance.com/stream",  # USDT-M futures combined stream
             "connection_type": "batched",
             "symbols_per_connection": 100,
-            "flush_interval": 0.05,
+            "flush_interval": 0.02,
             "ping_interval": None,
             "workers": 1,
             "special_params": {"depth_level": 20, "update_speed": "100ms"},
@@ -153,7 +153,7 @@ EXCHANGES: Dict[str, Dict[str, Any]] = {
             "ws_url": "wss://ws2.bybit.com/spot/ws/quote/v2",
             "connection_type": "batched",
             "symbols_per_connection": 20,
-            "flush_interval": 0.05,
+            "flush_interval": 0.02,
             "ping_interval": 20000,   # ws2 ping {"ping": ts} every ~20s
             "workers": 1,
             "special_params": {"limit": 40, "default_dump_scale": 4},
@@ -166,7 +166,7 @@ EXCHANGES: Dict[str, Dict[str, Any]] = {
             "ws_url": "wss://ws2.bybit.com/realtime_w",
             "connection_type": "batched",
             "symbols_per_connection": 20,
-            "flush_interval": 0.05,
+            "flush_interval": 0.02,
             "ping_interval": 20000,
             "workers": 1,
             "special_params": {"depth": 20, "merge": "m1", "tier": "H", "emit_levels": 20, "sub_chunk": 10},
@@ -185,7 +185,7 @@ EXCHANGES: Dict[str, Dict[str, Any]] = {
             "ws_url": "wss://ws.okx.com:8443/ws/v5/public",
             "connection_type": "batched",
             "symbols_per_connection": 100,
-            "flush_interval": 0.05,
+            "flush_interval": 0.02,
             "ping_interval": 20000,   # OKX text "ping" within 30s idle; we ping every 20s
             "workers": 1,
             "special_params": {"emit_levels": 20, "sub_chunk": 50},
@@ -195,7 +195,7 @@ EXCHANGES: Dict[str, Dict[str, Any]] = {
             "ws_url": "wss://ws.okx.com:8443/ws/v5/public",
             "connection_type": "batched",
             "symbols_per_connection": 100,
-            "flush_interval": 0.05,
+            "flush_interval": 0.02,
             "ping_interval": 20000,
             "workers": 1,
             "special_params": {"emit_levels": 20, "sub_chunk": 50},
@@ -215,7 +215,7 @@ EXCHANGES: Dict[str, Dict[str, Any]] = {
             "ws_url": "wss://ws.bitget.com/v2/ws/public",
             "connection_type": "batched",
             "symbols_per_connection": 50,
-            "flush_interval": 0.05,
+            "flush_interval": 0.02,
             "ping_interval": 20000,   # Bitget v2 text "ping" within 30s idle; we ping every 20s
             "workers": 1,
             "special_params": {"emit_levels": 20, "sub_chunk": 50},
@@ -225,7 +225,7 @@ EXCHANGES: Dict[str, Dict[str, Any]] = {
             "ws_url": "wss://ws.bitget.com/v2/ws/public",
             "connection_type": "batched",
             "symbols_per_connection": 50,
-            "flush_interval": 0.05,
+            "flush_interval": 0.02,
             "ping_interval": 20000,
             "workers": 1,
             "special_params": {"emit_levels": 20, "sub_chunk": 50, "default_inst_type": "USDT-FUTURES"},
@@ -243,7 +243,7 @@ EXCHANGES: Dict[str, Dict[str, Any]] = {
             "ws_url": "wss://wbs-api.mexc.com/ws",
             "connection_type": "batched",
             "symbols_per_connection": 30,   # MEXC HARD cap: 30 subscriptions/connection
-            "flush_interval": 0.05,
+            "flush_interval": 0.02,
             "ping_interval": 20000,         # MEXC text {"method":"PING"} within 60s
             "workers": 1,
             "special_params": {"depth_level": 20, "sub_chunk": 10},
@@ -269,7 +269,7 @@ EXCHANGES: Dict[str, Dict[str, Any]] = {
             "ws_url": "wss://open-api-ws.bingx.com/market",
             "connection_type": "batched",
             "symbols_per_connection": 100,
-            "flush_interval": 0.05,
+            "flush_interval": 0.02,
             "ping_interval": 5000,
             "workers": 1,
             "special_params": {"depth_level": 20},
@@ -279,7 +279,7 @@ EXCHANGES: Dict[str, Dict[str, Any]] = {
             "ws_url": "wss://open-api-swap.bingx.com/swap-market",
             "connection_type": "batched",
             "symbols_per_connection": 100,
-            "flush_interval": 0.05,
+            "flush_interval": 0.02,
             "ping_interval": 5000,
             "workers": 1,
             "special_params": {"depth_level": 20},
@@ -301,7 +301,7 @@ EXCHANGES: Dict[str, Dict[str, Any]] = {
             # its own pool, so spot's ~11 + futures' ~16 coexist (27 total, verified live, no churn).
             # Per-connection sub limit is high (>=115 verified), so pack many per connection.
             "symbols_per_connection": 100,
-            "flush_interval": 0.05,
+            "flush_interval": 0.02,
             "ping_interval": 10000,
             "workers": 1,
             "special_params": {"depth_level": 20, "sub_chunk": 20, "live_pack": True, "max_connections": 20},
@@ -311,7 +311,7 @@ EXCHANGES: Dict[str, Dict[str, Any]] = {
             "ws_url": "wss://openapi-ws-v2.bitmart.com/api?protocol=1.1",
             "connection_type": "batched",
             "symbols_per_connection": 50,
-            "flush_interval": 0.05,
+            "flush_interval": 0.02,
             "ping_interval": 10000,
             "workers": 1,
             "special_params": {"depth_level": 20, "sub_chunk": 20, "live_pack": True, "max_connections": 20},
@@ -331,7 +331,7 @@ EXCHANGES: Dict[str, Dict[str, Any]] = {
             "ws_url": "wss://ws.coinex.com/",
             "connection_type": "batched",
             "symbols_per_connection": 200,   # subscribe_multi REPLACES -> one call/conn; 200/call verified
-            "flush_interval": 0.05,
+            "flush_interval": 0.02,
             "ping_interval": 10000,
             "workers": 1,
             "special_params": {"depth_level": 50, "merge": "0"},   # merge "0" = raw/finest price granularity
@@ -341,10 +341,103 @@ EXCHANGES: Dict[str, Dict[str, Any]] = {
             "ws_url": "wss://perpetual.coinex.com/",
             "connection_type": "batched",
             "symbols_per_connection": 200,
-            "flush_interval": 0.05,
+            "flush_interval": 0.02,
             "ping_interval": 10000,
             "workers": 1,
             "special_params": {"depth_level": 50, "merge": "0"},
+        },
+        "proxy": {"use_proxy": False},
+    },
+    "htx": {
+        "enabled": True,
+        "name": "HTX",
+        # WEBSITE sockets (what the HTX site renders): spot www.htx.com/-/s/pro/ws, futures
+        # www.htx.com/futures/api/linear-swap-ws (the futures handshake REQUIRES Origin). GZIP frames +
+        # a {"ping":ts}->{"pong":ts} keepalive. market.<sym>.depth.step0 = a FULL top-N snapshot every
+        # frame (stateless, collapse-to-latest; no diff/checksum). Spot amounts base-asset; futures
+        # (linear swap) amounts in CONTRACTS -> x contract_size (read from the md hash, like okx ctVal).
+        # Spot wire lowercase btcusdt; futures dashed BTC-USDT. Canonical BTCUSDT for both.
+        "spot": {
+            "enabled": True,
+            "ws_url": "wss://www.htx.com/-/s/pro/ws",
+            "connection_type": "batched",
+            "symbols_per_connection": 50,
+            "flush_interval": 0.02,
+            "workers": 1,
+            "special_params": {"depth_level": 50},
+        },
+        "futures": {   # USDT-M LINEAR swaps
+            "enabled": True,
+            "ws_url": "wss://www.htx.com/futures/api/linear-swap-ws",
+            "connection_type": "batched",
+            "symbols_per_connection": 50,
+            "flush_interval": 0.02,
+            "workers": 1,
+            "special_params": {"depth_level": 50},
+        },
+        "proxy": {"use_proxy": False},
+    },
+    "lbank": {
+        "enabled": True,
+        "name": "LBank",
+        # SPOT = the website depth socket (Cloudflare-fronted; the handshake needs Origin). GZIP frames; V3
+        # depth = {"depth":{"bids":[[px,sz,ratio,cum]...],"asks":...},"pair":"sol_usdt"} = a FULL snapshot
+        # every frame (stateless, collapse-to-latest; no diff/checksum). BASE-asset sizes. server keepalive
+        # {"action":"ping"}->{"action":"pong"}. ONE pair per subscribe message (type=0 = raw/minimal tick).
+        "spot": {
+            "enabled": True,
+            "ws_url": "wss://www.lbank.com/old-wss/ccws/ws/V3/",
+            "connection_type": "batched",
+            "symbols_per_connection": 50,
+            "flush_interval": 0.02,
+            "workers": 1,
+            "special_params": {"depth_level": 50, "sub_delay": 0.05},
+        },
+        # FUTURES SKIPPED (2026-06-18): the documented contract WS (wss://lbkperpws.lbank.com/ws, TopicID 8 =
+        # order book) WORKS — the maintained book matched REST exactly (XRPUSDT byte-for-byte) — BUT
+        # lbkperpws caps WS connections per IP, so 17 connections churned (reconnect storm). Disabled; the
+        # LbankFuturesConnector / LbankFuturesMarketData code is KEPT (dormant, tested) for a future revisit
+        # (likely fix: far fewer connections, e.g. 200+ symbols/conn).
+        "futures": {"enabled": False},
+        "proxy": {"use_proxy": False},
+    },
+    "gateio": {
+        "enabled": True,
+        "name": "Gate.io",
+        # WEBSITE feeds via wsbridge.com (origin www.gate.com) — the gate.com UI book. Gate's DOCUMENTED
+        # public API (api.gateio.ws REST + v4 WS) serves a thin/sampled book (~tens-of-x shallower, verified
+        # live), so we use the website feeds the engine must match. spot v3 depth.update + futures v4
+        # futures.order_book both push a FULL top-N snapshot every frame -> STATELESS. spot BATCHES via ONE
+        # nested-array depth.subscribe ([[wire,limit,merge],...]); futures = one subscribe per contract
+        # (v4 subs accumulate). merge param = the symbol's NATIVE tick (10^-precision spot /
+        # order_price_round futures), published in the md hash (a fixed merge collapses cheap coins).
+        # Spot sizes base-asset; futures sizes CONTRACTS -> x quanto_multiplier (md hash, okx ctVal pattern).
+        "spot": {
+            "enabled": True,
+            "ws_url": "wss://spot-webws.wsbridge.com/v3?device_type=0",
+            "connection_type": "batched",
+            "symbols_per_connection": 100,
+            "flush_interval": 0.02,
+            "ping_interval": 20000,
+            "workers": 1,
+            "special_params": {"depth_level": 30},
+        },
+        "futures": {   # USDT-M perps — SKIPPED (spot-only ship, revisit later)
+            # The wsbridge futures feed (fx-webws) is a one-contract-at-a-time UI feed throttled to ~5
+            # updates/s PER CONNECTION total — subscribing N contracts on a conn still yields ~5/s, so 776
+            # contracts can't be covered without hundreds of connections. The documented v4 futures API has
+            # full coverage but a thin/sampled book (like spot). Code is kept (GateioFuturesConnector +
+            # GateioFuturesMarketData) for revival; to revive pick: (a) wsbridge for the liquid top-N at
+            # 1-2 contracts/conn, or (b) documented v4 (fx-ws.gateio.ws, thin). Spot is deep + full via
+            # wsbridge and unaffected by this.
+            "enabled": False,
+            "ws_url": "wss://fx-webws.wsbridge.com/v4/ws/usdt?device_type=0",
+            "connection_type": "batched",
+            "symbols_per_connection": 100,
+            "flush_interval": 0.02,
+            "ping_interval": 20000,
+            "workers": 1,
+            "special_params": {"depth_level": 30, "sub_delay": 0.01},
         },
         "proxy": {"use_proxy": False},
     },
@@ -429,6 +522,32 @@ MARKET_DATA: Dict[str, Dict[str, Any]] = {
                  "api_endpoint": "https://api.coinex.com/v2/spot/ticker"},
         "futures": {"enabled": True, "update_interval": 3,
                     "api_endpoint": "https://api.coinex.com/v2/futures/ticker"},
+    },
+    "htx": {
+        # Spot: /v2/settings/common/symbols (state online + quote USDT/USDC) + /market/tickers (close=last,
+        # bid/ask BBO, vol=quote turnover). Futures: linear-swap-api swap_contract_info (contract_size +
+        # universe) + linear-swap-ex batch_merged (bid/ask/close/trade_turnover) + swap_batch_funding_rate.
+        # Symbols -> canonical (BTCUSDT); contract_code + contract_size published for the OB plugin.
+        "spot": {"enabled": True, "update_interval": 3,
+                 "api_endpoint": "https://api.htx.com/market/tickers"},
+        "futures": {"enabled": True, "update_interval": 3,
+                    "api_endpoint": "https://api.hbdm.com/linear-swap-ex/market/detail/batch_merged"},
+    },
+    "lbank": {
+        # Spot: /v2/ticker.do?symbol=all -> {symbol:"btc_usdt", ticker:{latest,turnover,...}} — NO BBO field
+        # (last-priced; the book is the WS stream). Filter quote USDT/USDC + valid last; -> canonical
+        # (BTCUSDT). Futures SKIPPED (lbkperpws per-IP connection cap -> churn); see EXCHANGES["lbank"].
+        "spot": {"enabled": True, "update_interval": 3,
+                 "api_endpoint": "https://api.lbkex.com/v2/ticker.do?symbol=all"},
+    },
+    "gateio": {
+        # Spot (handler joins /spot/tickers BBO + /spot/currency_pairs precision -> native tick). Futures md
+        # is DISABLED to match the disabled OB futures leg (see EXCHANGES["gateio"]["futures"]); kept for
+        # revival. Both real BBO; symbols -> canonical (BTCUSDT).
+        "spot": {"enabled": True, "update_interval": 3,
+                 "api_endpoint": "https://api.gateio.ws/api/v4/spot/tickers"},
+        "futures": {"enabled": False, "update_interval": 3,
+                    "api_endpoint": "https://fx-api.gateio.ws/api/v4/futures/usdt/tickers"},
     },
 }
 

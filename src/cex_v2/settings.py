@@ -16,7 +16,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-class Cexv2Settings(BaseSettings):
+class CexV2Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="CEX_V2_", env_file=str(_REPO_ROOT / ".env"),  # repo-root .env (CWD-independent)
         env_file_encoding="utf-8", extra="ignore",
@@ -52,5 +52,5 @@ class Cexv2Settings(BaseSettings):
 
 
 @lru_cache
-def settings() -> Cexv2Settings:
-    return Cexv2Settings()
+def settings() -> CexV2Settings:
+    return CexV2Settings()

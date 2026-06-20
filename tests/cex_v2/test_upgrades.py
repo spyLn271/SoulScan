@@ -59,13 +59,13 @@ def test_metrics_record_and_graceful_server():
 
 # --- typed pydantic settings (no raw os.environ) ---
 def test_settings_typed_and_validated():
-    from src.cex_v2.settings import Cexv2Settings
-    s = Cexv2Settings()
+    from src.cex_v2.settings import CexV2Settings
+    s = CexV2Settings()
     assert s.log_dir.is_absolute()
     assert s.log_level in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
     assert isinstance(s.metrics_port_base, int) and s.metrics_enabled in (True, False)
     with pytest.raises(Exception):
-        Cexv2Settings(log_level="bogus")             # validator rejects an invalid level
+        CexV2Settings(log_level="bogus")             # validator rejects an invalid level
 
 
 # --- review fix: coerce_levels drops non-finite (nan/inf would serialize as JSON null) ---

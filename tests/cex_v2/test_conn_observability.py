@@ -45,3 +45,34 @@ def test_emit_perf_no_connections_only_aggregate(monkeypatch):
     assert not [r for r in recs if r.get("kind_detail") == "ob_conn"]
     assert [r for r in recs if r.get("kind_detail") == "ob_conn_summary"][0]["conns"] == 0
     assert len([r for r in recs if "msgs_per_s" in r]) == 1   # aggregate unaffected
+
+
+def test_heartbeat_payload_carries_connection_health():
+    """The heartbeat ('health') surfaces WS connection summary fields, not just symbol health."""
+    c = BinanceSpotConnector()
+    c._conn_stats = {
+        "b0": {"syms": ["BTCUSDT"], "up": True, "reconnects": 1, "conn_errors": 0},
+        "b1": {"syms": ["ETHUSDT"], "up": False, "reconnects": 0, "conn_errors": 2},
+        "b2": {"syms": ["SOLUSDT"], "up": True, "reconnects": 0, "conn_errors": 0},
+    }
+    c._reconnects = 1
+    c._conn_errors = 2
+    c.active = {"BTCUSDT", "SOLUSDT"}
+
+    hb = c._heartbeat_payload()
+    # new connection-health fields
+    assert hb["connections"] == 3
+    assert hb["connections_up"] == 2          # b0 + b2 up; b1 down
+    assert hb["reconnects"] == 1 and hb["conn_errors"] == 2
+    # existing symbol-health fields still present (no regression)
+    for k in ("ts", "msgs", "active_symbols", "monitored_symbols", "stale_symbols",
+              "buffered_streams", "redis_backpressured", "schema_version"):
+        assert k in hb
+    assert hb["active_symbols"] == 2
+
+
+def test_heartbeat_payload_no_connections():
+    c = BinanceSpotConnector()   # fresh: _conn_stats empty, counters 0
+    hb = c._heartbeat_payload()
+    assert hb["connections"] == 0 and hb["connections_up"] == 0
+    assert hb["reconnects"] == 0 and hb["conn_errors"] == 0

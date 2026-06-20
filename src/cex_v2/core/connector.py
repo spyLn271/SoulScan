@@ -428,20 +428,29 @@ class OrderBookConnector(abc.ABC):
             await self._evict(orphans)
 
     # ---------------------------------------------------------- observability
+    def _heartbeat_payload(self) -> dict:
+        now = time.time()
+        stale = sum(1 for s in self.active
+                    if now - self.last_update_wall.get(s, 0) > self.stale_symbol_age)
+        return {
+            "ts": int(now * 1000), "msgs": self._msgs, "active_symbols": len(self.active),
+            "monitored_symbols": len(self.monitored), "stale_symbols": stale,
+            "buffered_streams": len(self._latest), "redis_backpressured": self._backpressured,
+            # websocket connection health (from the per-conn registry + the aggregate counters) — surfaced
+            # in the at-a-glance heartbeat so conn count/churn is visible here, not just symbol health;
+            # the per-connection breakdown stays in the perf log's ob_conn lines.
+            "connections": len(self._conn_stats),
+            "connections_up": sum(1 for st in self._conn_stats.values() if st.get("up")),
+            "reconnects": self._reconnects, "conn_errors": self._conn_errors,
+            "monitoring_healthy": True, "current_proxy": "direct" if not self.use_proxy else "socks5",
+            "proxy_rotations": 0, "worker_id": "none" if self.worker_id is None else self.worker_id,
+            "schema_version": SCHEMA_VERSION,
+        }
+
     async def _heartbeat_loop(self):
         while not self.shutdown.is_set():
             try:
-                now = time.time()
-                stale = sum(1 for s in self.active
-                            if now - self.last_update_wall.get(s, 0) > self.stale_symbol_age)
-                payload = {
-                    "ts": int(now * 1000), "msgs": self._msgs, "active_symbols": len(self.active),
-                    "monitored_symbols": len(self.monitored), "stale_symbols": stale,
-                    "buffered_streams": len(self._latest), "redis_backpressured": self._backpressured,
-                    "monitoring_healthy": True, "current_proxy": "direct" if not self.use_proxy else "socks5",
-                    "proxy_rotations": 0, "worker_id": "none" if self.worker_id is None else self.worker_id,
-                    "schema_version": SCHEMA_VERSION,
-                }
+                payload = self._heartbeat_payload()
                 await self.redis.set(get_heartbeat_key(self.exchange, self.market_type, self.worker_id),
                                      _dumps(payload), ex=MONITORING["heartbeat_ttl"])
                 # Re-assert the active set every heartbeat so it SELF-HEALS if the key is ever lost
