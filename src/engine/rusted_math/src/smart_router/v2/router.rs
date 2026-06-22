@@ -134,12 +134,12 @@ pub struct PoolStateV2 {
 impl PoolStateV2 {
     pub fn get_unique_pools_from(
         &self,
-        cold_paths: &ColdPath,
+        cold_paths: &Vec<Path>,
         metadata: &BTreeMap<String, Metadata>
     ) -> HashMap<String, Pool> {
         let mut unique_pools: HashMap<String, Pool> = HashMap::new();
 
-        for path in &cold_paths.routes {
+        for path in cold_paths {
             for pool in path {
                 if unique_pools.contains_key(pool) {
                     continue
@@ -268,7 +268,7 @@ impl<'a> SmartRouterV2<'a> {
         )?;
 
         let mut unique_pools = self.pool_state.get_unique_pools_from(
-            &cold_paths,
+            &cold_paths.routes,
             &self.metadata
         );
 
