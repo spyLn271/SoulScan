@@ -1,0 +1,20 @@
+[package]
+name = "rusted_osr"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rusted_soul_dex = {path = "../rusted_math"}
+rusted_engine = {path = "../rusted_engine"}
+serde = { version = "1", features = ["derive"] }
+redis = "1.0.5"
+r2d2 = "0.8"
+r2d2_redis = "0.14"
+serde_json = "1"
+thiserror = "2.0"
+evmap = "11.0.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
+clap = { version = "4", features = ["derive", "env"] }
+petgraph = "0.8.3"
