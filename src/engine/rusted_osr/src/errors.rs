@@ -40,4 +40,7 @@ pub enum SoulOsrError {
 
     #[error("Time Error {0}")]
     TimeError(#[from] std::time::SystemTimeError),
+
+    #[error("Couldnt find the paths that contains the bases")]
+    CouldntDeriveFilteredPath
 }

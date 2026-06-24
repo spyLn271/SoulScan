@@ -241,6 +241,10 @@ impl OsrEngine {
             &quote_mint,
         )?;
 
+        if filtered_all_possible_path.is_empty() {
+            return Err(SoulOsrError::CouldntDeriveFilteredPath)
+        }
+
         if filtered_all_possible_path.len() <= MIN_CANDIDATES_LENGTH_REQUIREMENTS {
             return Ok(filtered_all_possible_path);
         }
