@@ -167,7 +167,7 @@ fn worker_loop(
                         };
                     },
                     Err(err) => {
-                        warn!(
+                        debug!(
                             base_mint=base_mint,
                             quote_mint=quote_mint,
                             "Error occured while computing cold path: {}",
