@@ -42,7 +42,7 @@ fn build_osr_engine(
     network: &str,
 ) -> Result<OsrEngine, SoulOsrError> {
     let metadata   = Arc::new(get_metadata_for_network(redis_pool, network)?);
-    let pool_state = Arc::new(get_pool_state_for_network(redis_pool, network, false)?);
+    let pool_state = Arc::new(get_pool_state_for_network(redis_pool, network, false)?); // need to change in future to 'true'
     OsrEngine::new(network.to_string(), metadata, pool_state)
 }
 
@@ -50,7 +50,7 @@ fn writer_loop(
     engine_cell: Arc<ArcSwap<OsrEngine>>,
     redis_pool_connection: Pool<RedisConnectionManager>,
     network: String,
-    refresh_interval: time::Duration,
+    refresh_interval: Duration,
 ) {
     let _span = info_span!("osr_writer", network = %network).entered();
     info!("osr writer started");
@@ -125,7 +125,7 @@ fn tasks_producer_loop(
             }
         }
 
-        thread::sleep(time::Duration::from_millis(TASK_PRODUCER_INTERVAL));
+        thread::sleep(Duration::from_millis(TASK_PRODUCER_INTERVAL));
     }
 }
 
@@ -284,7 +284,7 @@ fn main() {
             engine_cell: Arc<ArcSwap<OsrEngine>>,
             redis_pool_connection: Pool<RedisConnectionManager>,
             network: String,
-            refresh_interval: time::Duration,
+            refresh_interval: Duration,
         | {
             thread::Builder::new()
                 .name("writer".to_string())
