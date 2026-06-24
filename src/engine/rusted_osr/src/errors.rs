@@ -23,6 +23,15 @@ pub enum SoulOsrError {
     #[error("Soul Manager error {0}")]
     SoulMathManagerError(#[from] rusted_soul_dex::smart_router::manager_errors::SoulManagerError),
 
+    #[error("Soul Engine error {0}")]
+    SoulEngineError(#[from] rusted_engine::errors::SoulEngineErrors),
+
+    #[error("Data is stale")]
+    StalePoolStateData,
+
+    #[error("wrong key for data")]
+    WrongKeyForReadHandler,
+
     #[error("Failed to get fee rate")]
     FailedToGetFeeRate,
 

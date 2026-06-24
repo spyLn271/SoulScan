@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MarketKind {
@@ -106,7 +106,7 @@ impl TryFrom<MetadataRaw> for Metadata {
 
 
 pub type Path = Vec<String>;
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ColdPath {
     pub ts: String,
     pub routes: Vec<Path>

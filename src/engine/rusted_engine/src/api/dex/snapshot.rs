@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::time;
 use std::time::UNIX_EPOCH;
+use std::sync::Arc;
 
 use r2d2::Pool;
 use r2d2_redis::redis::Commands;
@@ -13,7 +14,7 @@ use rusted_soul_dex::dex::meteora::MeteoraDlmmPool;
 use rusted_soul_dex::dex::orca::Whirlpool;
 use rusted_soul_dex::dex::raydium::{RayAmmPool, RayClmmPool};
 use rusted_soul_dex::dex::uniswap::{UniswapClmmPools, UniswapAmm, Slot0, TickData};
-
+use rusted_soul_dex::smart_router::v2::router::PoolStateV2;
 use crate::errors::SoulEngineErrors;
 use crate::config::{
     SUPPORTED_NETWORK_LIST,
@@ -381,4 +382,69 @@ impl StateViewer for UniswapClmmPools {
             }
         )
     }
+}
+
+
+pub fn get_pool_state_for_network(
+    redis_conn_pool: &Pool<RedisConnectionManager>,
+    network: &str,
+    check_for_freshness: bool
+) -> Result<PoolStateV2, SoulEngineErrors> {
+    let pool_state = if network == "solana" {
+        PoolStateV2 {
+            meteora_dlmm_pool: Arc::new(
+                MeteoraDlmmPool::get_state_snapshot(
+                    redis_conn_pool,
+                    network,
+                    check_for_freshness
+                )?
+            ),
+            whirlpool: Arc::new(
+                Whirlpool::get_state_snapshot(
+                    redis_conn_pool,
+                    network,
+                    check_for_freshness
+                )?
+            ),
+            ray_clmm_pool: Arc::new(
+                RayClmmPool::get_state_snapshot(
+                    redis_conn_pool,
+                    network,
+                    check_for_freshness
+                )?
+            ),
+            ray_amm_pool: Arc::new(
+                RayAmmPool::get_state_snapshot(
+                    redis_conn_pool,
+                    network,
+                    check_for_freshness
+                )?
+            ),
+            uni_amm_pool: Arc::new(BTreeMap::new()),
+            uni_clmm_pool: Arc::new(UniswapClmmPools{slot0s: BTreeMap::new(), ticks: BTreeMap::new()}),
+        }
+    } else {
+        PoolStateV2 {
+            uni_amm_pool: Arc::new(
+                UniswapAmm::get_state_snapshot(
+                    redis_conn_pool,
+                    network,
+                    check_for_freshness
+                )?
+            ),
+            uni_clmm_pool: Arc::new(
+                UniswapClmmPools::get_state_snapshot(
+                    redis_conn_pool,
+                    network,
+                    check_for_freshness
+                )?
+            ),
+            meteora_dlmm_pool: Arc::new(BTreeMap::new()),
+            whirlpool: Arc::new(BTreeMap::new()),
+            ray_clmm_pool: Arc::new(BTreeMap::new()),
+            ray_amm_pool: Arc::new(BTreeMap::new()),
+        }
+    };
+
+    Ok(pool_state)
 }

@@ -11,13 +11,14 @@ use r2d2_redis::redis::streams::StreamMaxlen;
 use r2d2_redis::RedisConnectionManager;
 
 use rusted_soul_dex::dex::metadata::Metadata;
-use rusted_soul_dex::dex::orca::Whirlpool;
-use rusted_soul_dex::dex::raydium::{RayClmmPool, RayAmmPool};
-use rusted_soul_dex::dex::meteora::MeteoraDlmmPool;
-use rusted_soul_dex::dex::uniswap::{UniswapClmmPools, UniswapAmm};
 use rusted_soul_dex::smart_router::v2::router::{PoolStateV2, SmartRouterV2};
 
-use crate::api::dex::snapshot::{TokenData, StateViewer, get_metadata_for_network, get_token_addresses};
+use crate::api::dex::snapshot::{
+    TokenData,
+    get_metadata_for_network,
+    get_pool_state_for_network,
+    get_token_addresses
+};
 use crate::api::cex::orderbook::get_whole_order_book;
 use crate::api::cex::address_resolver::get_addr_supported_cex;
 use crate::config::{
@@ -532,74 +533,17 @@ fn data_generation_for_writer(
     redis_conn_pool: &Pool<RedisConnectionManager>,
     network: &str,
 ) -> Result<(DataV2, DataV2, DataV2), SoulEngineErrors> {
-    let pool_state = if network == "solana" {
-        DataV2::PoolState {
-            pool_state: Arc::new(
-                PoolStateV2 {
-                    meteora_dlmm_pool: Arc::new(
-                        MeteoraDlmmPool::get_state_snapshot(
-                            redis_conn_pool,
-                            network,
-                            true
-                        )?
-                    ),
-                    whirlpool: Arc::new(
-                        Whirlpool::get_state_snapshot(
-                            redis_conn_pool,
-                            network,
-                            true
-                        )?
-                    ),
-                    ray_clmm_pool: Arc::new(
-                        RayClmmPool::get_state_snapshot(
-                            redis_conn_pool,
-                            network,
-                            true
-                        )?
-                    ),
-                    ray_amm_pool: Arc::new(
-                        RayAmmPool::get_state_snapshot(
-                            redis_conn_pool,
-                            network,
-                            true
-                        )?
-                    ),
-                    uni_amm_pool: Arc::new(BTreeMap::new()),
-                    uni_clmm_pool: Arc::new(UniswapClmmPools{slot0s: BTreeMap::new(), ticks: BTreeMap::new()}),
-                }
-            ),
-            ts: time::SystemTime::now()
+    let pool_state = DataV2::PoolState {
+        pool_state: Arc::new(
+            get_pool_state_for_network(
+                redis_conn_pool,
+                network, 
+                true
+            )?
+        ),
+        ts: time::SystemTime::now()
                 .duration_since(UNIX_EPOCH)?
                 .as_secs()
-        }
-    } else {
-        DataV2::PoolState {
-            pool_state: Arc::new(
-                PoolStateV2 {
-                    uni_amm_pool: Arc::new(
-                        UniswapAmm::get_state_snapshot(
-                            redis_conn_pool,
-                            network,
-                            true
-                        )?
-                    ),
-                    uni_clmm_pool: Arc::new(
-                        UniswapClmmPools::get_state_snapshot(
-                            redis_conn_pool,
-                            network,
-                            true
-                        )?
-                    ),
-                    meteora_dlmm_pool: Arc::new(BTreeMap::new()),
-                    whirlpool: Arc::new(BTreeMap::new()),
-                    ray_clmm_pool: Arc::new(BTreeMap::new()),
-                    ray_amm_pool: Arc::new(BTreeMap::new()),
-                }
-            ),
-            ts: time::SystemTime::now()
-                .duration_since(UNIX_EPOCH)?
-                .as_secs()
-        }
     };
 
     let metadata = DataV2::Metadata(
