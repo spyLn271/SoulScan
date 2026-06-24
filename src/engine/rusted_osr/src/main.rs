@@ -42,7 +42,7 @@ fn build_osr_engine(
     network: &str,
 ) -> Result<OsrEngine, SoulOsrError> {
     let metadata   = Arc::new(get_metadata_for_network(redis_pool, network)?);
-    let pool_state = Arc::new(get_pool_state_for_network(redis_pool, network, false)?); // need to change in future to 'true'
+    let pool_state = Arc::new(get_pool_state_for_network(redis_pool, network, true)?);
     OsrEngine::new(network.to_string(), metadata, pool_state)
 }
 

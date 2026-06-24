@@ -3,11 +3,6 @@ import multiprocessing
 from src.supervisors import (
     RUN_METADATA_FETCHERS,
     RUN_STATE_FETCHERS,
-    EthereumOSRSupervisor,
-    SolanaOSRSupervisor,
-    BinanceOSRSupervisor,
-    BaseOSRSupervisor,
-    ArbitrumOSRSupervisor
 )
 
 multiprocessing.set_start_method('spawn', force=True)
@@ -31,16 +26,6 @@ def main():
         RUN_METADATA_FETCHERS()
     elif supervisor == "state_fetcher":
         RUN_STATE_FETCHERS()
-    elif supervisor == "osr_eth":
-        EthereumOSRSupervisor().RUN_ONLINE_SMART_ROUTER()
-    elif supervisor == "osr_solana":
-        SolanaOSRSupervisor().RUN_ONLINE_SMART_ROUTER()
-    elif supervisor == "osr_bsc":
-        BinanceOSRSupervisor().RUN_ONLINE_SMART_ROUTER()
-    elif supervisor == "osr_base":
-        BaseOSRSupervisor().RUN_ONLINE_SMART_ROUTER()
-    elif supervisor == "osr_arbitrum":
-        ArbitrumOSRSupervisor().RUN_ONLINE_SMART_ROUTER()
     else:
         print(f"Unknown supervisor: {supervisor}")
         sys.exit(1)
