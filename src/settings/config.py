@@ -94,6 +94,9 @@ EVM_RPC_ENDPOINT = {
 REDIS_HOST = _config.REDIS.HOST
 REDIS_PORT = _config.REDIS.PORT
 
+MIN_VOL24 = _config.MIN_VOL24
+MIN_TVL = _config.MIN_TVL
+
 REDIS_METADATA_KEY = 'snapshot:metadata:%s:%s:%s'  # network, market and version
 POOLS_STATE_DICT_REDIS_KEY = 'snapshot:state:%s:%s:%s'  # network, market and version
 REDIS_KEY_COLD_PATH = "snapshot:cold_path"
