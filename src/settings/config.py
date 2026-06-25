@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from typing import Literal
+from typing import Literal, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import model_validator
+from pydantic import model_validator, Field
 from functools import lru_cache
 
 
@@ -106,9 +106,6 @@ OSR_LOG_FOLDER = str(_config.OSR_LOG_FOLDER) + "/"
 SCANNER_LOG_FOLDER = str(_config.SCANNER_LOG_FOLDER) + "/"
 DATA_FETCHER_LOG_FOLDER = str(_config.DATA_FETCHER_LOG_FOLDER) + "/"
 SUPERVISOR_LOG_FOLDER = str(_config.SUPERVISOR_LOG_FOLDER) + "/"
-CEX_LOG_FOLDER = str(_config.CEX_LOG_FOLDER) + "/"
-CEX_MARKET_DATA_LOG_FOLDER = str(_config.CEX_MARKET_DATA_LOG_FOLDER) + "/"
-CEX_CONTRACTS_LOG_FOLDER = str(_config.CEX_CONTRACTS_LOG_FOLDER) + "/"
 
 # Consolidated data-fetcher log files.
 EVM_FETCHER_LOG_FILE = DATA_FETCHER_LOG_FOLDER + "evm.fetcher.log"
@@ -241,9 +238,74 @@ DEX = Literal["uniswap", "sushiswap", "pancakeswap"]
 Version = Literal["v2", "v3", "v4"]
 
 
-MIN_VOL24 = _config.MIN_VOL24
-MIN_TVL = _config.MIN_TVL
-POOL_STATE_DECAY_TIME = _config.POOL_STATE_DECAY_TIME
+class CexConfig(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        env_nested_delimiter="__",
+    )
 
-MINIMAL_PROFIT = _config.MINIMAL_PROFIT
-SWAPPER_FEE = _config.SWAPPER_FEE
+    REDIS: RedisSettings = Field(default_factory=RedisSettings)
+    REDIS_DB: int = 0
+    REDIS_PASSWORD: Optional[str] = None
+
+    LOG_MAIN_FOLDER: Path = Path("./logs")
+    CEX_LOG_FOLDER: Path = Path("cex")
+    CEX_MARKET_DATA_LOG_FOLDER: Path = Path("cex-market-data")
+    CEX_CONTRACTS_LOG_FOLDER: Path = Path("cex-contracts")
+
+    BINANCE_API_KEY: Optional[str] = None
+    BINANCE_SECRET_KEY: Optional[str] = None
+    BYBIT_API_KEY: Optional[str] = None
+    BYBIT_SECRET_KEY: Optional[str] = None
+    OKX_API_KEY: Optional[str] = None
+    OKX_SECRET_KEY: Optional[str] = None
+    OKX_PASSPHRASE: Optional[str] = None
+    MEXC_API_KEY: Optional[str] = None
+    MEXC_SECRET_KEY: Optional[str] = None
+    BINGX_API_KEY: Optional[str] = None
+    BINGX_SECRET_KEY: Optional[str] = None
+    COINEX_API_KEY: Optional[str] = None
+    COINEX_SECRET_KEY: Optional[str] = None
+
+    UPDATE_INTERVAL: int = 20 * 60  # seconds
+
+    BACKFILL_MIN_WITNESSES: int = 2
+
+    PRICE_MATCH_ENABLED: bool = True
+    PRICE_MATCH_MAX_DEVIATION: float = 0.15
+    PRICE_MATCH_STREAM_MAX_AGE: int = 300
+
+    CEX_TELEGRAM_BOT_TOKEN: Optional[str] = None
+    CEX_TELEGRAM_CHAT_ID: Optional[str] = None
+
+    def model_post_init(self, __context) -> None:
+        base = self.LOG_MAIN_FOLDER.resolve()
+        base.mkdir(parents=True, exist_ok=True)
+        for field in ("CEX_LOG_FOLDER", "CEX_MARKET_DATA_LOG_FOLDER", "CEX_CONTRACTS_LOG_FOLDER"):
+            resolved = base / getattr(self, field)
+            resolved.mkdir(parents=True, exist_ok=True)
+            object.__setattr__(self, field, resolved)
+        object.__setattr__(self, "LOG_MAIN_FOLDER", base)
+
+
+@lru_cache
+def get_cex_config() -> CexConfig:
+    return CexConfig()
+
+
+_cex = get_cex_config()
+
+REDIS_DB: int = _cex.REDIS_DB
+REDIS_PASSWORD: Optional[str] = _cex.REDIS_PASSWORD
+
+CEX_LOG_FOLDER: str = str(_cex.CEX_LOG_FOLDER) + "/"
+CEX_MARKET_DATA_LOG_FOLDER: str = str(_cex.CEX_MARKET_DATA_LOG_FOLDER) + "/"
+CEX_CONTRACTS_LOG_FOLDER: str = str(_cex.CEX_CONTRACTS_LOG_FOLDER) + "/"
+
+UPDATE_INTERVAL_SECONDS: int = _cex.UPDATE_INTERVAL
+BACKFILL_MIN_WITNESSES: int = _cex.BACKFILL_MIN_WITNESSES
+PRICE_MATCH_ENABLED: bool = _cex.PRICE_MATCH_ENABLED
+PRICE_MATCH_MAX_DEVIATION: float = _cex.PRICE_MATCH_MAX_DEVIATION
+PRICE_MATCH_STREAM_MAX_AGE: int = _cex.PRICE_MATCH_STREAM_MAX_AGE

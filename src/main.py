@@ -3,6 +3,7 @@ import multiprocessing
 from src.supervisors import (
     RUN_METADATA_FETCHERS,
     RUN_STATE_FETCHERS,
+    RUN_CEX_CONTRACTS,
 )
 
 multiprocessing.set_start_method('spawn', force=True)
@@ -18,6 +19,7 @@ def main():
         print("  osr_bsc          - Computes optimal swap routes for Binance Smart Chain")
         print("  osr_base         - Computes optimal swap routes for Base")
         print("  osr_arbitrum     - Computes optimal swap routes for Arbitrum")
+        print("  cex_contracts     - Maps cex coin tickers to on-chain contract addresses")
         sys.exit(1)
 
     supervisor = sys.argv[1].lower()
