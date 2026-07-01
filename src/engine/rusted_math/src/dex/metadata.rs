@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 pub enum MarketKind {
     OrcaClmm,
     RaydiumClmm,
@@ -35,7 +35,7 @@ pub struct MetadataRaw  {
     pub af: Option<bool>
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Hash, Serialize)]
 #[serde(try_from = "MetadataRaw")]
 pub struct Metadata {
     pub kind: MarketKind,

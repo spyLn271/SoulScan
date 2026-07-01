@@ -7,7 +7,7 @@ use r2d2::Pool;
 use r2d2_redis::redis::Commands;
 use r2d2_redis::RedisConnectionManager;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use rusted_soul_dex::dex::metadata::Metadata;
 use rusted_soul_dex::dex::meteora::MeteoraDlmmPool;
@@ -25,7 +25,7 @@ use crate::config::{
     Version
 };
 
-#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TokenData {
     pub decimals: u32
 }

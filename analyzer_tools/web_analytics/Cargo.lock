@@ -2345,6 +2345,8 @@ dependencies = [
  "r2d2_redis",
  "rusted_engine",
  "rusted_soul_dex",
+ "serde",
+ "serde_json",
  "sqlx",
  "thiserror",
  "tokio",

@@ -1,2 +1,2 @@
-mod dex;
-mod ws_order_books;
+pub mod dex;
+pub mod ws_order_books;

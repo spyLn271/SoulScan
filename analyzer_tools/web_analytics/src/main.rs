@@ -40,14 +40,18 @@ async fn create_app_state(cli: &Cli) -> AppState {
 }
 
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread", worker_threads = 8)]
 async fn main() {
     let cli = cli::Cli::parse();
 
     let app_state = crate::create_app_state(&cli).await;
+
+    let api = Router::new()
+        .nest("/api", handlers::dex::routes(app_state));
     
     let app: Router<()> = Router::new()
-        .route("/", get(|| async { "Hello, World!" }));
+        .route("/", get(|| async { "Hello, World!" }))
+        .merge(api);
 
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", 3000))
         .await
