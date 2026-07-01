@@ -28,6 +28,8 @@ def main():
         RUN_METADATA_FETCHERS()
     elif supervisor == "state_fetcher":
         RUN_STATE_FETCHERS()
+    elif supervisor == "cex_contracts":
+        RUN_CEX_CONTRACTS()
     else:
         print(f"Unknown supervisor: {supervisor}")
         sys.exit(1)
