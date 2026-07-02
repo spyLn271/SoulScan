@@ -21,7 +21,7 @@ use rusted_soul_dex::{
 
 use rusted_engine::{
     config::SUPPORTED_NETWORK_LIST,
-    api::dex::snapshot::PoolSnapshot
+    api::dex::snapshot::{ PoolSnapshot, TokenData }
 };
 
 use serde::{ Serialize, Deserialize };
@@ -29,6 +29,7 @@ use serde::{ Serialize, Deserialize };
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use deadpool_redis::redis::AsyncTypedCommands;
 use crate::errors::WebErrors;
 
 
@@ -36,6 +37,8 @@ use crate::errors::WebErrors;
 pub fn routes(app_state: AppState) -> Router {
     Router::new()
         .route("/v1/sor", post(quote_sor))
+        .route("/v1/metadata/{network}", get(metadata))
+        .route("/v1/tokens/{network}", get(token_list))
         .with_state(app_state)
 }
 
@@ -271,4 +274,103 @@ async fn quote_sor(
         .map_err(|_| WebErrors::Error("Some Shit in result".to_string()))??;
 
     Ok(result)
+}
+
+
+// Get Metadata API
+//
+
+#[derive(Debug, Serialize)]
+pub struct MetadataListResult {
+    pub data: BTreeMap<String, Metadata>
+}
+
+impl IntoResponse for MetadataListResult {
+    fn into_response(self) -> Response {
+        (StatusCode::OK, Json(self)).into_response()
+    }
+}
+
+pub async fn metadata(
+    State(state): State<AppState>,
+    QPath(network): QPath<String>,
+) -> Result<MetadataListResult, WebErrors> {
+    let mut conn = state.redis_pool_conn
+        .get()
+        .await
+        .map_err(|_| { WebErrors::Error("shit with conn".to_string()) })?;
+
+    let mut pipe = deadpool_redis::redis::pipe();
+
+    match network.as_str()  {
+        "solana" => {
+            pipe.get("snapshot:metadata:solana:orca:clmm");
+            pipe.get("snapshot:metadata:solana:raydium:clmm");
+            pipe.get("snapshot:metadata:solana:raydium:amm");
+            pipe.get("snapshot:metadata:solana:meteora:dlmm");
+        },
+        "eth" | "arbitrum" | "bsc" | "base" => {
+            pipe.get(format!("snapshot:metadata:{}:uniswap:v2", network.as_str()));
+            pipe.get(format!("snapshot:metadata:{}:uniswap:v3", network.as_str()));
+            pipe.get(format!("snapshot:metadata:{}:uniswap:v4", network.as_str()));
+        },
+        _ => return Err(WebErrors::NotSupportedNetwork)
+    };
+
+    let raw_data: Vec<String> = pipe.query_async(&mut conn)
+        .await
+        .map_err(|_| { WebErrors::Error("shit with conn".to_string()) })?;
+
+    let mut metadata: BTreeMap<String, Metadata> = BTreeMap::new();
+
+    for raw in raw_data.iter() {
+        let md: BTreeMap<String, Metadata> = serde_json::from_str(raw)
+            .map_err(|_| { WebErrors::Error("metadata data wasn't serialized".to_string()) })?;
+        metadata.extend(md);
+    };
+
+    Ok(
+        MetadataListResult {
+            data: metadata
+        }
+    )
+}
+
+// Get TokenList API
+//
+
+#[derive(Debug, Serialize)]
+pub struct TokenListResult {
+    pub data: BTreeMap<String, TokenData>
+}
+
+impl IntoResponse for TokenListResult {
+    fn into_response(self) -> Response {
+        (StatusCode::OK, Json(self)).into_response()
+    }
+}
+
+pub async fn token_list (
+    State(state): State<AppState>,
+    QPath(network): QPath<String>,
+) -> Result<TokenListResult, WebErrors> {
+    let mut conn = state.redis_pool_conn
+        .get()
+        .await
+        .map_err(|_| { WebErrors::Error("shit with conn".to_string()) })?;
+
+    let raw_data = conn
+        .get(format!("snapshot:addresses:{}", network))
+        .await
+        .map_err(|err| { WebErrors::Error(format!("{err}").to_string()) })?
+        .ok_or(WebErrors::Error("fuck token list".to_string()))?;
+
+    let token_list: BTreeMap<String, TokenData> = serde_json::from_str(&raw_data)
+        .map_err(|err| { WebErrors::Error(format!("{err}").to_string()) })?;
+
+    Ok(
+        TokenListResult {
+            data: token_list
+        }
+    )
 }
