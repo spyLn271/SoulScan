@@ -8,13 +8,14 @@ use axum::{
     routing::{get, },
     Router,
 };
-use r2d2_redis::RedisConnectionManager;
+
 use sqlx::postgres::Postgres;
 use crate::cli::Cli;
 
 #[derive(Debug, Clone)]
 struct AppState {
-    redis_pool_conn: r2d2::Pool<RedisConnectionManager>,
+    redis_pool_conn: deadpool_redis::Pool,
+    blocking_redis_pool_conn: r2d2::Pool<r2d2_redis::RedisConnectionManager>,
     pg_pool_conn: sqlx::Pool<Postgres>
 }
 
@@ -26,15 +27,20 @@ async fn create_app_state(cli: &Cli) -> AppState {
         .await
         .unwrap();
 
-    let manager = RedisConnectionManager::new(cli.redis_url.as_str()).unwrap();
-    
-    let redis_pool_conn = r2d2::Pool::builder()
+    let redis_pool_conn = deadpool_redis::Config::from_url(cli.redis_url.as_str())
+        .create_pool(Some(deadpool_redis::Runtime::Tokio1))
+        .unwrap();
+
+    let manager = r2d2_redis::RedisConnectionManager::new(cli.redis_url.as_str()).unwrap();
+
+    let blocking_redis_pool_conn = r2d2::Pool::builder()
         .max_size(15)
         .build(manager)
         .unwrap();
 
     AppState {
         redis_pool_conn,
+        blocking_redis_pool_conn,
         pg_pool_conn
     }
 }
@@ -53,7 +59,7 @@ async fn main() {
         .route("/", get(|| async { "Hello, World!" }))
         .merge(api);
 
-    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 3000))
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", cli.port))
         .await
         .unwrap();
 

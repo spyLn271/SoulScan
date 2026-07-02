@@ -1,30 +1,49 @@
-use std::collections::BTreeMap;
-use std::time::{Duration, Instant};
-use axum::{
-    routing::{post, get},
-    Router,
-};
-use axum::extract::{State, Json, Path as APath};
-use axum::http::StatusCode;
-use axum::response::{IntoResponse, Response};
-
-use rusted_engine::api::dex::snapshot::{
-    get_pool_state_for_network,
-    get_metadata_for_network,
-    get_token_addresses,
-    TokenData
-};
-
-use rusted_soul_dex::dex::metadata::Path;
-use rusted_soul_dex::smart_router::v2::router::SmartRouterV2;
-use rusted_soul_dex::dex::metadata::Metadata;
-
-use serde::{Deserialize, Serialize};
 use crate::AppState;
+
+use axum::{
+    extract::{Json, Path as QPath, State},
+    routing::{get, post},
+    http::{StatusCode},
+    response::{IntoResponse, Response},
+    Router
+};
+
+use rusted_soul_dex::{
+    dex::{
+        uniswap::{ UniswapClmmPools, Slot0, TickData, UniswapAmm },
+        raydium::{ RayAmmPool, RayClmmPool },
+        orca::Whirlpool,
+        meteora::MeteoraDlmmPool,
+        metadata::{ Metadata, Path }
+    },
+    smart_router::v2::router::{ SmartRouterV2, PoolStateV2 },
+};
+
+use rusted_engine::{
+    config::SUPPORTED_NETWORK_LIST,
+    api::dex::snapshot::PoolSnapshot
+};
+
+use serde::{ Serialize, Deserialize };
+
+use std::collections::BTreeMap;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 use crate::errors::WebErrors;
 
+
+
+pub fn routes(app_state: AppState) -> Router {
+    Router::new()
+        .route("/v1/sor", post(quote_sor))
+        .with_state(app_state)
+}
+
+
+
+// Quote Sor API
 #[derive(Deserialize)]
-pub struct GetQuote {
+pub struct GetQuoteSor {
     network: String,
     address0: String,
     address1: String,
@@ -40,71 +59,188 @@ pub struct SorQuoteResult {
     pub execution_time: Option<Duration>
 }
 
-#[derive(Debug, Serialize)]
-pub struct MetadataListResult {
-    pub data: BTreeMap<String, Metadata>
-}
-
-#[derive(Debug, Serialize)]
-pub struct TokenListResult {
-    pub data: BTreeMap<usize, (String, TokenData)>
-}
-
-
 impl IntoResponse for SorQuoteResult {
     fn into_response(self) -> Response {
         (StatusCode::OK, Json(self)).into_response()
     }
 }
 
-impl IntoResponse for MetadataListResult {
-    fn into_response(self) -> Response {
-        (StatusCode::OK, Json(self)).into_response()
-    }
-}
-
-impl IntoResponse for TokenListResult {
-    fn into_response(self) -> Response {
-        (StatusCode::OK, Json(self)).into_response()
-    }
-}
-
-pub fn routes(app_state: AppState) -> Router {
-    Router::new()
-        .route("/v1/sor", post(quote_sor))
-        .route("/v1/metadata/{network}", get(metadata))
-        .route("/v1/tokens/{network}", get(token_list))
-        .with_state(app_state)
-}
-
-pub async fn quote_sor(
+async fn quote_sor(
     State(state): State<AppState>,
-    Json(payload): Json<GetQuote>
+    Json(payload): Json<GetQuoteSor>
 ) -> Result<SorQuoteResult, WebErrors> {
-    let redis_pool_conn = state.redis_pool_conn.clone();
+    let mut conn = state.redis_pool_conn
+        .get()
+        .await
+        .map_err(|_| { WebErrors::Error("shit with conn".to_string()) })?;
 
-    let result = tokio::task::spawn_blocking(move || {
-        let started = Instant::now();
-        
-        let pool_state = get_pool_state_for_network(
-            &redis_pool_conn,
-            payload.network.as_str(),
-            false
-        )?;
-        println!("(pool_state) time elapsed: {:?}", started.elapsed());
+    let mut pipe = deadpool_redis::redis::pipe();
 
-        let metadata = get_metadata_for_network(
-            &redis_pool_conn,
-            payload.network.as_str(),
-        )?;
-        println!("(metadata) time elapsed: {:?}", started.elapsed());
+    match payload.network.as_str()  {
+        "solana" => {
+            pipe.get("snapshot:state:solana:orca:clmm");
+            pipe.get("snapshot:state:solana:raydium:clmm");
+            pipe.get("snapshot:state:solana:raydium:amm");
+            pipe.get("snapshot:state:solana:meteora:dlmm");
+
+            pipe.get("snapshot:metadata:solana:orca:clmm");
+            pipe.get("snapshot:metadata:solana:raydium:clmm");
+            pipe.get("snapshot:metadata:solana:raydium:amm");
+            pipe.get("snapshot:metadata:solana:meteora:dlmm");
+        },
+        "eth" | "arbitrum" | "bsc" | "base" => {
+            pipe.get(format!("snapshot:state:{}:uniswap:v2", payload.network.as_str()));
+
+            pipe.hget(
+                format!("snapshot:state:{}:uniswap:v3", payload.network.as_str()),
+                "slot"
+            );
+            pipe.hget(
+                format!("snapshot:state:{}:uniswap:v3", payload.network.as_str()),
+                "ticks"
+            );
+            pipe.hget(
+                format!("snapshot:state:{}:uniswap:v4", payload.network.as_str()),
+                "slot"
+            );
+            pipe.hget(
+                format!("snapshot:state:{}:uniswap:v4", payload.network.as_str()),
+                "ticks"
+            );
+
+
+            pipe.get(format!("snapshot:metadata:{}:uniswap:v2", payload.network.as_str()));
+            pipe.get(format!("snapshot:metadata:{}:uniswap:v3", payload.network.as_str()));
+            pipe.get(format!("snapshot:metadata:{}:uniswap:v4", payload.network.as_str()));
+        },
+        _ => return Err(WebErrors::NotSupportedNetwork)
+    };
+
+    let raw_data: Vec<String> = pipe.query_async(&mut conn)
+        .await
+        .map_err(|err| { WebErrors::Error( format!("{err}") ) })?;
+
+    let result = tokio::task::spawn_blocking(move || -> Result<SorQuoteResult, WebErrors> {
+        let (pool_state, metadata) = match payload.network.as_str() {
+            "solana" => {
+                let whirlpool: PoolSnapshot<String, Whirlpool> = serde_json::from_str(
+                    raw_data
+                        .get(0)
+                        .ok_or_else(|| WebErrors::Error("whirlpool data wasn't found".to_string()))?
+                ).map_err(|_| { WebErrors::Error("whirlpool data wasn't serialized".to_string()) })?;
+
+                let ray_clmm: PoolSnapshot<String, RayClmmPool> = serde_json::from_str(
+                    raw_data
+                        .get(1)
+                        .ok_or_else(|| WebErrors::Error("ray_clmm data wasn't found".to_string()))?
+                ).map_err(|_| { WebErrors::Error("ray_clmm data wasn't serialized".to_string()) })?;
+
+                let ray_amm: PoolSnapshot<String, RayAmmPool> = serde_json::from_str(
+                    raw_data
+                        .get(2)
+                        .ok_or_else(|| WebErrors::Error("ray_amm data wasn't found".to_string()))?
+                ).map_err(|_| { WebErrors::Error("ray_amm data wasn't serialized".to_string()) })?;
+
+                let meteora_dlmm: PoolSnapshot<String, MeteoraDlmmPool> = serde_json::from_str(
+                    raw_data
+                        .get(3)
+                        .ok_or_else(|| WebErrors::Error("meteora_dlmm data wasn't found".to_string()))?
+                ).map_err(|_| { WebErrors::Error("meteora_dlmm data wasn't serialized".to_string()) })?;
+
+                let pool_state = PoolStateV2{
+                    whirlpool: Arc::new(whirlpool.pool_state),
+                    ray_amm_pool: Arc::new(ray_amm.pool_state),
+                    ray_clmm_pool: Arc::new(ray_clmm.pool_state),
+                    meteora_dlmm_pool: Arc::new(meteora_dlmm.pool_state),
+                    uni_amm_pool: Arc::new(BTreeMap::new()),
+                    uni_clmm_pool: Arc::new(UniswapClmmPools{slot0s: BTreeMap::new(), ticks: BTreeMap::new()}),
+                };
+
+                let mut metadata: BTreeMap<String, Metadata> = BTreeMap::new();
+
+                for idx in 4..8 {
+                    let md: BTreeMap<String, Metadata> = serde_json::from_str(
+                        raw_data
+                            .get(idx)
+                            .ok_or_else(|| WebErrors::Error("metadata data wasn't found".to_string()))?
+                    ).map_err(|_| { WebErrors::Error("metadata data wasn't serialized".to_string()) })?;
+                    metadata.extend(md);
+                };
+
+                (pool_state, metadata)
+            },
+            "eth" | "arbitrum" | "bsc" | "base" => {
+                let uni_amm: PoolSnapshot<String, UniswapAmm> = serde_json::from_str(
+                    raw_data
+                        .get(0)
+                        .ok_or_else(|| WebErrors::Error("uni_amm data wasn't found".to_string()))?
+                ).map_err(|_| { WebErrors::Error("uni_amm data wasn't serialized".to_string()) })?;
+
+                let uni_slot_v3: PoolSnapshot<String, Slot0> = serde_json::from_str(
+                    raw_data
+                        .get(1)
+                        .ok_or_else(|| WebErrors::Error("uni_slot_v3 data wasn't found".to_string()))?
+                ).map_err(|_| { WebErrors::Error("uni_slot_v3 data wasn't serialized".to_string()) })?;
+
+                let uni_ticks_v3: PoolSnapshot<String, BTreeMap<i32, TickData>> = serde_json::from_str(
+                    raw_data
+                        .get(2)
+                        .ok_or_else(|| WebErrors::Error("uni_ticks_v3 data wasn't found".to_string()))?
+                ).map_err(|_| { WebErrors::Error("uni_ticks_v3 data wasn't serialized".to_string()) })?;
+
+                let uni_slot_v4: PoolSnapshot<String, Slot0> = serde_json::from_str(
+                    raw_data
+                        .get(3)
+                        .ok_or_else(|| WebErrors::Error("uni_slot_v4 data wasn't found".to_string()))?
+                ).map_err(|_| { WebErrors::Error("uni_slot_v4 data wasn't serialized".to_string()) })?;
+
+                let uni_ticks_v4: PoolSnapshot<String, BTreeMap<i32, TickData>> = serde_json::from_str(
+                    raw_data
+                        .get(4)
+                        .ok_or_else(|| WebErrors::Error("uni_ticks_v4 data wasn't found".to_string()))?
+                ).map_err(|_| { WebErrors::Error("uni_ticks_v4 data wasn't serialized".to_string()) })?;
+
+                let mut slot0s: BTreeMap<String, Slot0> = uni_slot_v3.pool_state;
+                slot0s.extend(uni_slot_v4.pool_state);
+
+                let mut ticks: BTreeMap<String, BTreeMap<i32, TickData>> = uni_ticks_v3.pool_state;
+                ticks.extend(uni_ticks_v4.pool_state);
+
+                let uni_clmm = UniswapClmmPools {
+                    slot0s,
+                    ticks,
+                };
+
+                let pool_state = PoolStateV2 {
+                    uni_amm_pool: Arc::new(uni_amm.pool_state),
+                    uni_clmm_pool: Arc::new(uni_clmm),
+                    meteora_dlmm_pool: Arc::new(BTreeMap::new()),
+                    whirlpool: Arc::new(BTreeMap::new()),
+                    ray_clmm_pool: Arc::new(BTreeMap::new()),
+                    ray_amm_pool: Arc::new(BTreeMap::new()),
+                };
+
+                let mut metadata: BTreeMap<String, Metadata> = BTreeMap::new();
+
+                for idx in 5..8 {
+                    let md: BTreeMap<String, Metadata> = serde_json::from_str(
+                        raw_data
+                            .get(idx)
+                            .ok_or_else(|| WebErrors::Error("metadata data wasn't found".to_string()))?
+                    ).map_err(|_| { WebErrors::Error("metadata data wasn't serialized".to_string()) })?;
+                    metadata.extend(md);
+                }
+
+                (pool_state, metadata)
+            }
+            _ => return Err(WebErrors::NotSupportedNetwork)
+        };
 
         let mut sor_v2 = SmartRouterV2::new(
             &metadata,
             &pool_state,
-            &redis_pool_conn,
+            &state.blocking_redis_pool_conn
         );
-        println!("(sor_v2) time elapsed: {:?}", started.elapsed());
 
         let result = sor_v2.smart_router(
             &payload.address0,
@@ -114,67 +250,25 @@ pub async fn quote_sor(
             payload.amount_specified_is_in,
         )?;
 
-        Ok::<_, WebErrors>(result)
+        let paths = {
+            result.paths.into_iter()
+                .map(|(path, (amount_in, amount_out))| {
+                    (path, (amount_in, amount_out))
+                })
+                .collect::<Vec<(Path, (u128, u128))>>()
+        };
+
+        Ok(
+            SorQuoteResult {
+                paths,
+                total_amount_in: result.total_amount_in,
+                total_amount_out: result.total_amount_out,
+                execution_time: result.execution_time
+            }
+        )
     })
         .await
-        .map_err(|_| { WebErrors::Error })??;
+        .map_err(|_| WebErrors::Error("Some Shit in result".to_string()))??;
 
-    let paths = {
-        result.paths.into_iter()
-            .map(|(path, (amount_in, amount_out))| {
-                (path, (amount_in, amount_out))
-            })
-            .collect::<Vec<(Path, (u128, u128))>>()
-    };
-
-    Ok(
-        SorQuoteResult {
-            paths,
-            total_amount_in: result.total_amount_in,
-            total_amount_out: result.total_amount_out,
-            execution_time: result.execution_time
-        }
-    )
-}
-
-pub async fn metadata(
-    State(state): State<AppState>,
-    APath(network): APath<String>,
-) -> Result<MetadataListResult, WebErrors> {
-    let started = Instant::now();
-    let redis_pool_conn = state.redis_pool_conn.clone();
-    println!("(redis_pool_conn) time elapsed: {:?}", started.elapsed());
-
-    let metadata = get_metadata_for_network(
-        &redis_pool_conn,
-        network.as_str(),
-    )?;
-    println!("(metadata) time elapsed: {:?}", started.elapsed());
-
-    Ok(
-        MetadataListResult {
-            data: metadata
-        }
-    )
-}
-
-pub async fn token_list (
-    State(state): State<AppState>,
-    APath(network): APath<String>,
-) -> Result<TokenListResult, WebErrors> {
-    let started = Instant::now();
-    let redis_pool_conn = state.redis_pool_conn.clone();
-    println!("(redis_pool_conn) time elapsed: {:?}", started.elapsed());
-
-    let tokens = get_token_addresses(
-        &redis_pool_conn,
-        network.as_str(),
-    )?;
-    println!("(metadata) time elapsed: {:?}", started.elapsed());
-
-    Ok(
-        TokenListResult {
-            data: tokens
-        }
-    )
+    Ok(result)
 }

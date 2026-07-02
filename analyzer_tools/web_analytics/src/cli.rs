@@ -13,4 +13,7 @@ pub struct Cli {
 
     #[arg(long = "postgres-url", env = "POSTGRES_URL", default_value = "postgres://postgres:postgres@127.0.0.1:5432/postgres")]
     pub postgres_url: String,
+    
+    #[arg(short = 'p', long = "por", default_value = "3000")]
+    pub port: u16,
 }
