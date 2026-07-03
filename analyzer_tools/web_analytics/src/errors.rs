@@ -16,7 +16,16 @@ pub enum  WebErrors {
 
     #[error("Unexpected move")]
     NotSupportedNetwork,
-    
+
+    #[error("Deadpool-redis error: {0}")]
+    RedisPoolError(#[from] deadpool_redis::PoolError),
+
+    #[error("redis error: {0}")]
+    RedisError(#[from] deadpool_redis::redis::RedisError),
+
+    #[error("json error: {0}")]
+    JsonError(#[from] serde_json::Error),
+
     #[error("Unexpected move")]
     Error(String),
 }
@@ -29,6 +38,9 @@ impl IntoResponse for WebErrors {
             WebErrors::SoulMathError(s) => (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", s)),
             WebErrors::SoulSmartRouterError(s) => (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", s)),
             WebErrors::NotSupportedNetwork => (StatusCode::BAD_REQUEST, format!("{}", "Not supported Network")),
+            WebErrors::RedisPoolError(s) => (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", s)),
+            WebErrors::RedisError(s) => (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", s)),
+            WebErrors::JsonError(s) => (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", s)),
             WebErrors::Error(err) => (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", err)),
         }.into_response()
     }

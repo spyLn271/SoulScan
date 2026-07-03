@@ -43,11 +43,21 @@ pub fn routes(app_state: AppState) -> Router {
 }
 
 
+#[derive(Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Network {
+    Solana,
+    Eth,
+    Base,
+    Arbitrum,
+    Bsc
+}
 
-// Quote Sor API
+// Post Quote Sor API
+
 #[derive(Deserialize)]
 pub struct GetQuoteSor {
-    network: String,
+    network: Network,
     address0: String,
     address1: String,
     amount: u128,
@@ -62,25 +72,18 @@ pub struct SorQuoteResult {
     pub execution_time: Option<Duration>
 }
 
-impl IntoResponse for SorQuoteResult {
-    fn into_response(self) -> Response {
-        (StatusCode::OK, Json(self)).into_response()
-    }
-}
-
 async fn quote_sor(
     State(state): State<AppState>,
     Json(payload): Json<GetQuoteSor>
 ) -> Result<SorQuoteResult, WebErrors> {
     let mut conn = state.redis_pool_conn
         .get()
-        .await
-        .map_err(|_| { WebErrors::Error("shit with conn".to_string()) })?;
+        .await?;
 
     let mut pipe = deadpool_redis::redis::pipe();
 
-    match payload.network.as_str()  {
-        "solana" => {
+    match payload.network {
+        Network::Solana => {
             pipe.get("snapshot:state:solana:orca:clmm");
             pipe.get("snapshot:state:solana:raydium:clmm");
             pipe.get("snapshot:state:solana:raydium:amm");
@@ -91,7 +94,7 @@ async fn quote_sor(
             pipe.get("snapshot:metadata:solana:raydium:amm");
             pipe.get("snapshot:metadata:solana:meteora:dlmm");
         },
-        "eth" | "arbitrum" | "bsc" | "base" => {
+        Network::Eth | Network::Bsc | Network::Arbitrum | Network::Base => {
             pipe.get(format!("snapshot:state:{}:uniswap:v2", payload.network.as_str()));
 
             pipe.hget(
@@ -116,39 +119,36 @@ async fn quote_sor(
             pipe.get(format!("snapshot:metadata:{}:uniswap:v3", payload.network.as_str()));
             pipe.get(format!("snapshot:metadata:{}:uniswap:v4", payload.network.as_str()));
         },
-        _ => return Err(WebErrors::NotSupportedNetwork)
     };
 
-    let raw_data: Vec<String> = pipe.query_async(&mut conn)
-        .await
-        .map_err(|err| { WebErrors::Error( format!("{err}") ) })?;
+    let raw_data: Vec<String> = pipe.query_async(&mut conn).await?;
 
     let result = tokio::task::spawn_blocking(move || -> Result<SorQuoteResult, WebErrors> {
-        let (pool_state, metadata) = match payload.network.as_str() {
-            "solana" => {
+        let (pool_state, metadata) = match payload.network {
+            Network::Solana => {
                 let whirlpool: PoolSnapshot<String, Whirlpool> = serde_json::from_str(
                     raw_data
                         .get(0)
                         .ok_or_else(|| WebErrors::Error("whirlpool data wasn't found".to_string()))?
-                ).map_err(|_| { WebErrors::Error("whirlpool data wasn't serialized".to_string()) })?;
+                )?;
 
                 let ray_clmm: PoolSnapshot<String, RayClmmPool> = serde_json::from_str(
                     raw_data
                         .get(1)
                         .ok_or_else(|| WebErrors::Error("ray_clmm data wasn't found".to_string()))?
-                ).map_err(|_| { WebErrors::Error("ray_clmm data wasn't serialized".to_string()) })?;
+                )?;
 
                 let ray_amm: PoolSnapshot<String, RayAmmPool> = serde_json::from_str(
                     raw_data
                         .get(2)
                         .ok_or_else(|| WebErrors::Error("ray_amm data wasn't found".to_string()))?
-                ).map_err(|_| { WebErrors::Error("ray_amm data wasn't serialized".to_string()) })?;
+                )?;
 
                 let meteora_dlmm: PoolSnapshot<String, MeteoraDlmmPool> = serde_json::from_str(
                     raw_data
                         .get(3)
                         .ok_or_else(|| WebErrors::Error("meteora_dlmm data wasn't found".to_string()))?
-                ).map_err(|_| { WebErrors::Error("meteora_dlmm data wasn't serialized".to_string()) })?;
+                )?;
 
                 let pool_state = PoolStateV2{
                     whirlpool: Arc::new(whirlpool.pool_state),
@@ -166,42 +166,42 @@ async fn quote_sor(
                         raw_data
                             .get(idx)
                             .ok_or_else(|| WebErrors::Error("metadata data wasn't found".to_string()))?
-                    ).map_err(|_| { WebErrors::Error("metadata data wasn't serialized".to_string()) })?;
+                    )?;
                     metadata.extend(md);
                 };
 
                 (pool_state, metadata)
             },
-            "eth" | "arbitrum" | "bsc" | "base" => {
+            Network::Eth | Network::Bsc | Network::Arbitrum | Network::Base => {
                 let uni_amm: PoolSnapshot<String, UniswapAmm> = serde_json::from_str(
                     raw_data
                         .get(0)
                         .ok_or_else(|| WebErrors::Error("uni_amm data wasn't found".to_string()))?
-                ).map_err(|_| { WebErrors::Error("uni_amm data wasn't serialized".to_string()) })?;
+                )?;
 
                 let uni_slot_v3: PoolSnapshot<String, Slot0> = serde_json::from_str(
                     raw_data
                         .get(1)
                         .ok_or_else(|| WebErrors::Error("uni_slot_v3 data wasn't found".to_string()))?
-                ).map_err(|_| { WebErrors::Error("uni_slot_v3 data wasn't serialized".to_string()) })?;
+                )?;
 
                 let uni_ticks_v3: PoolSnapshot<String, BTreeMap<i32, TickData>> = serde_json::from_str(
                     raw_data
                         .get(2)
                         .ok_or_else(|| WebErrors::Error("uni_ticks_v3 data wasn't found".to_string()))?
-                ).map_err(|_| { WebErrors::Error("uni_ticks_v3 data wasn't serialized".to_string()) })?;
+                )?;
 
                 let uni_slot_v4: PoolSnapshot<String, Slot0> = serde_json::from_str(
                     raw_data
                         .get(3)
                         .ok_or_else(|| WebErrors::Error("uni_slot_v4 data wasn't found".to_string()))?
-                ).map_err(|_| { WebErrors::Error("uni_slot_v4 data wasn't serialized".to_string()) })?;
+                )?;
 
                 let uni_ticks_v4: PoolSnapshot<String, BTreeMap<i32, TickData>> = serde_json::from_str(
                     raw_data
                         .get(4)
                         .ok_or_else(|| WebErrors::Error("uni_ticks_v4 data wasn't found".to_string()))?
-                ).map_err(|_| { WebErrors::Error("uni_ticks_v4 data wasn't serialized".to_string()) })?;
+                )?;
 
                 let mut slot0s: BTreeMap<String, Slot0> = uni_slot_v3.pool_state;
                 slot0s.extend(uni_slot_v4.pool_state);
@@ -230,13 +230,12 @@ async fn quote_sor(
                         raw_data
                             .get(idx)
                             .ok_or_else(|| WebErrors::Error("metadata data wasn't found".to_string()))?
-                    ).map_err(|_| { WebErrors::Error("metadata data wasn't serialized".to_string()) })?;
+                    )?;
                     metadata.extend(md);
                 }
 
                 (pool_state, metadata)
             }
-            _ => return Err(WebErrors::NotSupportedNetwork)
         };
 
         let mut sor_v2 = SmartRouterV2::new(
@@ -278,54 +277,45 @@ async fn quote_sor(
 
 
 // Get Metadata API
-//
 
 #[derive(Debug, Serialize)]
 pub struct MetadataListResult {
     pub data: BTreeMap<String, Metadata>
 }
 
-impl IntoResponse for MetadataListResult {
-    fn into_response(self) -> Response {
-        (StatusCode::OK, Json(self)).into_response()
-    }
-}
-
 pub async fn metadata(
     State(state): State<AppState>,
-    QPath(network): QPath<String>,
+    QPath(network): QPath<Network>,
 ) -> Result<MetadataListResult, WebErrors> {
     let mut conn = state.redis_pool_conn
         .get()
-        .await
-        .map_err(|_| { WebErrors::Error("shit with conn".to_string()) })?;
+        .await?;
 
     let mut pipe = deadpool_redis::redis::pipe();
 
-    match network.as_str()  {
-        "solana" => {
+    match network  {
+        Network::Solana => {
             pipe.get("snapshot:metadata:solana:orca:clmm");
             pipe.get("snapshot:metadata:solana:raydium:clmm");
             pipe.get("snapshot:metadata:solana:raydium:amm");
             pipe.get("snapshot:metadata:solana:meteora:dlmm");
         },
-        "eth" | "arbitrum" | "bsc" | "base" => {
+        Network::Eth | Network::Bsc | Network::Arbitrum | Network::Base => {
             pipe.get(format!("snapshot:metadata:{}:uniswap:v2", network.as_str()));
             pipe.get(format!("snapshot:metadata:{}:uniswap:v3", network.as_str()));
             pipe.get(format!("snapshot:metadata:{}:uniswap:v4", network.as_str()));
         },
-        _ => return Err(WebErrors::NotSupportedNetwork)
     };
 
+    // println!("{:?}", conn.get("snapshot:metadata:solana:orca:clmm").await);
+
     let raw_data: Vec<String> = pipe.query_async(&mut conn)
-        .await
-        .map_err(|_| { WebErrors::Error("shit with conn".to_string()) })?;
+        .await?;
 
     let mut metadata: BTreeMap<String, Metadata> = BTreeMap::new();
 
     for raw in raw_data.iter() {
-        let md: BTreeMap<String, Metadata> = serde_json::from_str(raw)
-            .map_err(|_| { WebErrors::Error("metadata data wasn't serialized".to_string()) })?;
+        let md: BTreeMap<String, Metadata> = serde_json::from_str(raw)?;
         metadata.extend(md);
     };
 
@@ -337,12 +327,37 @@ pub async fn metadata(
 }
 
 // Get TokenList API
-//
 
 #[derive(Debug, Serialize)]
 pub struct TokenListResult {
     pub data: BTreeMap<String, TokenData>
 }
+
+pub async fn token_list (
+    State(state): State<AppState>,
+    QPath(network): QPath<Network>,
+) -> Result<TokenListResult, WebErrors> {
+    let mut conn = state.redis_pool_conn
+        .get()
+        .await?;
+
+    let raw_data = conn
+        .get(format!("snapshot:addresses:{}", network.as_str()))
+        .await?
+        .ok_or(WebErrors::Error("fuck token list".to_string()))?;
+
+    let token_list: BTreeMap<String, TokenData> = serde_json::from_str(&raw_data)?;
+
+    Ok(
+        TokenListResult {
+            data: token_list
+        }
+    )
+}
+
+
+
+
 
 impl IntoResponse for TokenListResult {
     fn into_response(self) -> Response {
@@ -350,27 +365,26 @@ impl IntoResponse for TokenListResult {
     }
 }
 
-pub async fn token_list (
-    State(state): State<AppState>,
-    QPath(network): QPath<String>,
-) -> Result<TokenListResult, WebErrors> {
-    let mut conn = state.redis_pool_conn
-        .get()
-        .await
-        .map_err(|_| { WebErrors::Error("shit with conn".to_string()) })?;
+impl IntoResponse for MetadataListResult {
+    fn into_response(self) -> Response {
+        (StatusCode::OK, Json(self)).into_response()
+    }
+}
 
-    let raw_data = conn
-        .get(format!("snapshot:addresses:{}", network))
-        .await
-        .map_err(|err| { WebErrors::Error(format!("{err}").to_string()) })?
-        .ok_or(WebErrors::Error("fuck token list".to_string()))?;
+impl IntoResponse for SorQuoteResult {
+    fn into_response(self) -> Response {
+        (StatusCode::OK, Json(self)).into_response()
+    }
+}
 
-    let token_list: BTreeMap<String, TokenData> = serde_json::from_str(&raw_data)
-        .map_err(|err| { WebErrors::Error(format!("{err}").to_string()) })?;
-
-    Ok(
-        TokenListResult {
-            data: token_list
+impl Network {
+    fn as_str(&self) -> &str {
+        match self {
+            Network::Solana => "solana",
+            Network::Eth => "eth",
+            Network::Arbitrum => "arbitrum",
+            Network::Bsc => "bsc",
+            Network::Base => "base",
         }
-    )
+    }
 }

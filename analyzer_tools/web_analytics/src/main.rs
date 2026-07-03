@@ -2,6 +2,7 @@ mod cli;
 mod errors;
 mod handlers;
 
+use std::time::Duration;
 use clap::Parser;
 
 use axum::{
@@ -27,7 +28,21 @@ async fn create_app_state(cli: &Cli) -> AppState {
         .await
         .unwrap();
 
-    let redis_pool_conn = deadpool_redis::Config::from_url(cli.redis_url.as_str())
+    let mut cfg = deadpool_redis::Config::from_url(cli.redis_url.as_str());
+
+    cfg.pool = Some(
+        deadpool_redis::PoolConfig {
+            max_size: 100,
+            timeouts: deadpool_redis::Timeouts {
+                wait: None,
+                create: Some(Duration::from_secs(10)),
+                recycle: Some(Duration::from_secs(10))
+            },
+            ..Default::default()
+        }
+    );
+
+    let redis_pool_conn = cfg
         .create_pool(Some(deadpool_redis::Runtime::Tokio1))
         .unwrap();
 

@@ -10,7 +10,7 @@ redis_conn_pool = redis.ConnectionPool(
     host='localhost',
     port=6379,
     db=0,
-    max_connections=10,
+    max_connections=50,
     decode_responses=True,
 )
 
