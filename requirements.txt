@@ -26,3 +26,4 @@ async-timeout == 5.0.1
 brotli == 1.2.0
 msgpack == 1.2.0
 zstd == 1.5.7.3
+fastapi[standard]

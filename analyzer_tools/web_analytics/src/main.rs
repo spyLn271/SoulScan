@@ -48,9 +48,9 @@ async fn create_app_state(cli: &Cli) -> AppState {
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 8)]
 async fn main() {
-    let cli = cli::Cli::parse();
+    let cli = Cli::parse();
 
-    let app_state = crate::create_app_state(&cli).await;
+    let app_state = create_app_state(&cli).await;
 
     let api = Router::new()
         .nest("/api", handlers::dex::routes(app_state));
