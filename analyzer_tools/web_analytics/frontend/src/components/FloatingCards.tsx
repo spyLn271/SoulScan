@@ -26,6 +26,7 @@ function buildViews(): FloatView[] {
     host: e.host,
     status: e.status,
     detail: e.detail,
+    note: e.note,
     book: e.latest,
     frames: e.frames,
     rate: e.rate,

@@ -13,6 +13,7 @@ export interface VenueCardView {
   host: string | null
   status: CexStatus
   detail?: string
+  note?: string
   book: CexBook | null
   frames: number
   rate: number
@@ -63,9 +64,7 @@ export function VenueCardBody({ view: c, depth = 15 }: { view: VenueCardView; de
             </div>
           </div>
 
-          {c.exchange === 'okx' && c.market === 'futures' && (
-            <p className="empty note">sizes in contracts</p>
-          )}
+          {c.note && <p className="empty note">{c.note}</p>}
 
           <Ladder book={c.book} depth={depth} />
         </>

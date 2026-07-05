@@ -67,6 +67,10 @@ export function useVenueFeeds() {
           entry.detail = detail
           dirtyRef.current = true
         },
+        onNote: (note) => {
+          entry.note = note
+          dirtyRef.current = true
+        },
       })
     }
     return key
@@ -122,6 +126,7 @@ export function useVenueFeeds() {
             host: e.host,
             status: e.status,
             detail: e.detail,
+            note: e.note,
             book: e.latest,
             frames: e.frames,
             rate: e.rate,

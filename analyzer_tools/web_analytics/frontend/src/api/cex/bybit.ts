@@ -1,68 +1,42 @@
-import type { CexAdapter, CexBook } from './types'
-import { openVenueFeed } from './socket'
+import type { CexAdapter } from './types'
+import { openVenueFeed, parseLevels, type VenueMsgResult } from './socket'
 
-// Official v5 public orderbook.50 for both markets (snapshot + deltas with a
-// u-sequence). The backend's legacy ws2 feeds are unusable here: the futures
-// one is Origin-locked, and the spot one accepts the socket but delivers no
-// mergedDepth outside their environment (verified by live probe). Note the
-// backend's bybit spot book is dumpScale-grouped, so small level differences
-// vs this raw feed are expected.
+// Spot: the legacy ws2 mergedDepth feed — the exact one the backend consumes
+// (grouped snapshots, limit 40). The backend reads each symbol's dumpScale
+// from its Redis metadata; the server rejects wrong values with
+// {"code":"-100009","desc":"DumpScale error."} (probe-verified), so the
+// browser auto-discovers it: subscribe at the finest scale and step down on
+// rejection until accepted — landing on the instrument's own precision cap.
+// Futures: the ws2 realtime_w feed requires Origin: https://www.bybit.com,
+// which a browser cannot send — unsupported (no substitute feeds).
+
+const SCALES = [8, 7, 6, 5, 4, 3, 2, 1, 0]
 
 export const bybit: CexAdapter = {
-  supports: () => true,
-  host: () => 'stream.bybit.com',
+  supports: (market) => market === 'spot',
+  host: () => 'ws2.bybit.com',
   open(opts) {
     const sym = opts.symbol.trim().toUpperCase()
-    const url =
-      opts.market === 'spot'
-        ? 'wss://stream.bybit.com/v5/public/spot'
-        : 'wss://stream.bybit.com/v5/public/linear'
+    let scaleIdx = 0
 
-    // String price keys — exact deletes, no float-equality bugs.
-    const bids = new Map<string, number>()
-    const asks = new Map<string, number>()
-    let lastU: number | null = null
-
-    const apply = (side: Map<string, number>, levels: unknown) => {
-      if (!Array.isArray(levels)) return
-      for (const lvl of levels) {
-        if (!Array.isArray(lvl)) continue
-        const price = String(lvl[0])
-        const size = Number(lvl[1])
-        if (!Number.isFinite(size)) continue
-        if (size <= 0) side.delete(price)
-        else side.set(price, size)
-      }
-    }
-
-    const fill = (side: Map<string, number>, levels: unknown) => {
-      side.clear()
-      apply(side, levels)
-    }
-
-    const emit = (ts: number | null): CexBook => ({
-      asks: [...asks.entries()]
-        .map(([p, s]) => [Number(p), s])
-        .sort((x, y) => x[0] - y[0]),
-      bids: [...bids.entries()]
-        .map(([p, s]) => [Number(p), s])
-        .sort((x, y) => y[0] - x[0]),
-      ts,
-    })
+    const subFrame = () =>
+      JSON.stringify({
+        topic: 'mergedDepth',
+        event: 'sub',
+        symbol: sym,
+        limit: 40,
+        params: { binary: false, dumpScale: SCALES[scaleIdx] },
+      })
 
     return openVenueFeed(
       {
-        url: () => url,
-        subscribeFrames: () => [
-          JSON.stringify({ op: 'subscribe', args: [`orderbook.50.${sym}`] }),
-        ],
-        pingFrame: () => JSON.stringify({ op: 'ping' }),
+        url: () => `wss://ws2.bybit.com/spot/ws/quote/v2?_platform=2&tamp=${Date.now()}`,
+        subscribeFrames: () => [subFrame()],
+        pingFrame: () => JSON.stringify({ ping: Date.now() }),
         reset: () => {
-          bids.clear()
-          asks.clear()
-          lastU = null
+          scaleIdx = 0
         },
-        handle: (raw) => {
+        handle: (raw): VenueMsgResult => {
           let msg: unknown
           try {
             msg = JSON.parse(raw)
@@ -70,43 +44,24 @@ export const bybit: CexAdapter = {
             return null
           }
           if (typeof msg !== 'object' || msg === null) return null
-          const m = msg as {
-            op?: string
-            success?: boolean
-            ret_msg?: string
-            topic?: string
-            type?: string
-            ts?: number
-            data?: { b?: unknown; a?: unknown; u?: unknown }
+          const m = msg as { topic?: string; desc?: string; code?: string; data?: unknown }
+          if (typeof m.desc === 'string') {
+            if (m.desc.includes('DumpScale')) {
+              scaleIdx += 1
+              if (scaleIdx >= SCALES.length) return { fatal: 'dumpScale rejected' }
+              return { reply: subFrame() }
+            }
+            return { fatal: m.desc }
           }
-          if (m.op === 'subscribe' && m.success === false) {
-            return { fatal: m.ret_msg ?? 'subscribe rejected' }
-          }
-          if (m.op !== undefined) return null // pong / acks
-          if (typeof m.topic !== 'string' || !m.topic.startsWith('orderbook.')) {
-            return null
-          }
-          const d = m.data
+          if (m.topic !== 'mergedDepth') return null // pongs / acks
+          const d = Array.isArray(m.data) ? m.data[0] : m.data
           if (typeof d !== 'object' || d === null) return null
-          const u = typeof d.u === 'number' ? d.u : null
-          if (u === null) return null
-          const ts = typeof m.ts === 'number' ? m.ts : null
-
-          // u === 1 in a delta means the service restarted: treat as snapshot.
-          if (m.type === 'snapshot' || u === 1) {
-            fill(bids, d.b)
-            fill(asks, d.a)
-            lastU = u
-            return emit(ts)
-          }
-          if (m.type !== 'delta') return null
-          if (lastU === null) return null // delta before first snapshot
-          if (u <= lastU) return null // stale/duplicate
-          if (u !== lastU + 1) return 'resync' // sequence gap
-          apply(bids, d.b)
-          apply(asks, d.a)
-          lastU = u
-          return emit(ts)
+          const rec = d as { b?: unknown; a?: unknown; t?: unknown }
+          const bids = parseLevels(rec.b)
+          const asks = parseLevels(rec.a)
+          if (!bids || !asks) return null
+          const ts = Number(rec.t)
+          return { asks, bids, ts: Number.isFinite(ts) ? ts : null }
         },
       },
       opts,

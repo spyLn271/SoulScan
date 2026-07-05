@@ -15,6 +15,9 @@ export interface CexFeedOpts {
   market: Market
   onBook: (book: CexBook) => void
   onStatus: (status: CexStatus, detail?: string) => void
+  // Terse caveat surfaced on the card (e.g. 'sizes in contracts' when a
+  // required multiplier can't be fetched).
+  onNote?: (note: string) => void
 }
 
 export interface CexFeedHandle {

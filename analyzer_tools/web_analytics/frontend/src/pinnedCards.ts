@@ -12,6 +12,7 @@ export interface LiveVenueEntry {
   host: string | null
   status: CexStatus
   detail?: string
+  note?: string
   feed: { close(): void } | null
   latest: CexBook | null
   lastFlushed: CexBook | null
