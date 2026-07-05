@@ -161,16 +161,14 @@ async fn feeder(
 
     let mut conn = redis_conn_pool.get().await.unwrap();
 
-    let mut guard = sender.lock().await;
-
     if !conn.sismember(&key_to_active_symbols, symbol.as_str()).await.unwrap() {
+        let mut guard = sender.lock().await;
         if guard.send(Message::Text("this symbol is inactive".into())).await.is_err() {
             return;
         }
     };
 
     drop(conn);
-    drop(guard);
 
     loop {
         let orderbook = if let Ok(orderbook) = get_orderbook(
