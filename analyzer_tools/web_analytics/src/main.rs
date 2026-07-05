@@ -6,11 +6,15 @@ use std::time::Duration;
 use clap::Parser;
 
 use axum::{
-    routing::{get, },
     Router,
 };
 
+use tower_http::{
+    services::{ ServeDir, ServeFile }
+};
+
 use sqlx::postgres::Postgres;
+
 use crate::cli::Cli;
 
 #[derive(Debug, Clone)]
@@ -68,11 +72,16 @@ async fn main() {
     let app_state = create_app_state(&cli).await;
 
     let api = Router::new()
-        .nest("/api", handlers::dex::routes(app_state));
+        .nest("/api", handlers::dex::routes(app_state.clone()));
+
+    let root =ServeDir::new("frontend/dist")
+        .not_found_service(ServeFile::new("frontend/dist/index.html"));
+
     
     let app: Router<()> = Router::new()
-        .route("/", get(|| async { "Hello, World!" }))
-        .merge(api);
+        .merge(api)
+        .merge(handlers::ws_orderbooks::router(app_state.clone()))
+        .fallback_service(root);
 
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", cli.port))
         .await

@@ -1,10 +1,15 @@
-import { Fragment, type ReactNode } from 'react'
+import { Fragment, useState, type ReactNode } from 'react'
 import { parseJson, type JsonEntry, type JsonNode } from '../format/json'
 
 const INDENT = '  '
+// Containers deeper than this start collapsed.
+const EXPAND_DEPTH = 2
+// Arrays render this many items up front; each "+ N more" click reveals more.
+const CHUNK = 100
+const CHUNK_STEP = 400
 
-// Pretty-printed, syntax-highlighted JSON. Falls back to raw text when the
-// body isn't valid JSON (error pages, plain strings, empty bodies).
+// Pretty-printed, syntax-highlighted JSON with collapsible containers.
+// Falls back to raw text when the body isn't valid JSON.
 export function JsonView({ text }: { text: string }) {
   let tree: JsonNode | null = null
   try {
@@ -23,7 +28,9 @@ export function JsonView({ text }: { text: string }) {
 
   return (
     <pre className="code-block code-block--scroll json-view">
-      {renderValue(tree, 0)}
+      {/* key remounts the tree per body, so collapse state never bleeds
+          between responses */}
+      <NodeView key={text} node={tree} depth={0} />
     </pre>
   )
 }
@@ -32,7 +39,15 @@ function Punct({ children }: { children: ReactNode }) {
   return <span className="tok-punct">{children}</span>
 }
 
-function renderValue(node: JsonNode, depth: number): ReactNode {
+function Toggle({ open, onClick }: { open: boolean; onClick: () => void }) {
+  return (
+    <button type="button" className="json-toggle" aria-expanded={open} onClick={onClick}>
+      {open ? '▾' : '▸'}
+    </button>
+  )
+}
+
+function NodeView({ node, depth }: { node: JsonNode; depth: number }) {
   switch (node.kind) {
     case 'string':
       return <span className="tok-string">{JSON.stringify(node.value)}</span>
@@ -43,13 +58,16 @@ function renderValue(node: JsonNode, depth: number): ReactNode {
     case 'null':
       return <span className="tok-null">null</span>
     case 'array':
-      return renderArray(node.items, depth)
+      return <ArrayView items={node.items} depth={depth} />
     case 'object':
-      return renderObject(node.entries, depth)
+      return <ObjectView entries={node.entries} depth={depth} />
   }
 }
 
-function renderArray(items: JsonNode[], depth: number): ReactNode {
+function ArrayView({ items, depth }: { items: JsonNode[]; depth: number }) {
+  const [open, setOpen] = useState(depth < EXPAND_DEPTH)
+  const [shown, setShown] = useState(CHUNK)
+
   if (items.length === 0) {
     return (
       <>
@@ -58,27 +76,58 @@ function renderArray(items: JsonNode[], depth: number): ReactNode {
       </>
     )
   }
+
+  if (!open) {
+    return (
+      <>
+        <Toggle open={false} onClick={() => setOpen(true)} />
+        <Punct>[</Punct>
+        <span className="json-count"> {items.length} {items.length === 1 ? 'item' : 'items'} </span>
+        <Punct>]</Punct>
+      </>
+    )
+  }
+
   const pad = INDENT.repeat(depth + 1)
   const closePad = INDENT.repeat(depth)
+  const visible = items.slice(0, shown)
+  const hidden = items.length - visible.length
+
   return (
     <>
+      <Toggle open onClick={() => setOpen(false)} />
       <Punct>[</Punct>
       {'\n'}
-      {items.map((item, idx) => (
+      {visible.map((item, idx) => (
         <Fragment key={idx}>
           {pad}
-          {renderValue(item, depth + 1)}
+          <NodeView node={item} depth={depth + 1} />
           {idx < items.length - 1 && <Punct>,</Punct>}
           {'\n'}
         </Fragment>
       ))}
+      {hidden > 0 && (
+        <>
+          {pad}
+          <button
+            type="button"
+            className="json-more"
+            onClick={() => setShown((s) => s + CHUNK_STEP)}
+          >
+            + {hidden.toLocaleString('en-US')} more
+          </button>
+          {'\n'}
+        </>
+      )}
       {closePad}
       <Punct>]</Punct>
     </>
   )
 }
 
-function renderObject(entries: JsonEntry[], depth: number): ReactNode {
+function ObjectView({ entries, depth }: { entries: JsonEntry[]; depth: number }) {
+  const [open, setOpen] = useState(depth < EXPAND_DEPTH)
+
   if (entries.length === 0) {
     return (
       <>
@@ -87,10 +136,24 @@ function renderObject(entries: JsonEntry[], depth: number): ReactNode {
       </>
     )
   }
+
+  if (!open) {
+    return (
+      <>
+        <Toggle open={false} onClick={() => setOpen(true)} />
+        <Punct>{'{'}</Punct>
+        <span className="json-count"> {entries.length} {entries.length === 1 ? 'key' : 'keys'} </span>
+        <Punct>{'}'}</Punct>
+      </>
+    )
+  }
+
   const pad = INDENT.repeat(depth + 1)
   const closePad = INDENT.repeat(depth)
+
   return (
     <>
+      <Toggle open onClick={() => setOpen(false)} />
       <Punct>{'{'}</Punct>
       {'\n'}
       {entries.map((entry, idx) => (
@@ -98,7 +161,7 @@ function renderObject(entries: JsonEntry[], depth: number): ReactNode {
           {pad}
           <span className="tok-key">{JSON.stringify(entry.key)}</span>
           <Punct>: </Punct>
-          {renderValue(entry.value, depth + 1)}
+          <NodeView node={entry.value} depth={depth + 1} />
           {idx < entries.length - 1 && <Punct>,</Punct>}
           {'\n'}
         </Fragment>

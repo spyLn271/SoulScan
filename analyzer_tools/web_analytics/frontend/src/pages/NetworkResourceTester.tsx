@@ -1,25 +1,32 @@
 import { type FormEvent, useState } from 'react'
 import { apiGetRaw } from '../api/client'
-import { runRequest, type TestResult } from '../api/testClient'
+import {
+  fromStoredResult,
+  runRequest,
+  toStoredResult,
+  type TestResult,
+} from '../api/testClient'
 import { ResponsePanel } from '../components/ResponsePanel'
+import { CopyButton } from '../components/CopyButton'
+import { EndpointChip } from '../components/EndpointChip'
+import { RequestHistory } from '../components/RequestHistory'
+import { usePersistedState, useRequestHistory } from '../hooks'
 
-// Networks seen in .env.example — just suggestions, the field is free-form.
 const NETWORKS = ['solana', 'ethereum', 'bnb', 'arb', 'base']
 
 interface Props {
-  // Endpoint prefix; the network is appended as a path segment.
   // e.g. "/v1/tokens" -> GET /api/v1/tokens/{network}
   basePath: string
 }
 
-// Generic tester for `GET /api<basePath>/{network}` endpoints (metadata,
-// tokens, …). One text field for the network, response as highlighted JSON.
 export function NetworkResourceTester({ basePath }: Props) {
-  const [network, setNetwork] = useState('solana')
+  const [network, setNetwork] = usePersistedState(`ss.net.${basePath}`, 'solana')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<TestResult | null>(null)
   const [sentUrl, setSentUrl] = useState<string | null>(null)
+
+  const hist = useRequestHistory<{ network: string }>(`ss.hist${basePath}`)
 
   const trimmed = network.trim()
   const canSubmit = !pending && trimmed !== ''
@@ -29,7 +36,6 @@ export function NetworkResourceTester({ basePath }: Props) {
     e.preventDefault()
     if (trimmed === '') return
 
-    // network is a path segment, so encode it.
     const path = `${basePath}/${encodeURIComponent(trimmed)}`
     setSentUrl(`/api${path}`)
     setError(null)
@@ -39,6 +45,7 @@ export function NetworkResourceTester({ basePath }: Props) {
     setResult(res)
     setError(err)
     setPending(false)
+    hist.push({ network: trimmed }, res ? toStoredResult(res) : null)
   }
 
   return (
@@ -46,7 +53,7 @@ export function NetworkResourceTester({ basePath }: Props) {
       <div className="tester__col">
         <form className="panel" onSubmit={onSubmit}>
           <div className="panel__head">
-            <code className="endpoint">GET {routePath}</code>
+            <EndpointChip method="GET" path={routePath} />
           </div>
 
           <label className="field">
@@ -66,14 +73,27 @@ export function NetworkResourceTester({ basePath }: Props) {
           </label>
 
           <button className="btn" type="submit" disabled={!canSubmit}>
-            {pending ? 'Fetching…' : 'Send request'}
+            {pending ? 'fetching…' : 'fetch'}
           </button>
         </form>
+
+        <RequestHistory
+          entries={hist.entries}
+          format={(d) => d.network}
+          onClear={hist.clear}
+          onPick={(e) => {
+            setNetwork(e.data.network)
+            setSentUrl(`/api${basePath}/${encodeURIComponent(e.data.network)}`)
+            setResult(e.result ? fromStoredResult(e.result) : null)
+            setError(null)
+          }}
+        />
 
         {sentUrl && (
           <div className="panel">
             <div className="panel__head">
-              <h2>Request</h2>
+              <h2>request</h2>
+              <CopyButton text={sentUrl} />
             </div>
             <pre className="code-block">GET {sentUrl}</pre>
           </div>
@@ -81,17 +101,7 @@ export function NetworkResourceTester({ basePath }: Props) {
       </div>
 
       <div className="tester__col">
-        <ResponsePanel
-          pending={pending}
-          error={error}
-          result={result}
-          hint={
-            <>
-              Is the axum backend running on <code>127.0.0.1:3000</code> with a{' '}
-              <code>{routePath}</code> route?
-            </>
-          }
-        />
+        <ResponsePanel pending={pending} error={error} result={result} />
       </div>
     </div>
   )

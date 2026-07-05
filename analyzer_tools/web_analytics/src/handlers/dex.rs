@@ -20,7 +20,6 @@ use rusted_soul_dex::{
 };
 
 use rusted_engine::{
-    config::SUPPORTED_NETWORK_LIST,
     api::dex::snapshot::{ PoolSnapshot, TokenData }
 };
 
@@ -28,7 +27,7 @@ use serde::{ Serialize, Deserialize };
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::{Duration};
 use deadpool_redis::redis::AsyncTypedCommands;
 use crate::errors::WebErrors;
 
@@ -306,8 +305,6 @@ pub async fn metadata(
             pipe.get(format!("snapshot:metadata:{}:uniswap:v4", network.as_str()));
         },
     };
-
-    // println!("{:?}", conn.get("snapshot:metadata:solana:orca:clmm").await);
 
     let raw_data: Vec<String> = pipe.query_async(&mut conn)
         .await?;

@@ -26,6 +26,12 @@ pub enum  WebErrors {
     #[error("json error: {0}")]
     JsonError(#[from] serde_json::Error),
 
+    #[error("Error parsing float {0}")]
+    ParseFloatError(#[from] std::num::ParseFloatError),
+
+    #[error("Error parsing from redis value {0}")]
+    ParseRedisValueError(#[from] deadpool_redis::redis::ParsingError),
+
     #[error("Unexpected move")]
     Error(String),
 }
@@ -41,6 +47,8 @@ impl IntoResponse for WebErrors {
             WebErrors::RedisPoolError(s) => (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", s)),
             WebErrors::RedisError(s) => (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", s)),
             WebErrors::JsonError(s) => (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", s)),
+            WebErrors::ParseFloatError(s) => (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", s)),
+            WebErrors::ParseRedisValueError(s) => (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", s)),
             WebErrors::Error(err) => (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", err)),
         }.into_response()
     }

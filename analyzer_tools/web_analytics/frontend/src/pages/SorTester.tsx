@@ -6,12 +6,29 @@ import {
   U128_MAX,
   type GetQuote,
 } from '../api/sor'
-import { runRequest, type TestResult } from '../api/testClient'
+import {
+  fromStoredResult,
+  runRequest,
+  toStoredResult,
+  type TestResult,
+} from '../api/testClient'
 import { ResponsePanel } from '../components/ResponsePanel'
 import { JsonView } from '../components/JsonView'
+import { CopyButton } from '../components/CopyButton'
+import { EndpointChip } from '../components/EndpointChip'
+import { RequestHistory } from '../components/RequestHistory'
+import { usePersistedState, useRequestHistory } from '../hooks'
 
-// Networks seen in .env.example — just suggestions, the field is free-form.
 const NETWORKS = ['solana', 'ethereum', 'bnb', 'arb', 'base']
+
+interface SorSnapshot {
+  network: string
+  address0: string
+  address1: string
+  amount: string
+  aToB: boolean
+  amountIsIn: boolean
+}
 
 function validateAmount(raw: string): { value: bigint | null; error: string | null } {
   const t = raw.trim()
@@ -23,18 +40,22 @@ function validateAmount(raw: string): { value: bigint | null; error: string | nu
 }
 
 export function SorTester() {
-  const [network, setNetwork] = useState('solana')
-  const [address0, setAddress0] = useState('')
-  const [address1, setAddress1] = useState('')
-  const [amount, setAmount] = useState('')
-  const [aToB, setAToB] = useState(true)
-  const [amountSpecifiedIsIn, setAmountSpecifiedIsIn] = useState(true)
+  const [network, setNetwork] = usePersistedState('ss.sor.network', 'solana')
+  const [address0, setAddress0] = usePersistedState('ss.sor.address0', '')
+  const [address1, setAddress1] = usePersistedState('ss.sor.address1', '')
+  const [amount, setAmount] = usePersistedState('ss.sor.amount', '')
+  const [aToB, setAToB] = usePersistedState('ss.sor.aToB', true)
+  const [amountSpecifiedIsIn, setAmountSpecifiedIsIn] = usePersistedState(
+    'ss.sor.amountIsIn',
+    true,
+  )
 
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<TestResult | null>(null)
   const [sentBody, setSentBody] = useState<string | null>(null)
 
+  const hist = useRequestHistory<SorSnapshot>('ss.hist.sor')
   const amountCheck = useMemo(() => validateAmount(amount), [amount])
 
   const canSubmit =
@@ -68,6 +89,17 @@ export function SorTester() {
     setResult(res)
     setError(err)
     setPending(false)
+    hist.push(
+      {
+        network: quote.network,
+        address0: quote.address0,
+        address1: quote.address1,
+        amount: amount.trim(),
+        aToB,
+        amountIsIn: amountSpecifiedIsIn,
+      },
+      res ? toStoredResult(res) : null,
+    )
   }
 
   return (
@@ -75,7 +107,7 @@ export function SorTester() {
       <div className="tester__col">
         <form className="panel" onSubmit={onSubmit}>
           <div className="panel__head">
-            <code className="endpoint">POST /api/v1/sor</code>
+            <EndpointChip method="POST" path="/api/v1/sor" />
           </div>
 
           <label className="field">
@@ -149,14 +181,45 @@ export function SorTester() {
           </div>
 
           <button className="btn" type="submit" disabled={!canSubmit}>
-            {pending ? 'Sending…' : 'Send request'}
+            {pending ? 'sending…' : 'send'}
           </button>
         </form>
+
+        <RequestHistory
+          entries={hist.entries}
+          format={(d) => `${d.network} · ${d.amount}`}
+          onClear={hist.clear}
+          onPick={(e) => {
+            const d = e.data
+            setNetwork(d.network)
+            setAddress0(d.address0)
+            setAddress1(d.address1)
+            setAmount(d.amount)
+            setAToB(d.aToB)
+            setAmountSpecifiedIsIn(d.amountIsIn)
+            const v = validateAmount(d.amount).value
+            setSentBody(
+              v !== null
+                ? serializeGetQuote({
+                    network: d.network,
+                    address0: d.address0,
+                    address1: d.address1,
+                    amount: v,
+                    a_to_b: d.aToB,
+                    amount_specified_is_in: d.amountIsIn,
+                  })
+                : null,
+            )
+            setResult(e.result ? fromStoredResult(e.result) : null)
+            setError(null)
+          }}
+        />
 
         {sentBody && (
           <div className="panel">
             <div className="panel__head">
-              <h2>Request body</h2>
+              <h2>request body</h2>
+              <CopyButton text={sentBody} />
             </div>
             <JsonView text={sentBody} />
           </div>
@@ -164,17 +227,7 @@ export function SorTester() {
       </div>
 
       <div className="tester__col">
-        <ResponsePanel
-          pending={pending}
-          error={error}
-          result={result}
-          hint={
-            <>
-              Is the axum backend running on <code>127.0.0.1:3000</code> with a{' '}
-              <code>/api/v1/sor</code> route?
-            </>
-          }
-        />
+        <ResponsePanel pending={pending} error={error} result={result} />
       </div>
     </div>
   )
