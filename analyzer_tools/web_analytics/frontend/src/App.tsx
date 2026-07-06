@@ -104,7 +104,7 @@ export default function App() {
             className="btn btn--ghost btn--xs"
             onClick={clearAuth}
           >
-            sign out
+            log in
           </button>
         </div>
       </aside>
