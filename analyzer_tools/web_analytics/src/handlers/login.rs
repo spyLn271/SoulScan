@@ -92,7 +92,7 @@ pub struct AuthBody {
 
 impl IntoResponse for AuthBody{
     fn into_response(self) -> Response {
-        (StatusCode::FOUND, Json(self)).into_response()
+        (StatusCode::OK, Json(self)).into_response()
     }
 }
 

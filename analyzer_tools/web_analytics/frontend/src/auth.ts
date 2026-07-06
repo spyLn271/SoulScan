@@ -107,6 +107,11 @@ export async function login(
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
   }
+  if (res.redirected) {
+    // fetch follows redirects silently and hides the Location — a 302 can
+    // never deliver AuthBody. The backend must answer 200 + JSON.
+    return { ok: false, error: 'server redirected — /auth must return JSON, not 302' }
+  }
   if (!res.ok) {
     return { ok: false, error: `${res.status}${res.statusText ? ` ${res.statusText}` : ''}` }
   }
