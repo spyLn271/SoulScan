@@ -12,11 +12,31 @@ export class ApiError extends Error {
   }
 }
 
-// Token expired or revoked — drop it so the app returns to the login page.
-// Note: the backend must answer auth failures with 401/403; a 400 is
-// indistinguishable from bad request params and can't trigger logout.
-function checkUnauthorized(res: Response) {
-  if (res.status === 401 || res.status === 403) clearAuth()
+// Token expired/revoked/missing — drop it so the app returns to the login
+// page. The backend answers auth failures with 400 (axum-jwt-example style),
+// which is also what malformed tester requests get — so on 400 only the
+// known auth-error bodies log out, never domain errors.
+const AUTH_ERROR_MESSAGES = new Set([
+  'Invalid token',
+  'Missing credentials',
+  'Wrong credentials',
+])
+
+async function checkUnauthorized(res: Response) {
+  if (res.status === 401 || res.status === 403) {
+    clearAuth()
+    return
+  }
+  if (res.status === 400) {
+    try {
+      const body = (await res.clone().json()) as { error?: unknown }
+      if (typeof body.error === 'string' && AUTH_ERROR_MESSAGES.has(body.error)) {
+        clearAuth()
+      }
+    } catch {
+      // not JSON — a domain error, not an auth rejection
+    }
+  }
 }
 
 export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
@@ -24,7 +44,7 @@ export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { Accept: 'application/json', ...authHeader() },
     ...init,
   })
-  checkUnauthorized(res)
+  await checkUnauthorized(res)
   if (!res.ok) {
     throw new ApiError(
       `GET ${path} failed: ${res.status} ${res.statusText}`,
@@ -47,7 +67,7 @@ export async function apiPostRaw(
     },
     body: jsonBody,
   })
-  checkUnauthorized(res)
+  await checkUnauthorized(res)
   return res
 }
 
@@ -55,6 +75,6 @@ export async function apiGetRaw(path: string): Promise<Response> {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { Accept: 'application/json', ...authHeader() },
   })
-  checkUnauthorized(res)
+  await checkUnauthorized(res)
   return res
 }
