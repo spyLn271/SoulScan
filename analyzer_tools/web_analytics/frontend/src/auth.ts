@@ -11,12 +11,35 @@ export interface AuthState {
 
 const KEY = 'ss.auth'
 
+// exp claim (ms) when the token is a JWT, else null (opaque tokens are
+// trusted until the backend rejects them).
+function jwtExpMs(token: string): number | null {
+  const parts = token.split('.')
+  if (parts.length !== 3) return null
+  try {
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
+    return typeof payload.exp === 'number' ? payload.exp * 1000 : null
+  } catch {
+    return null
+  }
+}
+
+function isExpired(s: AuthState): boolean {
+  const exp = jwtExpMs(s.token)
+  return exp !== null && Date.now() >= exp
+}
+
 function load(): AuthState | null {
   try {
     const raw = localStorage.getItem(KEY)
     if (raw === null) return null
     const v = JSON.parse(raw) as AuthState
-    return typeof v?.token === 'string' && typeof v?.tokenType === 'string' ? v : null
+    if (typeof v?.token !== 'string' || typeof v?.tokenType !== 'string') return null
+    if (isExpired(v)) {
+      localStorage.removeItem(KEY)
+      return null
+    }
+    return v
   } catch {
     return null
   }
@@ -34,6 +57,7 @@ export function getAuth(): AuthState | null {
 }
 
 export function authHeader(): Record<string, string> {
+  if (state && isExpired(state)) clearAuth() // flips the app to the login page
   return state ? { Authorization: `${state.tokenType} ${state.token}` } : {}
 }
 

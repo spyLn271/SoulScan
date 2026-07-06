@@ -13,8 +13,10 @@ export class ApiError extends Error {
 }
 
 // Token expired or revoked — drop it so the app returns to the login page.
+// Note: the backend must answer auth failures with 401/403; a 400 is
+// indistinguishable from bad request params and can't trigger logout.
 function checkUnauthorized(res: Response) {
-  if (res.status === 401) clearAuth()
+  if (res.status === 401 || res.status === 403) clearAuth()
 }
 
 export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
