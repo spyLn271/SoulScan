@@ -2,7 +2,7 @@ use axum::{
     extract::{FromRequestParts, State},
     http::{request::Parts, StatusCode},
     response::{IntoResponse, Response},
-    routing::get,
+    routing::post,
     Json, RequestPartsExt, Router,
 };
 use axum_extra::{
@@ -29,7 +29,7 @@ const SECRET: &str = "not_fuckable";
 
 pub fn routes(app_state: AppState) -> Router {
     Router::new()
-        .route("/auth", get(authorize))
+        .route("/auth", post(authorize))
         .with_state(app_state)
 }
 

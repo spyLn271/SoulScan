@@ -98,10 +98,12 @@ export async function login(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   let res: Response
   try {
-    res = await fetch(
-      `/auth?name=${encodeURIComponent(name)}&secret=${encodeURIComponent(secret)}`,
-      { headers: { Accept: 'application/json' } },
-    )
+    // POST /auth with Json<AuthPayload>
+    res = await fetch('/auth', {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, secret }),
+    })
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
   }
