@@ -32,8 +32,20 @@ pub enum  WebErrors {
     #[error("Error parsing from redis value {0}")]
     ParseRedisValueError(#[from] deadpool_redis::redis::ParsingError),
 
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] sqlx::Error),
+
     #[error("Unexpected move")]
     Error(String),
+
+    #[error("Wrong Credentials")]
+    WrongCredentials,
+    #[error("Missing Credentials")]
+    MissingCredentials,
+    #[error("Token Creation")]
+    TokenCreation,
+    #[error("Invalid Token")]
+    InvalidToken,
 }
 
 impl IntoResponse for WebErrors {
@@ -50,6 +62,11 @@ impl IntoResponse for WebErrors {
             WebErrors::ParseFloatError(s) => (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", s)),
             WebErrors::ParseRedisValueError(s) => (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", s)),
             WebErrors::Error(err) => (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", err)),
+            WebErrors::WrongCredentials => (StatusCode::UNAUTHORIZED, "Wrong credentials".to_string()),
+            WebErrors::MissingCredentials => (StatusCode::BAD_REQUEST, "Missing credentials".to_string()),
+            WebErrors::TokenCreation => (StatusCode::INTERNAL_SERVER_ERROR, "Token creation error".to_string()),
+            WebErrors::InvalidToken => (StatusCode::BAD_REQUEST, "Invalid token".to_string()),
+            WebErrors::DatabaseError(s) => (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", s)),
         }.into_response()
     }
 }

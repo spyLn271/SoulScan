@@ -4,6 +4,8 @@ import { NetworkResourceTester } from './pages/NetworkResourceTester'
 import { WsOrderBooks } from './pages/WsOrderBooks'
 import { IconRoute, IconInfo, IconCoins, IconStream } from './components/icons'
 import { FloatingCards } from './components/FloatingCards'
+import { Login } from './pages/Login'
+import { clearAuth, useAuth } from './auth'
 import type { HttpMethod } from './components/EndpointChip'
 
 interface Test {
@@ -59,12 +61,15 @@ function initialTab(): string {
 
 export default function App() {
   const [active, setActive] = useState<string>(initialTab)
+  const auth = useAuth()
   const current = TESTS.find((t) => t.id === active) ?? TESTS[0]
 
   function select(id: string) {
     setActive(id)
     window.history.replaceState(null, '', `#${id}`)
   }
+
+  if (auth === null) return <Login />
 
   return (
     <>
@@ -91,6 +96,17 @@ export default function App() {
             </div>
           ))}
         </nav>
+
+        <div className="sidebar__user">
+          <span className="sidebar__user-name">{auth.name}</span>
+          <button
+            type="button"
+            className="btn btn--ghost btn--xs"
+            onClick={clearAuth}
+          >
+            sign out
+          </button>
+        </div>
       </aside>
 
         <main className="app-main">{current.render()}</main>

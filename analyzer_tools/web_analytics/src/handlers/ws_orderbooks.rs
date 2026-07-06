@@ -25,6 +25,7 @@ use tokio::{
     sync::Mutex
 };
 use serde_json::{from_str, };
+use crate::handlers::login::Claims;
 
 pub fn router(app_state: AppState) -> Router {
     Router::new()
@@ -33,6 +34,7 @@ pub fn router(app_state: AppState) -> Router {
 }
 
 async fn handler(
+    claims: Claims,
     ws: WebSocketUpgrade,
     State(app_state): State<AppState>
 ) -> Response {

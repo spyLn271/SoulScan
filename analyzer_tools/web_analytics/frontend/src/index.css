@@ -186,6 +186,40 @@ body {
   margin-left: auto;
 }
 
+.sidebar__user {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px;
+}
+
+.sidebar__user-name {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.login {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.login__panel {
+  width: 100%;
+  max-width: 360px;
+}
+
+.login__error {
+  margin-bottom: 14px;
+}
+
 .app-main {
   width: 100%;
   max-width: 1160px;
@@ -223,6 +257,12 @@ body {
 
   .sidebar__group-label {
     display: none;
+  }
+
+  .sidebar__user {
+    margin: 0 0 0 auto;
+    padding: 0;
+    flex: none;
   }
 
   .nav-item {

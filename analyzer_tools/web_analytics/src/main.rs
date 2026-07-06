@@ -1,6 +1,7 @@
 mod cli;
 mod errors;
 mod handlers;
+mod logging;
 
 use std::time::Duration;
 use clap::Parser;
@@ -81,6 +82,7 @@ async fn main() {
     let app: Router<()> = Router::new()
         .merge(api)
         .merge(handlers::ws_orderbooks::router(app_state.clone()))
+        .merge(handlers::login::routes(app_state.clone()))
         .fallback_service(root);
 
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", cli.port))

@@ -1,5 +1,3 @@
-use crate::AppState;
-
 use axum::{
     extract::{Json, Path as QPath, State},
     routing::{get, post},
@@ -29,7 +27,11 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::{Duration};
 use deadpool_redis::redis::AsyncTypedCommands;
-use crate::errors::WebErrors;
+use crate::{
+    AppState,
+    errors::WebErrors,
+    handlers::login::Claims
+};
 
 
 
@@ -72,6 +74,7 @@ pub struct SorQuoteResult {
 }
 
 async fn quote_sor(
+    claims: Claims,
     State(state): State<AppState>,
     Json(payload): Json<GetQuoteSor>
 ) -> Result<SorQuoteResult, WebErrors> {
@@ -283,6 +286,7 @@ pub struct MetadataListResult {
 }
 
 pub async fn metadata(
+    claims: Claims,
     State(state): State<AppState>,
     QPath(network): QPath<Network>,
 ) -> Result<MetadataListResult, WebErrors> {
@@ -331,6 +335,7 @@ pub struct TokenListResult {
 }
 
 pub async fn token_list (
+    claims: Claims,
     State(state): State<AppState>,
     QPath(network): QPath<Network>,
 ) -> Result<TokenListResult, WebErrors> {

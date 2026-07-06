@@ -1,3 +1,5 @@
+import { authHeader, clearAuth } from '../auth'
+
 const API_BASE = '/api'
 
 export class ApiError extends Error {
@@ -10,11 +12,17 @@ export class ApiError extends Error {
   }
 }
 
+// Token expired or revoked — drop it so the app returns to the login page.
+function checkUnauthorized(res: Response) {
+  if (res.status === 401) clearAuth()
+}
+
 export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { Accept: 'application/json' },
+    headers: { Accept: 'application/json', ...authHeader() },
     ...init,
   })
+  checkUnauthorized(res)
   if (!res.ok) {
     throw new ApiError(
       `GET ${path} failed: ${res.status} ${res.statusText}`,
@@ -28,20 +36,23 @@ export async function apiPostRaw(
   path: string,
   jsonBody: string,
 ): Promise<Response> {
-  return fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
+      ...authHeader(),
     },
     body: jsonBody,
   })
+  checkUnauthorized(res)
+  return res
 }
 
-// GET returning the raw Response so the caller can inspect status + body for
-// any HTTP status (the test bench needs to show failures too, not just 2xx).
 export async function apiGetRaw(path: string): Promise<Response> {
-  return fetch(`${API_BASE}${path}`, {
-    headers: { Accept: 'application/json' },
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: { Accept: 'application/json', ...authHeader() },
   })
+  checkUnauthorized(res)
+  return res
 }
