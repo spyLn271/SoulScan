@@ -68,6 +68,10 @@ async fn create_app_state(cli: &Cli) -> AppState {
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 8)]
 async fn main() {
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .expect("failed to install rustls CryptoProvider");
+
     let cli = Cli::parse();
 
     let app_state = create_app_state(&cli).await;
