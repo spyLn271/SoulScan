@@ -21,6 +21,11 @@ export default defineConfig({
         changeOrigin: true,
         ws: true,
       },
+      // login (`GET /auth`), mounted at root
+      '/auth': {
+        target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
+      },
     },
   },
 })
