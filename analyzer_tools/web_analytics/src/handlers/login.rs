@@ -1,9 +1,10 @@
 use axum::{
     extract::{FromRequestParts, State},
-    http::{request::Parts, StatusCode},
+    http::{request::Parts, StatusCode, Request},
     response::{IntoResponse, Response},
     routing::post,
     Json, RequestPartsExt, Router,
+    body::Body
 };
 use axum_extra::{
     headers::{authorization::Bearer, Authorization},
@@ -12,6 +13,9 @@ use axum_extra::{
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use std::sync::LazyLock;
+use std::task::{Context, Poll};
+use futures_util::future::BoxFuture;
+use tower::{Layer, Service};
 use crate::{
     AppState,
     errors::WebErrors
@@ -51,7 +55,7 @@ pub async fn authorize(
         exp: std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
-            .as_secs() as usize + 7200usize
+            .as_secs() + 7200
     };
 
     let token = encode(
@@ -64,6 +68,13 @@ pub async fn authorize(
     Ok(AuthBody::new(token))
 }
 
+#[derive(Clone)]
+pub struct AuthLayer {}
+
+#[derive(Clone)]
+pub struct AuthService<S> {
+    inner: S,
+}
 
 
 struct Keys {
@@ -72,9 +83,9 @@ struct Keys {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Claims {
+struct Claims {
     sub: String,
-    exp: usize,
+    exp: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -105,6 +116,73 @@ impl AuthBody {
     }
 }
 
+
+impl<S> Service<Request<Body>> for AuthService<S>
+where
+    S: Service<Request<Body>, Response = Response> + Clone + Send + 'static,
+    S::Future: Send + 'static,
+{
+    type Response = S::Response;
+    type Error = S::Error;
+    type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.inner.poll_ready(cx)
+    }
+
+    fn call(&mut self, mut req: Request<Body>) -> Self::Future {
+        let mut inner = self.inner.clone();
+
+        Box::pin(async move {
+            let (mut parts, body) = req.into_parts();
+
+            let Ok(TypedHeader(Authorization(bearer))) = parts
+                .extract::<TypedHeader<Authorization<Bearer>>>()
+                .await
+            else {
+                return Ok(WebErrors::InvalidToken.into_response())
+            };
+
+            let Ok(token) = decode::<Claims>(
+                bearer.token(),
+                &KEYS.decoding,
+                &Validation::default()
+            ) else {
+                return Ok(WebErrors::InvalidToken.into_response())
+            };
+
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+
+            if token.claims.exp < now {
+                return Ok(WebErrors::ExpiredToken.into_response())
+            }
+
+            let req = Request::from_parts(parts, body);
+
+            inner
+                .call(req)
+                .await
+        })
+    }
+}
+
+impl<S> Layer<S> for AuthLayer {
+    type Service = AuthService<S>;
+
+    fn layer(&self, service: S) -> Self::Service {
+        AuthService { inner: service }
+    }
+}
+
+impl AuthLayer {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
 impl<S> FromRequestParts<S> for Claims
 where
     S: Send + Sync {
@@ -118,8 +196,19 @@ where
 
         let token = decode::<Claims>(bearer.token(), &KEYS.decoding, &Validation::default())
             .map_err(|_| WebErrors::InvalidToken)?;
+        
+        let claims = token.claims;
+        
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        
+        if now > claims.exp {
+            return Err(WebErrors::InvalidToken)
+        }
 
-        Ok(token.claims)
+        Ok(claims)
     }
 }
 

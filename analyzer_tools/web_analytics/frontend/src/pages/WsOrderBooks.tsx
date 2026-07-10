@@ -20,6 +20,7 @@ import {
 } from '../components/VenueCardBody'
 import { pinCard, type LiveVenueEntry } from '../pinnedCards'
 import { fmtTs, hms } from '../format/time'
+import { getAuth } from '../auth'
 import { usePersistedState } from '../hooks'
 
 type ConnState = 'disconnected' | 'connecting' | 'connected'
@@ -233,11 +234,15 @@ export function WsOrderBooks() {
     const p0 = path.trim() || '/ws'
     const p = p0.startsWith('/') ? p0 : `/${p0}`
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const url = `${proto}//${location.host}${p}`
+    const base = `${proto}//${location.host}${p}`
+    // Browsers can't set an Authorization header on a WebSocket; the JWT is
+    // carried in the only header they allow — Sec-WebSocket-Protocol, offered
+    // as ["bearer", <jwt>]. The backend must echo "bearer" (ws.protocols).
+    const auth = getAuth()
 
     let ws: WebSocket
     try {
-      ws = new WebSocket(url)
+      ws = auth ? new WebSocket(base, ['bearer', auth.token]) : new WebSocket(base)
     } catch (err) {
       addLog('error', `invalid websocket url: ${String(err)}`)
       return
@@ -246,7 +251,7 @@ export function WsOrderBooks() {
     hadOpenRef.current = false
     wsRef.current = ws
     setConn('connecting')
-    addLog('info', `connecting to ${url}`)
+    addLog('info', `connecting to ${base}${auth ? ' (token attached)' : ''}`)
 
     ws.onopen = () => {
       hadOpenRef.current = true

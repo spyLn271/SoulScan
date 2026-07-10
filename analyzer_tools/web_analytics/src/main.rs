@@ -8,14 +8,17 @@ use clap::Parser;
 
 use axum::{
     Router,
+    routing::{any, }
 };
+use axum::response::IntoResponse;
 use tower_http::{
     services::{ ServeDir, ServeFile }
 };
 
 use sqlx::postgres::Postgres;
-
+use tower_http::trace::TraceLayer;
 use crate::cli::Cli;
+use crate::errors::WebErrors;
 
 #[derive(Debug, Clone)]
 struct AppState {
@@ -72,9 +75,10 @@ async fn main() {
     let app_state = create_app_state(&cli).await;
 
     let api = Router::new()
-        .nest("/api", handlers::dex::routes(app_state.clone()));
+        .nest("/api", handlers::dex::routes(app_state.clone()))
+        .route_layer(handlers::login::AuthLayer::new());
 
-    let root =ServeDir::new("frontend/dist")
+    let root = ServeDir::new("frontend/dist")
         .not_found_service(ServeFile::new("frontend/dist/index.html"));
 
     
@@ -82,6 +86,9 @@ async fn main() {
         .merge(api)
         .merge(handlers::ws_orderbooks::router(app_state.clone()))
         .merge(handlers::login::routes(app_state.clone()))
+        .layer(
+            TraceLayer::new_for_http()
+        )
         .fallback_service(root);
 
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", cli.port))

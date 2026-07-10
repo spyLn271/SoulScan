@@ -46,11 +46,15 @@ pub enum  WebErrors {
     TokenCreation,
     #[error("Invalid Token")]
     InvalidToken,
+    #[error("Expired Token")]
+    ExpiredToken,
+    
+    #[error("Not Found")]
+    NotFound
 }
 
 impl IntoResponse for WebErrors {
     fn into_response(self) -> Response {
-
         match &self {
             WebErrors::SoulEngineError(s) => (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", s)),
             WebErrors::SoulMathError(s) => (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", s)),
@@ -67,6 +71,8 @@ impl IntoResponse for WebErrors {
             WebErrors::TokenCreation => (StatusCode::INTERNAL_SERVER_ERROR, "Token creation error".to_string()),
             WebErrors::InvalidToken => (StatusCode::BAD_REQUEST, "Invalid token".to_string()),
             WebErrors::DatabaseError(s) => (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", s)),
+            WebErrors::ExpiredToken => (StatusCode::UNAUTHORIZED, "Expired token".to_string()),
+            WebErrors::NotFound => (StatusCode::NOT_FOUND, "Not Found".to_string()),
         }.into_response()
     }
 }

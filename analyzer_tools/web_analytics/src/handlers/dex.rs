@@ -1,6 +1,6 @@
 use axum::{
     extract::{Json, Path as QPath, State},
-    routing::{get, post},
+    routing::{get, post, any},
     http::{StatusCode},
     response::{IntoResponse, Response},
     Router
@@ -30,7 +30,6 @@ use deadpool_redis::redis::AsyncTypedCommands;
 use crate::{
     AppState,
     errors::WebErrors,
-    handlers::login::Claims
 };
 
 
@@ -40,6 +39,7 @@ pub fn routes(app_state: AppState) -> Router {
         .route("/v1/sor", post(quote_sor))
         .route("/v1/metadata/{network}", get(metadata))
         .route("/v1/tokens/{network}", get(token_list))
+        .route("/{*any}", any(api_not_found))
         .with_state(app_state)
 }
 
@@ -74,7 +74,6 @@ pub struct SorQuoteResult {
 }
 
 async fn quote_sor(
-    claims: Claims,
     State(state): State<AppState>,
     Json(payload): Json<GetQuoteSor>
 ) -> Result<SorQuoteResult, WebErrors> {
@@ -286,13 +285,14 @@ pub struct MetadataListResult {
 }
 
 pub async fn metadata(
-    claims: Claims,
     State(state): State<AppState>,
     QPath(network): QPath<Network>,
 ) -> Result<MetadataListResult, WebErrors> {
     let mut conn = state.redis_pool_conn
         .get()
         .await?;
+
+    // conn.set_response_timeout(Duration::new(200, 0));
 
     let mut pipe = deadpool_redis::redis::pipe();
 
@@ -335,7 +335,6 @@ pub struct TokenListResult {
 }
 
 pub async fn token_list (
-    claims: Claims,
     State(state): State<AppState>,
     QPath(network): QPath<Network>,
 ) -> Result<TokenListResult, WebErrors> {
@@ -358,6 +357,13 @@ pub async fn token_list (
 }
 
 
+
+// API NOT FOUND
+pub async fn api_not_found(
+    QPath(_): QPath<String>,
+) -> WebErrors {
+    WebErrors::NotFound
+}
 
 
 
