@@ -8,9 +8,7 @@ use clap::Parser;
 
 use axum::{
     Router,
-    routing::{any, }
 };
-use axum::response::IntoResponse;
 use tower_http::{
     services::{ ServeDir, ServeFile }
 };
@@ -18,7 +16,6 @@ use tower_http::{
 use sqlx::postgres::Postgres;
 use tower_http::trace::TraceLayer;
 use crate::cli::Cli;
-use crate::errors::WebErrors;
 
 #[derive(Debug, Clone)]
 struct AppState {
@@ -72,13 +69,24 @@ async fn create_app_state(cli: &Cli) -> AppState {
 async fn main() {
     let cli = Cli::parse();
 
+    let _guard = logging::init(&cli.log_dir)
+        .expect("logging initialization failed");
+
+    logging::install_panic_hook();
+
+    tracing::info!(
+        "Starting server at address {}:{}",
+        &cli.ip,
+        &cli.port
+    );
+
     let app_state = create_app_state(&cli).await;
 
     let api = Router::new()
         .nest("/api", handlers::dex::routes(app_state.clone()))
         .route_layer(handlers::login::AuthLayer::new());
 
-    let root = ServeDir::new("frontend/dist")
+    let spa = ServeDir::new("frontend/dist")
         .not_found_service(ServeFile::new("frontend/dist/index.html"));
 
     
@@ -89,9 +97,9 @@ async fn main() {
         .layer(
             TraceLayer::new_for_http()
         )
-        .fallback_service(root);
+        .fallback_service(spa);
 
-    let listener = tokio::net::TcpListener::bind(("127.0.0.1", cli.port))
+    let listener = tokio::net::TcpListener::bind((cli.ip, cli.port))
         .await
         .unwrap();
 
